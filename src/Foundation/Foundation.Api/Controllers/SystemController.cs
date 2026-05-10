@@ -1,7 +1,10 @@
 using AspNet.KickStarter.FunctionalResult.Extensions;
 using Foundation.Api.Models;
+using Foundation.Application.Queries.GetCatalogue;
 using Foundation.Application.Queries.GetConnectivity;
+using Foundation.Application.Queries.GetHealth;
 using Foundation.Application.Queries.GetLiveness;
+using Foundation.Domain.Capabilities;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -34,15 +37,35 @@ public partial class SystemController : ControllerBase
     /// </summary>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>An HTTP 200 result carrying the liveness status when the service is healthy.</returns>
-    [HttpGet("health")]
+    [HttpGet("liveness")]
     [ProducesResponseType(typeof(GetLivenessQueryResult), StatusCodes.Status200OK)]
-    public async Task<IResult> Health(CancellationToken cancellationToken)
+    public async Task<IResult> Liveness(CancellationToken cancellationToken)
     {
         LogHandlingLiveness();
         var result = await _sender.Send(new GetLivenessQuery(), cancellationToken);
         LogLivenessHandled(result.IsSuccess);
         return result.Match(
             status => Results.Ok(status),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Reports the availability of each managed AWS service from the latest health snapshot.
+    /// </summary>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 200 result carrying the per-service availability snapshot.</returns>
+    [HttpGet("health")]
+    [ProducesResponseType(typeof(HealthResponse), StatusCodes.Status200OK)]
+    public async Task<IResult> Health(CancellationToken cancellationToken)
+    {
+        LogHandlingHealth();
+        var result = await _sender.Send(new GetHealthQuery(), cancellationToken);
+        LogHealthHandled(result.IsSuccess);
+        return result.Match(
+            health => Results.Ok(new HealthResponse(
+                health.Services
+                    .Select(service => new ServiceHealthResponse(service.Key, service.Availability.ToString()))
+                    .ToList())),
             error => error.AsHttpResult());
     }
 
@@ -67,15 +90,59 @@ public partial class SystemController : ControllerBase
             error => error.AsHttpResult());
     }
 
+    /// <summary>
+    /// Lists the managed AWS services available in the console.
+    /// </summary>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 200 result carrying the catalogue of managed services.</returns>
+    [HttpGet("catalogue")]
+    [ProducesResponseType(typeof(CatalogueResponse), StatusCodes.Status200OK)]
+    public async Task<IResult> Catalogue(CancellationToken cancellationToken)
+    {
+        LogHandlingCatalogue();
+        var result = await _sender.Send(new GetCatalogueQuery(), cancellationToken);
+        LogCatalogueHandled(result.IsSuccess);
+        return result.Match(
+            catalogue => Results.Ok(new CatalogueResponse(
+                catalogue.Services
+                    .Select(service =>
+                    {
+                        var entry = catalogue.Capabilities.Find(service.Key);
+                        var supported = entry is null || entry.Status != CapabilityStatus.Unsupported;
+                        return new CatalogueServiceResponse(
+                            service.Key,
+                            service.DisplayName,
+                            service.Category.ToString(),
+                            service.IconHint,
+                            service.Route,
+                            supported,
+                            supported ? null : entry!.Detail);
+                    })
+                    .ToList())),
+            error => error.AsHttpResult());
+    }
+
     [LoggerMessage(LogLevel.Trace, "Handling liveness request.")]
     private partial void LogHandlingLiveness();
 
     [LoggerMessage(LogLevel.Trace, "Liveness request handled. Success: {Success}")]
     private partial void LogLivenessHandled(bool success);
 
+    [LoggerMessage(LogLevel.Trace, "Handling health request.")]
+    private partial void LogHandlingHealth();
+
+    [LoggerMessage(LogLevel.Trace, "Health request handled. Success: {Success}")]
+    private partial void LogHealthHandled(bool success);
+
     [LoggerMessage(LogLevel.Trace, "Handling connectivity request.")]
     private partial void LogHandlingConnectivity();
 
     [LoggerMessage(LogLevel.Trace, "Connectivity request handled. Success: {Success}")]
     private partial void LogConnectivityHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling catalogue request.")]
+    private partial void LogHandlingCatalogue();
+
+    [LoggerMessage(LogLevel.Trace, "Catalogue request handled. Success: {Success}")]
+    private partial void LogCatalogueHandled(bool success);
 }

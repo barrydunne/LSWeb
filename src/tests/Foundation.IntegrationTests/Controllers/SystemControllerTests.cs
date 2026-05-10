@@ -13,7 +13,25 @@ public class SystemControllerTests : IClassFixture<IntegrationTestsFixture>
         => _fixture = fixture;
 
     [Fact]
-    public async Task GetHealth_WhenServiceIsRunning_ReturnsHealthyWithCorrelationHeader()
+    public async Task GetLiveness_WhenServiceIsRunning_ReturnsHealthyWithCorrelationHeader()
+    {
+        // Arrange
+        var client = _fixture.CreateClient();
+
+        // Act
+        var response = await client.GetAsync("/api/system/liveness", TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.Headers.Should().ContainKey(HeaderName);
+
+        var payload = await response.Content.ReadFromJsonAsync<LivenessResponse>(TestContext.Current.CancellationToken);
+        payload.Should().NotBeNull();
+        payload!.Status.Should().Be("Healthy");
+    }
+
+    [Fact]
+    public async Task GetHealth_WhenServiceIsRunning_ReturnsServiceAvailabilitySnapshot()
     {
         // Arrange
         var client = _fixture.CreateClient();
@@ -23,11 +41,12 @@ public class SystemControllerTests : IClassFixture<IntegrationTestsFixture>
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        response.Headers.Should().ContainKey(HeaderName);
 
-        var payload = await response.Content.ReadFromJsonAsync<LivenessResponse>(TestContext.Current.CancellationToken);
+        var payload = await response.Content.ReadFromJsonAsync<HealthSnapshotResponse>(TestContext.Current.CancellationToken);
         payload.Should().NotBeNull();
-        payload!.Status.Should().Be("Healthy");
+        payload!.Services.Should().NotBeEmpty();
+        payload.Services.Should().OnlyContain(_ =>
+            _.Availability == "Available" || _.Availability == "Unavailable" || _.Availability == "Unknown");
     }
 
     [Fact]
@@ -50,6 +69,10 @@ public class SystemControllerTests : IClassFixture<IntegrationTestsFixture>
     }
 
     private sealed record LivenessResponse(string Status);
+
+    private sealed record HealthSnapshotResponse(IReadOnlyList<ServiceAvailabilityResponse> Services);
+
+    private sealed record ServiceAvailabilityResponse(string Key, string Availability);
 
     private sealed record ConnectivityResponse(string Status, string Endpoint, string Region, string? Error);
 }

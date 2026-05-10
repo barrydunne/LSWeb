@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Heading, PageLayout, Text, ThemeProvider } from '@primer/react';
 import { getLiveness } from './api/client';
 import { ConnectivityIndicator } from './components/ConnectivityIndicator';
+import { DashboardPage } from './components/DashboardPage';
 
 export function App() {
   const [status, setStatus] = useState('checking\u2026');
@@ -27,7 +28,10 @@ export function App() {
             </div>
           </PageLayout.Header>
           <PageLayout.Content>
-            <Text data-testid="health-status">Service status: {status}</Text>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+              <Text data-testid="health-status">Service status: {status}</Text>
+              <DashboardPage />
+            </div>
           </PageLayout.Content>
         </PageLayout>
       </div>

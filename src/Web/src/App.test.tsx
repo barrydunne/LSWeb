@@ -1,12 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { App } from './App';
-import { getConnectivity, getLiveness } from './api/client';
+import { getCatalogue, getConnectivity, getHealth, getLiveness } from './api/client';
 
 vi.mock('./api/client');
 
 const getLivenessMock = vi.mocked(getLiveness);
 const getConnectivityMock = vi.mocked(getConnectivity);
+const getCatalogueMock = vi.mocked(getCatalogue);
+const getHealthMock = vi.mocked(getHealth);
 
 describe('App', () => {
   beforeEach(() => {
@@ -16,6 +18,8 @@ describe('App', () => {
       region: 'eu-west-1',
       error: null,
     });
+    getCatalogueMock.mockResolvedValue({ services: [] });
+    getHealthMock.mockResolvedValue({ services: [] });
   });
 
   afterEach(() => {

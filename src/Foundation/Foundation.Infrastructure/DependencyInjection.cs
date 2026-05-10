@@ -1,9 +1,14 @@
 using System.Diagnostics.CodeAnalysis;
+using Foundation.Application.Capabilities;
 using Foundation.Application.Configuration;
 using Foundation.Application.Connectivity;
+using Foundation.Application.Health;
 using Foundation.Infrastructure.Aws;
+using Foundation.Infrastructure.Capabilities;
 using Foundation.Infrastructure.Configuration;
 using Foundation.Infrastructure.Connectivity;
+using Foundation.Infrastructure.Errors;
+using Foundation.Infrastructure.Health;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Foundation.Infrastructure;
@@ -33,6 +38,15 @@ public static class DependencyInjection
             .AddSingleton(settings)
             .AddSingleton<IConfigProvider, ConfigProvider>()
             .AddSingleton<IAwsClientFactory, AwsClientFactory>()
-            .AddSingleton<IConnectivityProbe, ConnectivityProbe>();
+            .AddSingleton<IAwsGateway, AwsGateway>()
+            .AddSingleton<IErrorTranslator, ErrorTranslator>()
+            .AddSingleton<CapabilityDetector>()
+            .AddSingleton<ICapabilityDetector>(_ => _.GetRequiredService<CapabilityDetector>())
+            .AddSingleton<ICapabilityProvider>(_ => _.GetRequiredService<CapabilityDetector>())
+            .AddSingleton<IConnectivityProbe, ConnectivityProbe>()
+            .AddSingleton<IBackendHealthProbe, BackendHealthProbe>()
+            .AddSingleton<HealthStatusStore>()
+            .AddSingleton<IHealthStatusProvider>(_ => _.GetRequiredService<HealthStatusStore>())
+            .AddHostedService<HealthMonitor>();
     }
 }

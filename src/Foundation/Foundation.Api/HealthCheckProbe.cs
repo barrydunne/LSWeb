@@ -19,7 +19,7 @@ internal static class HealthCheckProbe
         try
         {
             using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(5) };
-            using var response = await client.GetAsync(new Uri($"http://localhost:{port}/api/system/health"));
+            using var response = await client.GetAsync(new Uri($"http://localhost:{port}/api/system/liveness"));
             return response.IsSuccessStatusCode ? 0 : 1;
         }
         catch (Exception)

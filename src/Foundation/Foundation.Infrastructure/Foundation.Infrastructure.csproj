@@ -11,6 +11,8 @@
   <ItemGroup>
     <PackageReference Include="AWSSDK.Core" />
     <PackageReference Include="AWSSDK.SecurityToken" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.Abstractions" />
+    <PackageReference Include="Polly.Core" />
   </ItemGroup>
 
 </Project>

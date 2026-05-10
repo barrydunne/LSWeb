@@ -10,6 +10,7 @@ coverage/
 *.coverage
 *.coveragexml
 coverage.cobertura.xml
+coverage.json
 
 # ---- Node / Vite ----
 node_modules/

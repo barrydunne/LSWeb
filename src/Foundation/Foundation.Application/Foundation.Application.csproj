@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Foundation.Domain\Foundation.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Foundation.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AspNet.KickStarter.CQRS" />
+    <PackageReference Include="AspNet.KickStarter.FunctionalResult" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" />
+  </ItemGroup>
+
+</Project>

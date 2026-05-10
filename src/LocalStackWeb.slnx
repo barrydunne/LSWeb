@@ -1,0 +1,12 @@
+<Solution>
+  <Folder Name="/Foundation/">
+    <Project Path="Foundation/Foundation.Api/Foundation.Api.csproj" />
+    <Project Path="Foundation/Foundation.Application/Foundation.Application.csproj" />
+    <Project Path="Foundation/Foundation.Domain/Foundation.Domain.csproj" />
+    <Project Path="Foundation/Foundation.Infrastructure/Foundation.Infrastructure.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Foundation.IntegrationTests/Foundation.IntegrationTests.csproj" />
+    <Project Path="tests/Foundation.UnitTests/Foundation.UnitTests.csproj" />
+  </Folder>
+</Solution>

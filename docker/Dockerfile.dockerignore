@@ -1,0 +1,14 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/.vs/
+**/.vscode/
+**/TestResults/
+**/coverage/
+**/*.user
+.git/
+.github/
+aidlc-docs/
+docs/
+docker/

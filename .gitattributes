@@ -1,0 +1,437 @@
+# Auto detect
+# Handle line endings automatically for files detected as
+# text and leave all files detected as binary untouched.
+# This will perform LF normalization on all text files NOT defined below.
+
+* text=auto
+
+# The above will handle all files NOT found below
+
+.babelrc text
+.BABELRC text
+.browserslistrc text
+.BROWSERSLISTRC text
+.csslintrc text
+.CSSLINTRC text
+.editorconfig text
+.EDITORCONFIG text
+.env text
+.ENV text
+.eslintrc text
+.ESLINTRC text
+.gitattributes text
+.GITATTRIBUTES text
+.gitconfig text
+.GITCONFIG text
+.gitignore export-ignore
+.GITIGNORE export-ignore
+.htaccess text
+.HTACCESS text
+.htmlhintrc text
+.HTMLHINTRC text
+.jscsrc text
+.JSCSRC text
+.jshintignore text
+.JSHINTIGNORE text
+.jshintrc text
+.JSHINTRC text
+.slugignore text
+.SLUGIGNORE text
+.stylelintrc text
+.STYLELINTRC text
+*.3gp binary
+*.3GP binary
+*.3gpp binary
+*.3GPP binary
+*.7z binary
+*.7Z binary
+*.adoc text
+*.ADOC text
+*.ai binary
+*.AI binary
+*.as binary
+*.AS binary
+*.asf binary
+*.ASF binary
+*.asx binary
+*.ASX binary
+*.bash text eol=lf
+*.BASH text eol=lf
+*.bat text eol=crlf
+*.BAT text eol=crlf
+*.bibtex text diff=bibtex
+*.BIBTEX text diff=bibtex
+*.bmp binary
+*.BMP binary
+*.bowerrc text
+*.BOWERRC text
+*.cer binary
+*.CER binary
+*.class binary
+*.CLASS binary
+*.cmd text eol=crlf
+*.CMD text eol=crlf
+*.cnf text
+*.CNF text
+*.coffee text
+*.COFFEE text
+*.conf text
+*.CONF text
+*.config text
+*.CONFIG text
+*.cs text eol=crlf diff=csharp
+*.CS text eol=crlf diff=csharp
+*.cshtml text diff=html
+*.CSHTML text diff=html
+*.csproj text eol=crlf eol=crlf
+*.CSPROJ text eol=crlf eol=crlf
+*.css text diff=css
+*.CSS text diff=css
+*.csv text
+*.CSV text
+*.dbproj text eol=crlf
+*.DBPROJ text eol=crlf
+*.df text
+*.DF text
+*.dll binary
+*.DLL binary
+*.doc diff=astextplain
+*.doc diff=astextplain
+*.DOC diff=astextplain
+*.DOC diff=astextplain
+*.dockerignore text
+*.DOCKERIGNORE text
+*.docx diff=astextplain
+*.docx diff=astextplain
+*.DOCX diff=astextplain
+*.DOCX diff=astextplain
+*.dot text diff=astextplain
+*.dot text diff=astextplain
+*.DOT text diff=astextplain
+*.DOT text diff=astextplain
+*.DotSettings binary
+*.DOTSETTINGS binary
+*.ear binary
+*.EAR binary
+*.ejs text
+*.EJS text
+*.eot binary
+*.EOT binary
+*.eps binary
+*.EPS binary
+*.exe binary
+*.EXE binary
+*.filters text eol=crlf
+*.FILTERS text eol=crlf
+*.fish text eol=lf
+*.FISH text eol=lf
+*.fla binary
+*.FLA binary
+*.flv binary
+*.FLV binary
+*.fsproj text eol=crlf
+*.FSPROJ text eol=crlf
+*.gif binary
+*.GIF binary
+*.gifv binary
+*.GIFV binary
+*.gradle text diff=java
+*.GRADLE text diff=java
+*.gradle.kts text diff=java
+*.GRADLE.KTS text diff=java
+*.gz binary
+*.GZ binary
+*.haml text
+*.HAML text
+*.handlebars text
+*.HANDLEBARS text
+*.hbs text
+*.HBS text
+*.hbt text
+*.HBT text
+*.htm text diff=html
+*.HTM text diff=html
+*.html text diff=html
+*.HTML text diff=html
+*.ico binary
+*.ICO binary
+*.inc text
+*.INC text
+*.ini text
+*.INI text
+*.ipynb text
+*.IPYNB text
+*.jade text
+*.JADE text
+*.jar binary
+*.JAR binary
+*.java text diff=java
+*.JAVA text diff=java
+*.jng binary
+*.JNG binary
+*.jp2 binary
+*.JP2 binary
+*.jpeg binary
+*.JPEG binary
+*.jpg binary
+*.JPG binary
+*.jpx binary
+*.JPX binary
+*.js text eol=lf
+*.JS text eol=lf
+*.json text
+*.JSON text
+*.jsp text
+*.JSP text
+*.jspf text
+*.JSPF text
+*.jspx text
+*.JSPX text
+*.jsx text
+*.JSX text
+*.jxr binary
+*.JXR binary
+*.kar binary
+*.KAR binary
+*.latte text
+*.LATTE text
+*.less text
+*.LESS text
+*.lock text -diff
+*.LOCK text -diff
+*.ls text
+*.LS text
+*.lsproj text eol=crlf
+*.LSPROJ text eol=crlf
+*.m4a binary
+*.M4A binary
+*.m4v binary
+*.M4V binary
+*.map text -diff
+*.MAP text -diff
+*.markdown text
+*.MARKDOWN text
+*.md text
+*.MD text
+*.mdown text
+*.MDOWN text
+*.mdtext text
+*.MDTEXT text
+*.mdtxt text
+*.MDTXT text
+*.mdwn text
+*.MDWN text
+*.mid binary
+*.MID binary
+*.midi binary
+*.MIDI binary
+*.mkd text
+*.MKD text
+*.mkdn text
+*.MKDN text
+*.mng binary
+*.MNG binary
+*.modelproj text eol=crlf
+*.MODELPROJ text eol=crlf
+*.mov binary
+*.MOV binary
+*.mp3 binary
+*.MP3 binary
+*.mp4 binary
+*.MP4 binary
+*.mpeg binary
+*.MPEG binary
+*.mpg binary
+*.MPG binary
+*.mustache text
+*.MUSTACHE text
+*.mustache text 0
+*.MUSTACHE TEXT 0
+*.njk text
+*.NJK text
+*.npmignore text
+*.NPMIGNORE text
+*.od text
+*.OD text
+*.ogg binary
+*.OGG binary
+*.ogv binary
+*.OGV binary
+*.onlydata text
+*.ONLYDATA text
+*.otf binary
+*.OTF binary
+*.pdf binary
+*.PDF binary
+*.pem binary
+*.PEM binary
+*.php text diff=php
+*.PHP text diff=php
+*.phtml text
+*.PHTML text
+*.pl text
+*.PL text
+*.png binary
+*.PNG binary
+*.properties text
+*.PROPERTIES text
+*.props text eol=crlf
+*.PROPS text eol=crlf
+*.ps1 text eol=crlf
+*.PS1 text eol=crlf
+*.psb binary
+*.PSB binary
+*.psd binary
+*.PSD binary
+*.py text diff=python
+*.PY text diff=python
+*.pyc binary
+*.PYC binary
+*.ra binary
+*.RA binary
+*.rar binary
+*.RAR binary
+*.rb text diff=ruby
+*.RB text diff=ruby
+*.rtf diff=astextplain
+*.RTF diff=astextplain
+*.sass text
+*.SASS text
+*.scm text
+*.SCM text
+*.scss text diff=css eol=lf
+*.SCSS text diff=css eol=lf
+*.sh text eol=lf
+*.SH text eol=lf
+*.sln text eol=crlf
+*.SLN text eol=crlf
+*.so binary
+*.SO binary
+*.sql text
+*.SQL text
+*.sqlproj text eol=crlf
+*.SQLPROJ text eol=crlf
+*.styl text
+*.STYL text
+*.svg text eol=lf
+*.SVG text eol=lf
+*.svgz binary
+*.SVGZ binary
+*.swc binary
+*.SWC binary
+*.swf binary
+*.SWF binary
+*.tab text
+*.TAB text
+*.tag text
+*.TAG text
+*.tagx text
+*.TAGX text
+*.tar binary
+*.TAR binary
+*.tex text diff=tex
+*.TEX text diff=tex
+*.textile text
+*.TEXTILE text
+*.tif binary
+*.TIF binary
+*.tiff binary
+*.TIFF binary
+*.tld text
+*.TLD text
+*.tmpl text
+*.TMPL text
+*.toml text
+*.TOML text
+*.tpl text
+*.TPL text
+*.ts text
+*.TS text
+*.tsv text
+*.TSV text
+*.tsx text
+*.TSX text
+*.ttf binary
+*.TTF binary
+*.twig text
+*.TWIG text
+*.txt text
+*.TXT text
+*.vbproj text eol=crlf
+*.VBPROJ text eol=crlf
+*.vcproj text eol=crlf
+*.VCPROJ text eol=crlf
+*.vcxitems text eol=crlf
+*.VCXITEMS text eol=crlf
+*.vcxproj text eol=crlf
+*.VCXPROJ text eol=crlf
+*.vue text
+*.VUE text
+*.war binary
+*.WAR binary
+*.wbmp binary
+*.WBMP binary
+*.webm binary
+*.WEBM binary
+*.webp binary
+*.WEBP binary
+*.wixproj text eol=crlf
+*.WIXPROJ text eol=crlf
+*.wmaproj text eol=crlf
+*.WMAPROJ text eol=crlf
+*.woff binary
+*.WOFF binary
+*.woff2 binary
+*.WOFF2 binary
+*.xhtml text diff=html
+*.XHTML text diff=html
+*.xml text
+*.XML text
+*.xproj text eol=crlf
+*.XPROJ text eol=crlf
+*.yaml text
+*.YAML text
+*.yml text
+*.YML text
+*.zip binary
+*.ZIP binary
+*copyright* text
+*COPYRIGHT* text
+*readme* text
+*README* text
+authors text
+AUTHORS text
+browserslist text
+BROWSERSLIST text
+changelog text
+CHANGELOG text
+changes text
+CHANGES text
+contributing text
+CONTRIBUTING text
+copying text
+COPYING text
+copyright text
+COPYRIGHT text
+dockerfile text
+DOCKERFILE text
+install text
+INSTALL text
+license text
+license text
+LICENSE text
+LICENSE text
+makefile text
+makefile text
+MAKEFILE text
+MAKEFILE text
+news text
+NEWS text
+package-lock.json text
+PACKAGE-LOCK.JSON text
+procfile text
+PROCFILE text
+readme text
+README text
+todo text
+TODO text

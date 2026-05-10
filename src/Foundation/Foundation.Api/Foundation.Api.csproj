@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <AssemblyName>LocalStackWeb</AssemblyName>
+    <RootNamespace>Foundation.Api</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Foundation.Application\Foundation.Application.csproj" />
+    <ProjectReference Include="..\Foundation.Infrastructure\Foundation.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="AspNet.KickStarter.CQRS" />
+    <PackageReference Include="AspNet.KickStarter.FunctionalResult" />
+    <PackageReference Include="Serilog.AspNetCore" />
+    <PackageReference Include="Serilog.Sinks.Seq" />
+    <PackageReference Include="NSwag.AspNetCore" />
+  </ItemGroup>
+
+</Project>

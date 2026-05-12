@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import { Heading, PageLayout, Text, ThemeProvider } from '@primer/react';
 import { getLiveness } from './api/client';
+import { ActivityLogPanel } from './components/ActivityLogPanel';
 import { ConnectivityIndicator } from './components/ConnectivityIndicator';
 import { DashboardPage } from './components/DashboardPage';
+import { NotificationCenter } from './components/NotificationCenter';
 
 export function App() {
   const [status, setStatus] = useState('checking\u2026');
@@ -18,6 +20,7 @@ export function App() {
   return (
     <ThemeProvider colorMode="night">
       <div data-testid="app-root" style={{ minHeight: '100vh' }}>
+        <NotificationCenter />
         <PageLayout>
           <PageLayout.Header>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
@@ -31,6 +34,7 @@ export function App() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
               <Text data-testid="health-status">Service status: {status}</Text>
               <DashboardPage />
+              <ActivityLogPanel />
             </div>
           </PageLayout.Content>
         </PageLayout>

@@ -68,6 +68,37 @@ public class SystemControllerTests : IClassFixture<IntegrationTestsFixture>
         payload.Region.Should().NotBeNullOrWhiteSpace();
     }
 
+    [Fact]
+    public async Task RefreshCatalogue_WhenServiceIsRunning_ReturnsAccepted()
+    {
+        // Arrange
+        var client = _fixture.CreateClient();
+
+        // Act
+        var response = await client.PostAsync("/api/system/catalogue/refresh", content: null, TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.Accepted);
+    }
+
+    [Fact]
+    public async Task GetActivity_AfterRefresh_ReturnsRecordedEntry()
+    {
+        // Arrange
+        var client = _fixture.CreateClient();
+        await client.PostAsync("/api/system/catalogue/refresh", content: null, TestContext.Current.CancellationToken);
+
+        // Act
+        var response = await client.GetAsync("/api/system/activity", TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var payload = await response.Content.ReadFromJsonAsync<ActivityLogResponse>(TestContext.Current.CancellationToken);
+        payload.Should().NotBeNull();
+        payload!.Entries.Should().Contain(_ => _.Operation == "catalogue-refresh" && _.State == "Succeeded");
+    }
+
     private sealed record LivenessResponse(string Status);
 
     private sealed record HealthSnapshotResponse(IReadOnlyList<ServiceAvailabilityResponse> Services);
@@ -75,4 +106,8 @@ public class SystemControllerTests : IClassFixture<IntegrationTestsFixture>
     private sealed record ServiceAvailabilityResponse(string Key, string Availability);
 
     private sealed record ConnectivityResponse(string Status, string Endpoint, string Region, string? Error);
+
+    private sealed record ActivityLogResponse(IReadOnlyList<ActivityEntryResponse> Entries);
+
+    private sealed record ActivityEntryResponse(string OperationId, string Operation, string State, string Message, DateTimeOffset OccurredAt);
 }

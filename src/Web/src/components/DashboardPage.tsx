@@ -1,4 +1,6 @@
 import { Heading } from '@primer/react';
+import { refreshCatalogue } from '../api/client';
+import { ConfirmationHost } from './ConfirmationHost';
 import { HealthBanner } from './HealthBanner';
 import { ServiceCatalogueGrid } from './ServiceCatalogueGrid';
 
@@ -12,6 +14,14 @@ export function DashboardPage() {
       <Heading as="h2" data-testid="dashboard-heading" style={{ fontSize: 20 }}>
         Services
       </Heading>
+      <ConfirmationHost
+        actionLabel="Refresh catalogue"
+        prompt="Refresh the service catalogue?"
+        confirmLabel="Confirm refresh"
+        onConfirm={() => {
+          void refreshCatalogue();
+        }}
+      />
       <ServiceCatalogueGrid />
     </section>
   );

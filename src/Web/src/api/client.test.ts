@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getCatalogue, getConnectivity, getHealth, getLiveness } from './client';
+import { getActivity, getCatalogue, getConnectivity, getHealth, getLiveness, refreshCatalogue } from './client';
 
 describe('getLiveness', () => {
   afterEach(() => {
@@ -139,5 +139,72 @@ describe('getCatalogue', () => {
     );
 
     await expect(getCatalogue()).rejects.toThrow('Catalogue request failed with status 503');
+  });
+});
+
+describe('refreshCatalogue', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts a refresh request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await refreshCatalogue();
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/system/catalogue/refresh', {
+      method: 'POST',
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 503 }),
+    );
+
+    await expect(refreshCatalogue()).rejects.toThrow('Catalogue refresh request failed with status 503');
+  });
+});
+
+describe('getActivity', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed entries when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        entries: [
+          {
+            operationId: 'op-1',
+            operation: 'catalogue-refresh',
+            state: 'Succeeded',
+            message: 'Service catalogue refreshed.',
+            occurredAt: '2026-01-02T03:04:05Z',
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getActivity();
+
+    expect(result.entries).toHaveLength(1);
+    expect(result.entries[0].operation).toBe('catalogue-refresh');
+    expect(result.entries[0].state).toBe('Succeeded');
+    expect(fetchMock).toHaveBeenCalledWith('/api/system/activity', { signal: undefined });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 503 }),
+    );
+
+    await expect(getActivity()).rejects.toThrow('Activity request failed with status 503');
   });
 });

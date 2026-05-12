@@ -1,13 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { ThemeProvider } from '@primer/react';
 import { DashboardPage } from './DashboardPage';
-import { getCatalogue, getHealth } from '../api/client';
+import { getCatalogue, getHealth, refreshCatalogue } from '../api/client';
 
 vi.mock('../api/client');
 
 const getCatalogueMock = vi.mocked(getCatalogue);
 const getHealthMock = vi.mocked(getHealth);
+const refreshCatalogueMock = vi.mocked(refreshCatalogue);
 
 function renderDashboard() {
   return render(
@@ -20,6 +22,8 @@ function renderDashboard() {
 describe('DashboardPage', () => {
   beforeEach(() => {
     getHealthMock.mockResolvedValue({ services: [] });
+    getCatalogueMock.mockResolvedValue({ services: [] });
+    refreshCatalogueMock.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -49,5 +53,15 @@ describe('DashboardPage', () => {
     await waitFor(() => {
       expect(screen.getByTestId('service-card-s3')).toBeInTheDocument();
     });
+  });
+
+  it('refreshes the catalogue after the user confirms the single-click action', async () => {
+    const user = userEvent.setup();
+    renderDashboard();
+
+    await user.click(screen.getByTestId('confirm-trigger'));
+    await user.click(screen.getByTestId('confirm-accept'));
+
+    expect(refreshCatalogueMock).toHaveBeenCalledTimes(1);
   });
 });

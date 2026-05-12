@@ -63,3 +63,30 @@ export async function getCatalogue(signal?: AbortSignal): Promise<CatalogueResul
   }
   return (await response.json()) as CatalogueResult;
 }
+
+export async function refreshCatalogue(signal?: AbortSignal): Promise<void> {
+  const response = await fetch('/api/system/catalogue/refresh', { method: 'POST', signal });
+  if (!response.ok) {
+    throw new Error(`Catalogue refresh request failed with status ${response.status}`);
+  }
+}
+
+export interface ActivityEntryItem {
+  operationId: string;
+  operation: string;
+  state: string;
+  message: string;
+  occurredAt: string;
+}
+
+export interface ActivityResult {
+  entries: ActivityEntryItem[];
+}
+
+export async function getActivity(signal?: AbortSignal): Promise<ActivityResult> {
+  const response = await fetch('/api/system/activity', { signal });
+  if (!response.ok) {
+    throw new Error(`Activity request failed with status ${response.status}`);
+  }
+  return (await response.json()) as ActivityResult;
+}

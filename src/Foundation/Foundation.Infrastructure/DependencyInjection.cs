@@ -1,14 +1,20 @@
 using System.Diagnostics.CodeAnalysis;
+using Foundation.Application.Activity;
 using Foundation.Application.Capabilities;
 using Foundation.Application.Configuration;
 using Foundation.Application.Connectivity;
 using Foundation.Application.Health;
+using Foundation.Application.Streaming;
+using Foundation.Infrastructure.Activity;
 using Foundation.Infrastructure.Aws;
 using Foundation.Infrastructure.Capabilities;
 using Foundation.Infrastructure.Configuration;
 using Foundation.Infrastructure.Connectivity;
 using Foundation.Infrastructure.Errors;
 using Foundation.Infrastructure.Health;
+using Foundation.Infrastructure.Streaming;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Foundation.Infrastructure;
@@ -35,6 +41,8 @@ public static class DependencyInjection
         };
 
         return services
+            .AddSignalR()
+            .Services
             .AddSingleton(settings)
             .AddSingleton<IConfigProvider, ConfigProvider>()
             .AddSingleton<IAwsClientFactory, AwsClientFactory>()
@@ -47,6 +55,20 @@ public static class DependencyInjection
             .AddSingleton<IBackendHealthProbe, BackendHealthProbe>()
             .AddSingleton<HealthStatusStore>()
             .AddSingleton<IHealthStatusProvider>(_ => _.GetRequiredService<HealthStatusStore>())
+            .AddSingleton<StreamSessionManager>()
+            .AddSingleton<INotificationPublisher, NotificationPublisher>()
+            .AddSingleton<IActivityLog, ActivityLog>()
             .AddHostedService<HealthMonitor>();
+    }
+
+    /// <summary>
+    /// Map the real-time streaming endpoints that connected clients subscribe to.
+    /// </summary>
+    /// <param name="endpoints">The endpoint route builder to register the hub with.</param>
+    /// <returns>The same endpoint route builder so that multiple calls can be chained.</returns>
+    public static IEndpointRouteBuilder MapFoundationStreaming(this IEndpointRouteBuilder endpoints)
+    {
+        endpoints.MapHub<StreamHub>("/hub/stream");
+        return endpoints;
     }
 }

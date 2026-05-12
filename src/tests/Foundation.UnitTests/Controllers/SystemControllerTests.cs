@@ -1,14 +1,18 @@
 using AspNet.KickStarter.FunctionalResult;
 using Foundation.Api.Controllers;
 using Foundation.Api.Models;
+using Foundation.Application.Commands.RefreshCatalogue;
+using Foundation.Application.Queries.GetActivity;
 using Foundation.Application.Queries.GetCatalogue;
 using Foundation.Application.Queries.GetConnectivity;
 using Foundation.Application.Queries.GetHealth;
 using Foundation.Application.Queries.GetLiveness;
+using Foundation.Domain.Activity;
 using Foundation.Domain.Capabilities;
 using Foundation.Domain.Catalogue;
 using Foundation.Domain.Connectivity;
 using Foundation.Domain.Health;
+using Foundation.Domain.Streaming;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
@@ -245,6 +249,83 @@ public class SystemControllerTests
 
         // Act
         var result = await sut.Catalogue(TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task RefreshCatalogue_WhenCommandSucceeds_ReturnsAccepted()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<RefreshCatalogueCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = new SystemController(_sender, _logger);
+
+        // Act
+        var result = await sut.RefreshCatalogue(TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().Be(StatusCodes.Status202Accepted);
+    }
+
+    [Fact]
+    public async Task RefreshCatalogue_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<RefreshCatalogueCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new InvalidOperationException("boom")));
+        var sut = new SystemController(_sender, _logger);
+
+        // Act
+        var result = await sut.RefreshCatalogue(TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task Activity_WhenQuerySucceeds_ReturnsOkWithMappedEntries()
+    {
+        // Arrange
+        var occurredAt = DateTimeOffset.UtcNow;
+        _sender
+            .Send(Arg.Any<GetActivityQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<GetActivityQueryResult>>(new GetActivityQueryResult(
+            [
+                new ActivityEntry("op-1", "catalogue-refresh", OperationState.Succeeded, "Service catalogue refreshed.", occurredAt),
+            ])));
+        var sut = new SystemController(_sender, _logger);
+
+        // Act
+        var result = await sut.Activity(TestContext.Current.CancellationToken);
+
+        // Assert
+        var ok = result.Should().BeOfType<Ok<ActivityResponse>>().Subject;
+        var entry = ok.Value!.Entries.Should().ContainSingle().Subject;
+        entry.OperationId.Should().Be("op-1");
+        entry.Operation.Should().Be("catalogue-refresh");
+        entry.State.Should().Be("Succeeded");
+        entry.Message.Should().Be("Service catalogue refreshed.");
+        entry.OccurredAt.Should().Be(occurredAt);
+    }
+
+    [Fact]
+    public async Task Activity_WhenQueryFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<GetActivityQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<GetActivityQueryResult>>(new InvalidOperationException("boom")));
+        var sut = new SystemController(_sender, _logger);
+
+        // Act
+        var result = await sut.Activity(TestContext.Current.CancellationToken);
 
         // Assert
         var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;

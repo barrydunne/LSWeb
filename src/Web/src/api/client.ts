@@ -90,3 +90,25 @@ export async function getActivity(signal?: AbortSignal): Promise<ActivityResult>
   }
   return (await response.json()) as ActivityResult;
 }
+
+export interface ResolvedReferenceResult {
+  serviceKey: string;
+  resourceId: string;
+  route: string;
+}
+
+export async function resolveReference(
+  reference: string,
+  service?: string,
+  signal?: AbortSignal,
+): Promise<ResolvedReferenceResult> {
+  const params = new URLSearchParams({ ref: reference });
+  if (service) {
+    params.set('service', service);
+  }
+  const response = await fetch(`/api/navigation/resolve?${params.toString()}`, { signal });
+  if (!response.ok) {
+    throw new Error(`Reference resolution failed with status ${response.status}`);
+  }
+  return (await response.json()) as ResolvedReferenceResult;
+}

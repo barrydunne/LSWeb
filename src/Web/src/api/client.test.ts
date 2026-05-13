@@ -1,5 +1,13 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { getActivity, getCatalogue, getConnectivity, getHealth, getLiveness, refreshCatalogue } from './client';
+import {
+  getActivity,
+  getCatalogue,
+  getConnectivity,
+  getHealth,
+  getLiveness,
+  refreshCatalogue,
+  resolveReference,
+} from './client';
 
 describe('getLiveness', () => {
   afterEach(() => {
@@ -206,5 +214,55 @@ describe('getActivity', () => {
     );
 
     await expect(getActivity()).rejects.toThrow('Activity request failed with status 503');
+  });
+});
+
+describe('resolveReference', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('resolves an ARN without a service hint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ serviceKey: 'sqs', resourceId: 'orders', route: '/services/sqs/orders' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await resolveReference('arn:aws:sqs:eu-west-1:000000000000:orders');
+
+    expect(result.serviceKey).toBe('sqs');
+    expect(result.resourceId).toBe('orders');
+    expect(result.route).toBe('/services/sqs/orders');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/navigation/resolve?ref=arn%3Aaws%3Asqs%3Aeu-west-1%3A000000000000%3Aorders',
+      { signal: undefined },
+    );
+  });
+
+  it('includes the service hint when provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ serviceKey: 'sqs', resourceId: 'orders', route: '/services/sqs/orders' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await resolveReference('orders', 'sqs');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/navigation/resolve?ref=orders&service=sqs',
+      { signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 400 }),
+    );
+
+    await expect(resolveReference('not-an-arn')).rejects.toThrow(
+      'Reference resolution failed with status 400',
+    );
   });
 });

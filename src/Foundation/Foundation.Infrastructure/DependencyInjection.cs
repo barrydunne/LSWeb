@@ -4,6 +4,7 @@ using Foundation.Application.Capabilities;
 using Foundation.Application.Configuration;
 using Foundation.Application.Connectivity;
 using Foundation.Application.Health;
+using Foundation.Application.Navigation;
 using Foundation.Application.Streaming;
 using Foundation.Infrastructure.Activity;
 using Foundation.Infrastructure.Aws;
@@ -12,6 +13,7 @@ using Foundation.Infrastructure.Configuration;
 using Foundation.Infrastructure.Connectivity;
 using Foundation.Infrastructure.Errors;
 using Foundation.Infrastructure.Health;
+using Foundation.Infrastructure.Navigation;
 using Foundation.Infrastructure.Streaming;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
@@ -52,6 +54,7 @@ public static class DependencyInjection
             .AddSingleton<ICapabilityDetector>(_ => _.GetRequiredService<CapabilityDetector>())
             .AddSingleton<ICapabilityProvider>(_ => _.GetRequiredService<CapabilityDetector>())
             .AddSingleton<IConnectivityProbe, ConnectivityProbe>()
+            .AddSingleton<IReferenceResolver, ReferenceResolver>()
             .AddSingleton<IBackendHealthProbe, BackendHealthProbe>()
             .AddSingleton<HealthStatusStore>()
             .AddSingleton<IHealthStatusProvider>(_ => _.GetRequiredService<HealthStatusStore>())

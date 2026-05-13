@@ -3,7 +3,8 @@ using System.Net.Http.Json;
 
 namespace Foundation.IntegrationTests.Controllers;
 
-public class SystemControllerTests : IClassFixture<IntegrationTestsFixture>
+[Collection(IntegrationTestsCollectionDefinition.Name)]
+public class SystemControllerTests
 {
     private const string HeaderName = "X-Correlation-ID";
 

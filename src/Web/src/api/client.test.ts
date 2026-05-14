@@ -5,7 +5,10 @@ import {
   getConnectivity,
   getHealth,
   getLiveness,
+  getSearch,
+  getSearchState,
   refreshCatalogue,
+  refreshSearch,
   resolveReference,
 } from './client';
 
@@ -264,5 +267,108 @@ describe('resolveReference', () => {
     await expect(resolveReference('not-an-arn')).rejects.toThrow(
       'Reference resolution failed with status 400',
     );
+  });
+});
+
+describe('getSearch', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed matches when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        matches: [
+          { serviceKey: 'sqs', resourceId: 'orders', displayName: 'orders', route: '/services/sqs/orders' },
+        ],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getSearch('ord');
+
+    expect(result.matches).toHaveLength(1);
+    expect(result.matches[0].serviceKey).toBe('sqs');
+    expect(result.matches[0].route).toBe('/services/sqs/orders');
+    expect(fetchMock).toHaveBeenCalledWith('/api/search?q=ord', { signal: undefined });
+  });
+
+  it('encodes the query string', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ matches: [] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await getSearch('a b');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/search?q=a+b', { signal: undefined });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 503 }),
+    );
+
+    await expect(getSearch('ord')).rejects.toThrow('Search request failed with status 503');
+  });
+});
+
+describe('getSearchState', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed state when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ builtAt: '2026-01-02T03:04:05Z', entryCount: 7, isBuilding: false }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getSearchState();
+
+    expect(result.entryCount).toBe(7);
+    expect(result.isBuilding).toBe(false);
+    expect(result.builtAt).toBe('2026-01-02T03:04:05Z');
+    expect(fetchMock).toHaveBeenCalledWith('/api/search/state', { signal: undefined });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 503 }),
+    );
+
+    await expect(getSearchState()).rejects.toThrow('Search state request failed with status 503');
+  });
+});
+
+describe('refreshSearch', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts a refresh request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await refreshSearch();
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/search/refresh', {
+      method: 'POST',
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 503 }),
+    );
+
+    await expect(refreshSearch()).rejects.toThrow('Search refresh request failed with status 503');
   });
 });

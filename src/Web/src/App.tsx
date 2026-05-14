@@ -5,6 +5,7 @@ import { ActivityLogPanel } from './components/ActivityLogPanel';
 import { Breadcrumbs } from './components/Breadcrumbs';
 import { ConnectivityIndicator } from './components/ConnectivityIndicator';
 import { DashboardPage } from './components/DashboardPage';
+import { GlobalSearchBar } from './components/GlobalSearchBar';
 import { KeyboardShortcuts } from './components/KeyboardShortcuts';
 import { NotificationCenter } from './components/NotificationCenter';
 import { HomePage } from './pages/HomePage';
@@ -31,6 +32,7 @@ export function App() {
               <Heading as="h1" data-testid="app-title">
                 LocalStack Web
               </Heading>
+              <GlobalSearchBar />
               <ConnectivityIndicator />
             </div>
           </PageLayout.Header>

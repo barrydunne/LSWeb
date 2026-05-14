@@ -5,6 +5,7 @@ using Foundation.Application.Configuration;
 using Foundation.Application.Connectivity;
 using Foundation.Application.Health;
 using Foundation.Application.Navigation;
+using Foundation.Application.Search;
 using Foundation.Application.Streaming;
 using Foundation.Infrastructure.Activity;
 using Foundation.Infrastructure.Aws;
@@ -14,6 +15,7 @@ using Foundation.Infrastructure.Connectivity;
 using Foundation.Infrastructure.Errors;
 using Foundation.Infrastructure.Health;
 using Foundation.Infrastructure.Navigation;
+using Foundation.Infrastructure.Search;
 using Foundation.Infrastructure.Streaming;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
@@ -58,10 +60,18 @@ public static class DependencyInjection
             .AddSingleton<IBackendHealthProbe, BackendHealthProbe>()
             .AddSingleton<HealthStatusStore>()
             .AddSingleton<IHealthStatusProvider>(_ => _.GetRequiredService<HealthStatusStore>())
+            .AddSingleton<IndexStore>()
+            .AddSingleton<ISearchIndexProvider>(_ => _.GetRequiredService<IndexStore>())
+            .AddSingleton<SearchIndexCoordinator>()
+            .AddSingleton<ISearchIndexSignals>(_ => _.GetRequiredService<SearchIndexCoordinator>())
+            .AddSingleton<ISearchRefreshTrigger>(_ => _.GetRequiredService<SearchIndexCoordinator>())
+            .AddSingleton(TimeProvider.System)
+            .AddSingleton<SearchIndexBuilder>()
             .AddSingleton<StreamSessionManager>()
             .AddSingleton<INotificationPublisher, NotificationPublisher>()
             .AddSingleton<IActivityLog, ActivityLog>()
-            .AddHostedService<HealthMonitor>();
+            .AddHostedService<HealthMonitor>()
+            .AddHostedService<SearchIndexer>();
     }
 
     /// <summary>

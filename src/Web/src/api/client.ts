@@ -112,3 +112,44 @@ export async function resolveReference(
   }
   return (await response.json()) as ResolvedReferenceResult;
 }
+
+export interface SearchMatchItem {
+  serviceKey: string;
+  resourceId: string;
+  displayName: string;
+  route: string;
+}
+
+export interface SearchResult {
+  matches: SearchMatchItem[];
+}
+
+export async function getSearch(query: string, signal?: AbortSignal): Promise<SearchResult> {
+  const params = new URLSearchParams({ q: query });
+  const response = await fetch(`/api/search?${params.toString()}`, { signal });
+  if (!response.ok) {
+    throw new Error(`Search request failed with status ${response.status}`);
+  }
+  return (await response.json()) as SearchResult;
+}
+
+export interface SearchStateResult {
+  builtAt: string;
+  entryCount: number;
+  isBuilding: boolean;
+}
+
+export async function getSearchState(signal?: AbortSignal): Promise<SearchStateResult> {
+  const response = await fetch('/api/search/state', { signal });
+  if (!response.ok) {
+    throw new Error(`Search state request failed with status ${response.status}`);
+  }
+  return (await response.json()) as SearchStateResult;
+}
+
+export async function refreshSearch(signal?: AbortSignal): Promise<void> {
+  const response = await fetch('/api/search/refresh', { method: 'POST', signal });
+  if (!response.ok) {
+    throw new Error(`Search refresh request failed with status ${response.status}`);
+  }
+}

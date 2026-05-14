@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { App } from './App';
-import { getActivity, getCatalogue, getConnectivity, getHealth, getLiveness } from './api/client';
+import {
+  getActivity,
+  getCatalogue,
+  getConnectivity,
+  getHealth,
+  getLiveness,
+  getSearchState,
+} from './api/client';
 import { subscribeToNotifications } from './api/notifications';
 
 vi.mock('./api/client');
@@ -12,6 +19,7 @@ const getConnectivityMock = vi.mocked(getConnectivity);
 const getCatalogueMock = vi.mocked(getCatalogue);
 const getHealthMock = vi.mocked(getHealth);
 const getActivityMock = vi.mocked(getActivity);
+const getSearchStateMock = vi.mocked(getSearchState);
 const subscribeToNotificationsMock = vi.mocked(subscribeToNotifications);
 
 describe('App', () => {
@@ -25,6 +33,11 @@ describe('App', () => {
     getCatalogueMock.mockResolvedValue({ services: [] });
     getHealthMock.mockResolvedValue({ services: [] });
     getActivityMock.mockResolvedValue({ entries: [] });
+    getSearchStateMock.mockResolvedValue({
+      builtAt: '2026-01-01T00:00:00Z',
+      entryCount: 0,
+      isBuilding: false,
+    });
     subscribeToNotificationsMock.mockResolvedValue({ stop: vi.fn().mockResolvedValue(undefined) });
   });
 

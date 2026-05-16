@@ -263,3 +263,36 @@ export async function getCliSnippet(request: CliSnippetRequest, signal?: AbortSi
   }
   return (await response.json()) as CliSnippetResult;
 }
+
+export interface BulkActionItemResult {
+  resourceId: string;
+  succeeded: boolean;
+  error: string | null;
+}
+
+export interface BulkActionResult {
+  operationId: string;
+  action: string;
+  totalCount: number;
+  succeededCount: number;
+  failedCount: number;
+  overallState: string;
+  items: BulkActionItemResult[];
+}
+
+export async function executeBulkAction(
+  action: string,
+  resourceIds: string[],
+  signal?: AbortSignal,
+): Promise<BulkActionResult> {
+  const response = await fetch(`/api/bulk/${encodeURIComponent(action)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ resourceIds }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`Bulk action request failed with status ${response.status}`);
+  }
+  return (await response.json()) as BulkActionResult;
+}

@@ -17,6 +17,7 @@ import {
   getFavourites,
   addFavourite,
   removeFavourite,
+  executeBulkAction,
 } from './client';
 
 describe('getLiveness', () => {
@@ -596,5 +597,75 @@ describe('getCliSnippet', () => {
     await expect(
       getCliSnippet({ service: 's3api', operation: 'list-buckets', parameters: [] }),
     ).rejects.toThrow('CLI snippet request failed with status 500');
+  });
+});
+
+describe('executeBulkAction', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the resource ids and returns the per-item results', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        operationId: 'op-1',
+        action: 'delete',
+        totalCount: 2,
+        succeededCount: 1,
+        failedCount: 1,
+        overallState: 'Failed',
+        items: [
+          { resourceId: 'a', succeeded: true, error: null },
+          { resourceId: 'b', succeeded: false, error: 'boom' },
+        ],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await executeBulkAction('delete', ['a', 'b']);
+
+    expect(result.succeededCount).toBe(1);
+    expect(result.failedCount).toBe(1);
+    expect(result.items[1].error).toBe('boom');
+    expect(fetchMock).toHaveBeenCalledWith('/api/bulk/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resourceIds: ['a', 'b'] }),
+      signal: undefined,
+    });
+  });
+
+  it('encodes the action in the request path', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        operationId: 'op-2',
+        action: 'force delete',
+        totalCount: 0,
+        succeededCount: 0,
+        failedCount: 0,
+        overallState: 'Succeeded',
+        items: [],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await executeBulkAction('force delete', []);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/bulk/force%20delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resourceIds: [] }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(executeBulkAction('delete', ['a'])).rejects.toThrow(
+      'Bulk action request failed with status 500',
+    );
   });
 });

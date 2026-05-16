@@ -134,6 +134,8 @@ describe('HomePage', () => {
 
     expect(screen.getAllByTestId('home-recent-item')).toHaveLength(2);
     expect(screen.queryByTestId('home-recent-empty')).not.toBeInTheDocument();
+    await waitFor(() => expect(resolveReferenceMock).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getAllByRole('link').length).toBeGreaterThan(0));
   });
 
   it('shows the recent placeholder when there are no recently-viewed resources', async () => {
@@ -154,6 +156,8 @@ describe('HomePage', () => {
 
     expect(screen.getAllByTestId('home-favourite-item')).toHaveLength(1);
     expect(screen.queryByTestId('home-favourites-empty')).not.toBeInTheDocument();
+    await waitFor(() => expect(resolveReferenceMock).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getAllByRole('link').length).toBeGreaterThan(0));
   });
 
   it('shows the favourites placeholder when there are no favourites', async () => {

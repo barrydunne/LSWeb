@@ -153,3 +153,113 @@ export async function refreshSearch(signal?: AbortSignal): Promise<void> {
     throw new Error(`Search refresh request failed with status ${response.status}`);
   }
 }
+
+export interface ReferenceListResult {
+  references: string[];
+}
+
+export async function getRecentlyViewed(signal?: AbortSignal): Promise<ReferenceListResult> {
+  const response = await fetch('/api/user/recently-viewed', { signal });
+  if (!response.ok) {
+    throw new Error(`Recently viewed request failed with status ${response.status}`);
+  }
+  return (await response.json()) as ReferenceListResult;
+}
+
+export async function recordRecentlyViewed(reference: string, signal?: AbortSignal): Promise<void> {
+  const response = await fetch('/api/user/recently-viewed', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reference }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`Record recently viewed request failed with status ${response.status}`);
+  }
+}
+
+export async function getFavourites(signal?: AbortSignal): Promise<ReferenceListResult> {
+  const response = await fetch('/api/user/favourites', { signal });
+  if (!response.ok) {
+    throw new Error(`Favourites request failed with status ${response.status}`);
+  }
+  return (await response.json()) as ReferenceListResult;
+}
+
+export async function addFavourite(reference: string, signal?: AbortSignal): Promise<void> {
+  const response = await fetch('/api/user/favourites', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reference }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`Add favourite request failed with status ${response.status}`);
+  }
+}
+
+export async function removeFavourite(reference: string, signal?: AbortSignal): Promise<void> {
+  const response = await fetch('/api/user/favourites', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ reference }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`Remove favourite request failed with status ${response.status}`);
+  }
+}
+
+export interface DiagnosticsConfigItem {
+  name: string;
+  value: string;
+  source: string;
+  isSensitive: boolean;
+}
+
+export interface DiagnosticsResult {
+  configuration: DiagnosticsConfigItem[];
+  endpoint: string;
+  region: string;
+  connectivityStatus: string;
+  connectivityError: string | null;
+  revealAllowed: boolean;
+}
+
+export async function getDiagnostics(reveal = false, signal?: AbortSignal): Promise<DiagnosticsResult> {
+  const query = new URLSearchParams({ reveal: String(reveal) });
+  const response = await fetch(`/api/system/diagnostics?${query}`, { signal });
+  if (!response.ok) {
+    throw new Error(`Diagnostics request failed with status ${response.status}`);
+  }
+  return (await response.json()) as DiagnosticsResult;
+}
+
+export interface CliSnippetParameter {
+  name: string;
+  value: string;
+  isSensitive: boolean;
+}
+
+export interface CliSnippetRequest {
+  service: string;
+  operation: string;
+  parameters: CliSnippetParameter[];
+}
+
+export interface CliSnippetResult {
+  command: string;
+}
+
+export async function getCliSnippet(request: CliSnippetRequest, signal?: AbortSignal): Promise<CliSnippetResult> {
+  const response = await fetch('/api/system/cli-snippet', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`CLI snippet request failed with status ${response.status}`);
+  }
+  return (await response.json()) as CliSnippetResult;
+}

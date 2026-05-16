@@ -2,9 +2,11 @@ using AspNet.KickStarter.FunctionalResult;
 using Foundation.Api.Controllers;
 using Foundation.Api.Models;
 using Foundation.Application.Commands.RefreshCatalogue;
+using Foundation.Application.Queries.GenerateCliSnippet;
 using Foundation.Application.Queries.GetActivity;
 using Foundation.Application.Queries.GetCatalogue;
 using Foundation.Application.Queries.GetConnectivity;
+using Foundation.Application.Queries.GetDiagnostics;
 using Foundation.Application.Queries.GetHealth;
 using Foundation.Application.Queries.GetLiveness;
 using Foundation.Domain.Activity;
@@ -152,6 +154,135 @@ public class SystemControllerTests
 
         // Act
         var result = await sut.Connectivity(TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task Diagnostics_WhenQuerySucceeds_ReturnsOkWithMaskedSnapshot()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<GetDiagnosticsQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<GetDiagnosticsQueryResult>>(new GetDiagnosticsQueryResult(
+            [
+                new DiagnosticsConfigValue("AccessKey", "********", "EnvironmentVariable", true),
+                new DiagnosticsConfigValue("ServiceUrl", "http://localhost:4566", "Default", false),
+            ],
+                "http://localhost:4566",
+                "eu-west-1",
+                "Connected",
+                null,
+                false)));
+        var sut = new SystemController(_sender, _logger);
+
+        // Act
+        var result = await sut.Diagnostics(reveal: false, TestContext.Current.CancellationToken);
+
+        // Assert
+        var ok = result.Should().BeOfType<Ok<DiagnosticsResponse>>().Subject;
+        ok.Value!.Configuration.Should().HaveCount(2);
+        ok.Value.Configuration[0].Name.Should().Be("AccessKey");
+        ok.Value.Configuration[0].Value.Should().Be("********");
+        ok.Value.Configuration[0].Source.Should().Be("EnvironmentVariable");
+        ok.Value.Configuration[0].IsSensitive.Should().BeTrue();
+        ok.Value.Endpoint.Should().Be("http://localhost:4566");
+        ok.Value.Region.Should().Be("eu-west-1");
+        ok.Value.ConnectivityStatus.Should().Be("Connected");
+        ok.Value.ConnectivityError.Should().BeNull();
+        ok.Value.RevealAllowed.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Diagnostics_WhenQueryFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<GetDiagnosticsQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<GetDiagnosticsQueryResult>>(new InvalidOperationException("boom")));
+        var sut = new SystemController(_sender, _logger);
+
+        // Act
+        var result = await sut.Diagnostics(reveal: false, TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task CliSnippet_WhenQuerySucceeds_ReturnsOkAndMapsParameters()
+    {
+        // Arrange
+        GenerateCliSnippetQuery? captured = null;
+        _sender
+            .Send(Arg.Any<GenerateCliSnippetQuery>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                captured = call.Arg<GenerateCliSnippetQuery>();
+                return Task.FromResult<Result<GenerateCliSnippetQueryResult>>(
+                    new GenerateCliSnippetQueryResult("aws s3api head-bucket --bucket my-bucket"));
+            });
+        var sut = new SystemController(_sender, _logger);
+        var request = new CliSnippetRequest(
+            "s3api",
+            "head-bucket",
+            [new CliSnippetParameterRequest("bucket", "my-bucket", false)]);
+
+        // Act
+        var result = await sut.CliSnippet(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        var ok = result.Should().BeOfType<Ok<CliSnippetResponse>>().Subject;
+        ok.Value!.Command.Should().Be("aws s3api head-bucket --bucket my-bucket");
+        captured.Should().NotBeNull();
+        captured!.Service.Should().Be("s3api");
+        captured.Operation.Should().Be("head-bucket");
+        captured.Parameters.Should().ContainSingle();
+        captured.Parameters[0].Name.Should().Be("bucket");
+        captured.Parameters[0].Value.Should().Be("my-bucket");
+        captured.Parameters[0].IsSensitive.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CliSnippet_WhenParametersOmitted_SendsEmptyParameterList()
+    {
+        // Arrange
+        GenerateCliSnippetQuery? captured = null;
+        _sender
+            .Send(Arg.Any<GenerateCliSnippetQuery>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                captured = call.Arg<GenerateCliSnippetQuery>();
+                return Task.FromResult<Result<GenerateCliSnippetQueryResult>>(
+                    new GenerateCliSnippetQueryResult("aws s3api list-buckets"));
+            });
+        var sut = new SystemController(_sender, _logger);
+        var request = new CliSnippetRequest("s3api", "list-buckets", null);
+
+        // Act
+        var result = await sut.CliSnippet(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        result.Should().BeOfType<Ok<CliSnippetResponse>>();
+        captured.Should().NotBeNull();
+        captured!.Parameters.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task CliSnippet_WhenQueryFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<GenerateCliSnippetQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<GenerateCliSnippetQueryResult>>(new InvalidOperationException("boom")));
+        var sut = new SystemController(_sender, _logger);
+        var request = new CliSnippetRequest("s3api", "list-buckets", null);
+
+        // Act
+        var result = await sut.CliSnippet(request, TestContext.Current.CancellationToken);
 
         // Assert
         var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;

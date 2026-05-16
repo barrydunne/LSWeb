@@ -163,6 +163,7 @@ describe('GlobalSearchBar', () => {
 
     await waitFor(() => expect(screen.getByTestId('search-results-state')).toBeInTheDocument());
     expect(screen.getByTestId('search-results-state')).toHaveTextContent('Search index: 3 resources.');
+    await screen.findByTestId('resource-link');
   });
 
   it('tolerates a failed index-state request by omitting the hint', async () => {

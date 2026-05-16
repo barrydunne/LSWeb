@@ -3,8 +3,10 @@ using Foundation.Application.Activity;
 using Foundation.Application.Capabilities;
 using Foundation.Application.Configuration;
 using Foundation.Application.Connectivity;
+using Foundation.Application.Diagnostics;
 using Foundation.Application.Health;
 using Foundation.Application.Navigation;
+using Foundation.Application.Preferences;
 using Foundation.Application.Search;
 using Foundation.Application.Streaming;
 using Foundation.Infrastructure.Activity;
@@ -12,9 +14,11 @@ using Foundation.Infrastructure.Aws;
 using Foundation.Infrastructure.Capabilities;
 using Foundation.Infrastructure.Configuration;
 using Foundation.Infrastructure.Connectivity;
+using Foundation.Infrastructure.Diagnostics;
 using Foundation.Infrastructure.Errors;
 using Foundation.Infrastructure.Health;
 using Foundation.Infrastructure.Navigation;
+using Foundation.Infrastructure.Preferences;
 using Foundation.Infrastructure.Search;
 using Foundation.Infrastructure.Streaming;
 using Microsoft.AspNetCore.Builder;
@@ -44,11 +48,22 @@ public static class DependencyInjection
             Region = Environment.GetEnvironmentVariable("AWS_REGION"),
         };
 
+        var userDataSettings = new UserDataSettings
+        {
+            DataDirectory = Environment.GetEnvironmentVariable("LSW_USER_DATA_DIR"),
+        };
+
+        var redactionSettings = new RedactionSettings(
+            string.Equals(Environment.GetEnvironmentVariable("LSW_ALLOW_DIAGNOSTIC_REVEAL"), "true", StringComparison.OrdinalIgnoreCase));
+
         return services
             .AddSignalR()
             .Services
             .AddSingleton(settings)
+            .AddSingleton(userDataSettings)
+            .AddSingleton(redactionSettings)
             .AddSingleton<IConfigProvider, ConfigProvider>()
+            .AddSingleton<IRedactionService, RedactionService>()
             .AddSingleton<IAwsClientFactory, AwsClientFactory>()
             .AddSingleton<IAwsGateway, AwsGateway>()
             .AddSingleton<IErrorTranslator, ErrorTranslator>()
@@ -70,8 +85,17 @@ public static class DependencyInjection
             .AddSingleton<StreamSessionManager>()
             .AddSingleton<INotificationPublisher, NotificationPublisher>()
             .AddSingleton<IActivityLog, ActivityLog>()
+            .AddSingleton<IUserDataStore>(CreateUserDataStore)
             .AddHostedService<HealthMonitor>()
             .AddHostedService<SearchIndexer>();
+    }
+
+    private static IUserDataStore CreateUserDataStore(IServiceProvider provider)
+    {
+        var settings = provider.GetRequiredService<UserDataSettings>();
+        return string.IsNullOrWhiteSpace(settings.DataDirectory)
+            ? ActivatorUtilities.CreateInstance<InMemoryUserDataStore>(provider)
+            : ActivatorUtilities.CreateInstance<FileUserDataStore>(provider);
     }
 
     /// <summary>

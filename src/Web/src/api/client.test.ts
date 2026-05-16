@@ -2,7 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   getActivity,
   getCatalogue,
+  getCliSnippet,
   getConnectivity,
+  getDiagnostics,
   getHealth,
   getLiveness,
   getSearch,
@@ -10,6 +12,11 @@ import {
   refreshCatalogue,
   refreshSearch,
   resolveReference,
+  getRecentlyViewed,
+  recordRecentlyViewed,
+  getFavourites,
+  addFavourite,
+  removeFavourite,
 } from './client';
 
 describe('getLiveness', () => {
@@ -370,5 +377,224 @@ describe('refreshSearch', () => {
     );
 
     await expect(refreshSearch()).rejects.toThrow('Search refresh request failed with status 503');
+  });
+});
+
+describe('getRecentlyViewed', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed references when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ references: ['sqs://orders', 'sns://events'] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getRecentlyViewed();
+
+    expect(result.references).toEqual(['sqs://orders', 'sns://events']);
+    expect(fetchMock).toHaveBeenCalledWith('/api/user/recently-viewed', { signal: undefined });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getRecentlyViewed()).rejects.toThrow('Recently viewed request failed with status 503');
+  });
+});
+
+describe('recordRecentlyViewed', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the reference when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await recordRecentlyViewed('sqs://orders');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/user/recently-viewed', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reference: 'sqs://orders' }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(recordRecentlyViewed('sqs://orders')).rejects.toThrow(
+      'Record recently viewed request failed with status 503',
+    );
+  });
+});
+
+describe('getFavourites', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed references when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ references: ['s3://reports'] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getFavourites();
+
+    expect(result.references).toEqual(['s3://reports']);
+    expect(fetchMock).toHaveBeenCalledWith('/api/user/favourites', { signal: undefined });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getFavourites()).rejects.toThrow('Favourites request failed with status 503');
+  });
+});
+
+describe('addFavourite', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the reference when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await addFavourite('s3://reports');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/user/favourites', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reference: 's3://reports' }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(addFavourite('s3://reports')).rejects.toThrow('Add favourite request failed with status 503');
+  });
+});
+
+describe('removeFavourite', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('deletes the reference when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await removeFavourite('s3://reports');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/user/favourites', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reference: 's3://reports' }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(removeFavourite('s3://reports')).rejects.toThrow('Remove favourite request failed with status 503');
+  });
+});
+
+describe('getDiagnostics', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('requests masked values by default and returns the parsed result', async () => {
+    const payload = {
+      configuration: [{ name: 'Access key', value: '********', source: 'EnvironmentVariable', isSensitive: true }],
+      endpoint: 'http://localhost:4566',
+      region: 'eu-west-1',
+      connectivityStatus: 'Connected',
+      connectivityError: null,
+      revealAllowed: false,
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getDiagnostics();
+
+    expect(result).toEqual(payload);
+    expect(fetchMock).toHaveBeenCalledWith('/api/system/diagnostics?reveal=false', { signal: undefined });
+  });
+
+  it('requests revealed values when reveal is true', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        configuration: [],
+        endpoint: 'e',
+        region: 'r',
+        connectivityStatus: 'Connected',
+        connectivityError: null,
+        revealAllowed: true,
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await getDiagnostics(true);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/system/diagnostics?reveal=true', { signal: undefined });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(getDiagnostics()).rejects.toThrow('Diagnostics request failed with status 500');
+  });
+});
+
+describe('getCliSnippet', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the request and returns the generated command', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ command: 'aws s3api list-buckets --endpoint-url http://localhost:4566 --region eu-west-1' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getCliSnippet({
+      service: 's3api',
+      operation: 'head-bucket',
+      parameters: [{ name: 'bucket', value: 'my-bucket', isSensitive: false }],
+    });
+
+    expect(result.command).toContain('aws s3api list-buckets');
+    expect(fetchMock).toHaveBeenCalledWith('/api/system/cli-snippet', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        service: 's3api',
+        operation: 'head-bucket',
+        parameters: [{ name: 'bucket', value: 'my-bucket', isSensitive: false }],
+      }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(
+      getCliSnippet({ service: 's3api', operation: 'list-buckets', parameters: [] }),
+    ).rejects.toThrow('CLI snippet request failed with status 500');
   });
 });

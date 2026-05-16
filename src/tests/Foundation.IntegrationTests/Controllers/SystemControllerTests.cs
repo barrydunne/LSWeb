@@ -70,6 +70,28 @@ public class SystemControllerTests
     }
 
     [Fact]
+    public async Task GetDiagnostics_WhenServiceIsRunning_ReturnsSnapshotWithSensitiveValuesMasked()
+    {
+        // Arrange
+        var client = _fixture.CreateClient();
+
+        // Act
+        var response = await client.GetAsync("/api/system/diagnostics", TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var payload = await response.Content.ReadFromJsonAsync<DiagnosticsSnapshotResponse>(TestContext.Current.CancellationToken);
+        payload.Should().NotBeNull();
+        payload!.Configuration.Should().NotBeEmpty();
+        payload.Endpoint.Should().NotBeNullOrWhiteSpace();
+        payload.Region.Should().NotBeNullOrWhiteSpace();
+        payload.ConnectivityStatus.Should().BeOneOf("Connected", "Disconnected");
+        payload.Configuration.Should().Contain(_ => _.IsSensitive);
+        payload.Configuration.Where(_ => _.IsSensitive).Should().OnlyContain(_ => _.Value == "********");
+    }
+
+    [Fact]
     public async Task RefreshCatalogue_WhenServiceIsRunning_ReturnsAccepted()
     {
         // Arrange
@@ -100,6 +122,38 @@ public class SystemControllerTests
         payload!.Entries.Should().Contain(_ => _.Operation == "catalogue-refresh" && _.State == "Succeeded");
     }
 
+    [Fact]
+    public async Task GenerateCliSnippet_WhenServiceIsRunning_ReturnsRunnableCommandWithoutSecrets()
+    {
+        // Arrange
+        var client = _fixture.CreateClient();
+        var request = new
+        {
+            service = "s3api",
+            operation = "head-bucket",
+            parameters = new[]
+            {
+                new { name = "bucket", value = "my-bucket", isSensitive = false },
+                new { name = "token-code", value = "supersecret", isSensitive = true },
+            },
+        };
+
+        // Act
+        var response = await client.PostAsJsonAsync("/api/system/cli-snippet", request, TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var payload = await response.Content.ReadFromJsonAsync<CliSnippetResponse>(TestContext.Current.CancellationToken);
+        payload.Should().NotBeNull();
+        payload!.Command.Should().StartWith("aws s3api head-bucket");
+        payload.Command.Should().Contain("--bucket my-bucket");
+        payload.Command.Should().Contain("--endpoint-url");
+        payload.Command.Should().Contain("--region");
+        payload.Command.Should().Contain("--token-code <token-code>");
+        payload.Command.Should().NotContain("supersecret");
+    }
+
     private sealed record LivenessResponse(string Status);
 
     private sealed record HealthSnapshotResponse(IReadOnlyList<ServiceAvailabilityResponse> Services);
@@ -107,6 +161,18 @@ public class SystemControllerTests
     private sealed record ServiceAvailabilityResponse(string Key, string Availability);
 
     private sealed record ConnectivityResponse(string Status, string Endpoint, string Region, string? Error);
+
+    private sealed record DiagnosticsSnapshotResponse(
+        IReadOnlyList<DiagnosticsConfigResponse> Configuration,
+        string Endpoint,
+        string Region,
+        string ConnectivityStatus,
+        string? ConnectivityError,
+        bool RevealAllowed);
+
+    private sealed record DiagnosticsConfigResponse(string Name, string Value, string Source, bool IsSensitive);
+
+    private sealed record CliSnippetResponse(string Command);
 
     private sealed record ActivityLogResponse(IReadOnlyList<ActivityEntryResponse> Entries);
 

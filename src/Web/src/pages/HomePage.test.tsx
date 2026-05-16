@@ -2,11 +2,20 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ThemeProvider } from '@primer/react';
 import { HomePage } from './HomePage';
-import { getCatalogue, type CatalogueServiceItem } from '../api/client';
+import {
+  getCatalogue,
+  getFavourites,
+  getRecentlyViewed,
+  resolveReference,
+  type CatalogueServiceItem,
+} from '../api/client';
 
 vi.mock('../api/client');
 
 const getCatalogueMock = vi.mocked(getCatalogue);
+const getRecentlyViewedMock = vi.mocked(getRecentlyViewed);
+const getFavouritesMock = vi.mocked(getFavourites);
+const resolveReferenceMock = vi.mocked(resolveReference);
 
 function service(overrides: Partial<CatalogueServiceItem> & { key: string }): CatalogueServiceItem {
   return {
@@ -31,6 +40,9 @@ function renderHome() {
 describe('HomePage', () => {
   beforeEach(() => {
     getCatalogueMock.mockResolvedValue({ services: [] });
+    getRecentlyViewedMock.mockResolvedValue({ references: [] });
+    getFavouritesMock.mockResolvedValue({ references: [] });
+    resolveReferenceMock.mockResolvedValue({ serviceKey: 'sqs', resourceId: 'orders', route: '/services/sqs/orders' });
   });
 
   afterEach(() => {
@@ -111,5 +123,55 @@ describe('HomePage', () => {
     renderHome();
 
     await waitFor(() => expect(screen.getByTestId('home-error')).toBeInTheDocument());
+  });
+
+  it('lists recently-viewed resources when the store returns references', async () => {
+    getRecentlyViewedMock.mockResolvedValue({ references: ['sqs://orders', 'sns://events'] });
+
+    renderHome();
+
+    await waitFor(() => expect(screen.getByTestId('home-recent-list')).toBeInTheDocument());
+
+    expect(screen.getAllByTestId('home-recent-item')).toHaveLength(2);
+    expect(screen.queryByTestId('home-recent-empty')).not.toBeInTheDocument();
+  });
+
+  it('shows the recent placeholder when there are no recently-viewed resources', async () => {
+    getRecentlyViewedMock.mockResolvedValue({ references: [] });
+
+    renderHome();
+
+    await waitFor(() => expect(screen.getByTestId('home-recent-empty')).toBeInTheDocument());
+    expect(screen.queryByTestId('home-recent-item')).not.toBeInTheDocument();
+  });
+
+  it('lists favourites when the store returns references', async () => {
+    getFavouritesMock.mockResolvedValue({ references: ['s3://reports'] });
+
+    renderHome();
+
+    await waitFor(() => expect(screen.getByTestId('home-favourites-list')).toBeInTheDocument());
+
+    expect(screen.getAllByTestId('home-favourite-item')).toHaveLength(1);
+    expect(screen.queryByTestId('home-favourites-empty')).not.toBeInTheDocument();
+  });
+
+  it('shows the favourites placeholder when there are no favourites', async () => {
+    getFavouritesMock.mockResolvedValue({ references: [] });
+
+    renderHome();
+
+    await waitFor(() => expect(screen.getByTestId('home-favourites-empty')).toBeInTheDocument());
+    expect(screen.queryByTestId('home-favourite-item')).not.toBeInTheDocument();
+  });
+
+  it('falls back to empty sections when the preference requests fail', async () => {
+    getRecentlyViewedMock.mockRejectedValue(new Error('boom'));
+    getFavouritesMock.mockRejectedValue(new Error('boom'));
+
+    renderHome();
+
+    await waitFor(() => expect(screen.getByTestId('home-recent-empty')).toBeInTheDocument());
+    expect(screen.getByTestId('home-favourites-empty')).toBeInTheDocument();
   });
 });

@@ -8,6 +8,7 @@ import { DashboardPage } from './components/DashboardPage';
 import { GlobalSearchBar } from './components/GlobalSearchBar';
 import { KeyboardShortcuts } from './components/KeyboardShortcuts';
 import { NotificationCenter } from './components/NotificationCenter';
+import { DiagnosticsPage } from './pages/DiagnosticsPage';
 import { HomePage } from './pages/HomePage';
 
 export function App() {
@@ -42,6 +43,7 @@ export function App() {
               <Text data-testid="health-status">Service status: {status}</Text>
               <HomePage />
               <DashboardPage />
+              <DiagnosticsPage />
               <ActivityLogPanel />
             </div>
           </PageLayout.Content>

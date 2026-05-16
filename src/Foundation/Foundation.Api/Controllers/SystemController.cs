@@ -1,12 +1,15 @@
 using AspNet.KickStarter.FunctionalResult.Extensions;
 using Foundation.Api.Models;
 using Foundation.Application.Commands.RefreshCatalogue;
+using Foundation.Application.Queries.GenerateCliSnippet;
 using Foundation.Application.Queries.GetActivity;
 using Foundation.Application.Queries.GetCatalogue;
 using Foundation.Application.Queries.GetConnectivity;
+using Foundation.Application.Queries.GetDiagnostics;
 using Foundation.Application.Queries.GetHealth;
 using Foundation.Application.Queries.GetLiveness;
 using Foundation.Domain.Capabilities;
+using Foundation.Domain.Snippets;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -89,6 +92,55 @@ public partial class SystemController : ControllerBase
                 connectivity.Connection.Endpoint,
                 connectivity.Connection.Region,
                 connectivity.Connection.Error)),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Reports a diagnostic snapshot of the resolved configuration and backend connectivity.
+    /// </summary>
+    /// <param name="reveal">Whether to request that sensitive values be unmasked; honoured only when the host permits it.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 200 result carrying the diagnostics snapshot with sensitive values masked by default.</returns>
+    [HttpGet("diagnostics")]
+    [ProducesResponseType(typeof(DiagnosticsResponse), StatusCodes.Status200OK)]
+    public async Task<IResult> Diagnostics([FromQuery] bool reveal, CancellationToken cancellationToken)
+    {
+        LogHandlingDiagnostics(reveal);
+        var result = await _sender.Send(new GetDiagnosticsQuery(reveal), cancellationToken);
+        LogDiagnosticsHandled(result.IsSuccess);
+        return result.Match(
+            diagnostics => Results.Ok(new DiagnosticsResponse(
+                diagnostics.Configuration
+                    .Select(value => new DiagnosticsConfigResponse(value.Name, value.Value, value.Source, value.IsSensitive))
+                    .ToList(),
+                diagnostics.Endpoint,
+                diagnostics.Region,
+                diagnostics.ConnectivityStatus,
+                diagnostics.ConnectivityError,
+                diagnostics.RevealAllowed)),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Generates a runnable AWS CLI snippet that reproduces an operation against the configured endpoint.
+    /// </summary>
+    /// <param name="request">The operation to reproduce, including any parameters.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 200 result carrying the generated CLI command with sensitive values masked.</returns>
+    [HttpPost("cli-snippet")]
+    [ProducesResponseType(typeof(CliSnippetResponse), StatusCodes.Status200OK)]
+    public async Task<IResult> CliSnippet([FromBody] CliSnippetRequest request, CancellationToken cancellationToken)
+    {
+        LogHandlingCliSnippet(request.Service, request.Operation);
+        var parameters = (request.Parameters ?? [])
+            .Select(parameter => new CliParameter(parameter.Name, parameter.Value, parameter.IsSensitive))
+            .ToList();
+        var result = await _sender.Send(
+            new GenerateCliSnippetQuery(request.Service, request.Operation, parameters),
+            cancellationToken);
+        LogCliSnippetHandled(result.IsSuccess);
+        return result.Match(
+            snippet => Results.Ok(new CliSnippetResponse(snippet.Command)),
             error => error.AsHttpResult());
     }
 
@@ -183,6 +235,18 @@ public partial class SystemController : ControllerBase
 
     [LoggerMessage(LogLevel.Trace, "Connectivity request handled. Success: {Success}")]
     private partial void LogConnectivityHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling diagnostics request. Reveal requested: {Reveal}")]
+    private partial void LogHandlingDiagnostics(bool reveal);
+
+    [LoggerMessage(LogLevel.Trace, "Diagnostics request handled. Success: {Success}")]
+    private partial void LogDiagnosticsHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling CLI snippet request for {Service} {Operation}.")]
+    private partial void LogHandlingCliSnippet(string service, string operation);
+
+    [LoggerMessage(LogLevel.Trace, "CLI snippet request handled. Success: {Success}")]
+    private partial void LogCliSnippetHandled(bool success);
 
     [LoggerMessage(LogLevel.Trace, "Handling catalogue request.")]
     private partial void LogHandlingCatalogue();

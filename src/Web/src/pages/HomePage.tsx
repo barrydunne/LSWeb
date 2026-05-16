@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Heading, Label, Text } from '@primer/react';
-import { getCatalogue, type CatalogueServiceItem } from '../api/client';
+import {
+  getCatalogue,
+  getFavourites,
+  getRecentlyViewed,
+  type CatalogueServiceItem,
+} from '../api/client';
+import { ResourceLink } from '../components/ResourceLink';
 
 type HomeState =
   | { kind: 'loading' }
@@ -39,15 +45,39 @@ const searchInputStyle: CSSProperties = {
   maxWidth: 360,
 };
 
+const referenceListStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 8,
+  listStyle: 'none',
+  margin: 0,
+  padding: 0,
+};
+
+const referenceItemStyle: CSSProperties = {
+  padding: '8px 12px',
+  borderRadius: 6,
+  border: '1px solid #30363d',
+  background: '#161b22',
+};
+
 export function HomePage() {
   const [state, setState] = useState<HomeState>({ kind: 'loading' });
   const [query, setQuery] = useState('');
+  const [recent, setRecent] = useState<string[]>([]);
+  const [favourites, setFavourites] = useState<string[]>([]);
 
   useEffect(() => {
     const controller = new AbortController();
     getCatalogue(controller.signal)
       .then((catalogue) => setState({ kind: 'ready', services: catalogue.services }))
       .catch(() => setState({ kind: 'error' }));
+    getRecentlyViewed(controller.signal)
+      .then((result) => setRecent(result.references))
+      .catch(() => setRecent([]));
+    getFavourites(controller.signal)
+      .then((result) => setFavourites(result.references))
+      .catch(() => setFavourites([]));
     return () => controller.abort();
   }, []);
 
@@ -126,9 +156,36 @@ export function HomePage() {
       <Heading as="h3" data-testid="home-recent-heading" style={{ fontSize: 16 }}>
         Recent destinations
       </Heading>
-      <Text data-testid="home-recent-empty" style={{ fontSize: 14, opacity: 0.8 }}>
-        Your recently viewed resources will appear here.
-      </Text>
+      {recent.length > 0 ? (
+        <ul data-testid="home-recent-list" style={referenceListStyle}>
+          {recent.map((reference) => (
+            <li key={reference} data-testid="home-recent-item" style={referenceItemStyle}>
+              <ResourceLink reference={reference} />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <Text data-testid="home-recent-empty" style={{ fontSize: 14, opacity: 0.8 }}>
+          Your recently viewed resources will appear here.
+        </Text>
+      )}
+
+      <Heading as="h3" data-testid="home-favourites-heading" style={{ fontSize: 16 }}>
+        Favourites
+      </Heading>
+      {favourites.length > 0 ? (
+        <ul data-testid="home-favourites-list" style={referenceListStyle}>
+          {favourites.map((reference) => (
+            <li key={reference} data-testid="home-favourite-item" style={referenceItemStyle}>
+              <ResourceLink reference={reference} />
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <Text data-testid="home-favourites-empty" style={{ fontSize: 14, opacity: 0.8 }}>
+          Pin a resource to keep it close at hand.
+        </Text>
+      )}
     </section>
   );
 }

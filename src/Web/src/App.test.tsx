@@ -5,8 +5,11 @@ import {
   getActivity,
   getCatalogue,
   getConnectivity,
+  getDiagnostics,
+  getFavourites,
   getHealth,
   getLiveness,
+  getRecentlyViewed,
   getSearchState,
 } from './api/client';
 import { subscribeToNotifications } from './api/notifications';
@@ -20,6 +23,9 @@ const getCatalogueMock = vi.mocked(getCatalogue);
 const getHealthMock = vi.mocked(getHealth);
 const getActivityMock = vi.mocked(getActivity);
 const getSearchStateMock = vi.mocked(getSearchState);
+const getRecentlyViewedMock = vi.mocked(getRecentlyViewed);
+const getFavouritesMock = vi.mocked(getFavourites);
+const getDiagnosticsMock = vi.mocked(getDiagnostics);
 const subscribeToNotificationsMock = vi.mocked(subscribeToNotifications);
 
 describe('App', () => {
@@ -37,6 +43,16 @@ describe('App', () => {
       builtAt: '2026-01-01T00:00:00Z',
       entryCount: 0,
       isBuilding: false,
+    });
+    getRecentlyViewedMock.mockResolvedValue({ references: [] });
+    getFavouritesMock.mockResolvedValue({ references: [] });
+    getDiagnosticsMock.mockResolvedValue({
+      configuration: [],
+      endpoint: 'http://localhost:4566',
+      region: 'eu-west-1',
+      connectivityStatus: 'Connected',
+      connectivityError: null,
+      revealAllowed: false,
     });
     subscribeToNotificationsMock.mockResolvedValue({ stop: vi.fn().mockResolvedValue(undefined) });
   });

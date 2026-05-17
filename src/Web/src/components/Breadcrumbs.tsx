@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 
 interface Crumb {
   label: string;
@@ -22,8 +23,9 @@ const linkStyle: CSSProperties = { color: '#58a6ff', textDecoration: 'none' };
 const currentStyle: CSSProperties = { color: 'inherit', opacity: 0.8 };
 const separatorStyle: CSSProperties = { opacity: 0.5 };
 
-export function Breadcrumbs({ pathname = window.location.pathname }: { pathname?: string }) {
-  const crumbs = buildCrumbs(pathname);
+export function Breadcrumbs({ pathname }: { pathname?: string }) {
+  const location = useLocation();
+  const crumbs = buildCrumbs(pathname ?? location.pathname);
   return (
     <nav aria-label="Breadcrumb" data-testid="breadcrumbs">
       <ol style={listStyle}>
@@ -35,7 +37,7 @@ export function Breadcrumbs({ pathname = window.location.pathname }: { pathname?
               {isLast ? (
                 <span data-testid="breadcrumb-item" aria-current="page" style={currentStyle}>{crumb.label}</span>
               ) : (
-                <a data-testid="breadcrumb-item" href={crumb.href} style={linkStyle}>{crumb.label}</a>
+                <Link data-testid="breadcrumb-item" to={crumb.href} style={linkStyle}>{crumb.label}</Link>
               )}
             </li>
           );

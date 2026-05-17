@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
+import { Link } from 'react-router-dom';
 import { resolveReference, type ResolvedReferenceResult } from '../api/client';
 
 const linkStyle: CSSProperties = {
@@ -34,9 +35,9 @@ export function ResourceLink({
 
   if (resolved) {
     return (
-      <a href={resolved.route} data-testid="resource-link" style={linkStyle}>
+      <Link to={resolved.route} data-testid="resource-link" style={linkStyle}>
         {text}
-      </a>
+      </Link>
     );
   }
 

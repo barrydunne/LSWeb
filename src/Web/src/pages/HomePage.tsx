@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Heading, Label, Text } from '@primer/react';
+import { Link } from 'react-router-dom';
 import {
   getCatalogue,
   getFavourites,
@@ -143,12 +144,12 @@ export function HomePage() {
       {quickLinks.length > 0 ? (
         <div data-testid="home-quick-links" style={gridStyle}>
           {quickLinks.map((service) => (
-            <a key={service.key} href={service.route} data-testid="home-quick-link" style={cardStyle}>
+            <Link key={service.key} to={service.route} data-testid="home-quick-link" style={cardStyle}>
               <Heading as="h4" data-testid="home-quick-link-name" style={{ fontSize: 15 }}>
                 {service.displayName}
               </Heading>
               <Label data-testid="home-quick-link-category">{service.category}</Label>
-            </a>
+            </Link>
           ))}
         </div>
       ) : null}

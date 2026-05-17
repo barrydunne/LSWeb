@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider } from '@primer/react';
+import { MemoryRouter } from 'react-router-dom';
 import { DashboardPage } from './DashboardPage';
 import { getCatalogue, getHealth, refreshCatalogue } from '../api/client';
 
@@ -13,9 +14,11 @@ const refreshCatalogueMock = vi.mocked(refreshCatalogue);
 
 function renderDashboard() {
   return render(
-    <ThemeProvider colorMode="night">
-      <DashboardPage />
-    </ThemeProvider>,
+    <MemoryRouter>
+      <ThemeProvider colorMode="night">
+        <DashboardPage />
+      </ThemeProvider>
+    </MemoryRouter>,
   );
 }
 

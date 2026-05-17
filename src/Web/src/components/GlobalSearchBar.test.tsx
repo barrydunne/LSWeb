@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ThemeProvider } from '@primer/react';
+import { MemoryRouter } from 'react-router-dom';
 import { GlobalSearchBar } from './GlobalSearchBar';
 import {
   getSearch,
@@ -26,9 +27,11 @@ function match(serviceKey: string, resourceId: string): SearchMatchItem {
 
 function renderBar() {
   return render(
-    <ThemeProvider colorMode="night">
-      <GlobalSearchBar />
-    </ThemeProvider>,
+    <MemoryRouter>
+      <ThemeProvider colorMode="night">
+        <GlobalSearchBar />
+      </ThemeProvider>
+    </MemoryRouter>,
   );
 }
 

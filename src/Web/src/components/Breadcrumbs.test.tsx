@@ -1,13 +1,16 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ThemeProvider } from '@primer/react';
+import { MemoryRouter } from 'react-router-dom';
 import { Breadcrumbs } from './Breadcrumbs';
 
-function renderBreadcrumbs(pathname?: string) {
+function renderBreadcrumbs(pathname?: string, locationPath = '/') {
   return render(
-    <ThemeProvider colorMode="night">
-      <Breadcrumbs pathname={pathname} />
-    </ThemeProvider>,
+    <MemoryRouter initialEntries={[locationPath]}>
+      <ThemeProvider colorMode="night">
+        <Breadcrumbs pathname={pathname} />
+      </ThemeProvider>
+    </MemoryRouter>,
   );
 }
 
@@ -46,9 +49,7 @@ describe('Breadcrumbs', () => {
   });
 
   it('falls back to the current location when no pathname is supplied', () => {
-    window.history.pushState({}, '', '/services');
-
-    renderBreadcrumbs();
+    renderBreadcrumbs(undefined, '/services');
 
     const items = screen.getAllByTestId('breadcrumb-item');
     expect(items).toHaveLength(2);

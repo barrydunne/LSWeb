@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ThemeProvider } from '@primer/react';
+import { MemoryRouter } from 'react-router-dom';
 import { ServiceCard } from './ServiceCard';
 import type { CatalogueServiceItem } from '../api/client';
 
@@ -16,17 +17,21 @@ const service: CatalogueServiceItem = {
 
 function renderCard(availability?: string) {
   return render(
-    <ThemeProvider colorMode="night">
-      <ServiceCard service={service} availability={availability} />
-    </ThemeProvider>,
+    <MemoryRouter>
+      <ThemeProvider colorMode="night">
+        <ServiceCard service={service} availability={availability} />
+      </ThemeProvider>
+    </MemoryRouter>,
   );
 }
 
 function renderUnsupportedCard(overrides?: Partial<CatalogueServiceItem>) {
   return render(
-    <ThemeProvider colorMode="night">
-      <ServiceCard service={{ ...service, supported: false, ...overrides }} />
-    </ThemeProvider>,
+    <MemoryRouter>
+      <ThemeProvider colorMode="night">
+        <ServiceCard service={{ ...service, supported: false, ...overrides }} />
+      </ThemeProvider>
+    </MemoryRouter>,
   );
 }
 

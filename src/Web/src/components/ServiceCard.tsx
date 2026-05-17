@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import { Heading, Label, Text } from '@primer/react';
+import { Link } from 'react-router-dom';
 import type { CatalogueServiceItem } from '../api/client';
 
 type LabelVariant = 'success' | 'danger' | 'secondary';
@@ -47,7 +48,12 @@ export function ServiceCard({
         {service.displayName}
       </Heading>
       <span style={{ display: 'inline-flex', gap: 8, flexWrap: 'wrap' }}>
-        <Label data-testid="service-card-category">{service.category}</Label>
+        <Label
+          data-testid="service-card-category"
+          style={{ color: '#adbac7', borderColor: '#57606a' }}
+        >
+          {service.category}
+        </Label>
         <Label variant={availabilityVariant(availability)} data-testid="service-card-availability">
           {availability}
         </Label>
@@ -74,13 +80,13 @@ export function ServiceCard({
   }
 
   return (
-    <a
-      href={service.route}
+    <Link
+      to={service.route}
       data-testid={`service-card-${service.key}`}
       aria-disabled={isUnavailable}
       style={cardStyle}
     >
       {body}
-    </a>
+    </Link>
   );
 }

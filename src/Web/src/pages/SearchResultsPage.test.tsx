@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { ThemeProvider } from '@primer/react';
+import { MemoryRouter } from 'react-router-dom';
 import { SearchResultsPage } from './SearchResultsPage';
 import {
   resolveReference,
@@ -27,9 +28,11 @@ function renderPage(props: {
   state: SearchStateResult | null;
 }) {
   return render(
-    <ThemeProvider colorMode="night">
-      <SearchResultsPage {...props} />
-    </ThemeProvider>,
+    <MemoryRouter>
+      <ThemeProvider colorMode="night">
+        <SearchResultsPage {...props} />
+      </ThemeProvider>
+    </MemoryRouter>,
   );
 }
 

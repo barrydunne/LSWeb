@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { ThemeProvider } from '@primer/react';
+import { MemoryRouter } from 'react-router-dom';
 import { ServiceCatalogueGrid } from './ServiceCatalogueGrid';
 import { getCatalogue, getHealth, type CatalogueServiceItem } from '../api/client';
 
@@ -32,9 +33,11 @@ const services: CatalogueServiceItem[] = [
 
 function renderGrid() {
   return render(
-    <ThemeProvider colorMode="night">
-      <ServiceCatalogueGrid />
-    </ThemeProvider>,
+    <MemoryRouter>
+      <ThemeProvider colorMode="night">
+        <ServiceCatalogueGrid />
+      </ThemeProvider>
+    </MemoryRouter>,
   );
 }
 

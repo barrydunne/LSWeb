@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ThemeProvider } from '@primer/react';
+import { MemoryRouter } from 'react-router-dom';
 import { HomePage } from './HomePage';
 import {
   getCatalogue,
@@ -31,9 +32,11 @@ function service(overrides: Partial<CatalogueServiceItem> & { key: string }): Ca
 
 function renderHome() {
   return render(
-    <ThemeProvider colorMode="night">
-      <HomePage />
-    </ThemeProvider>,
+    <MemoryRouter>
+      <ThemeProvider colorMode="night">
+        <HomePage />
+      </ThemeProvider>
+    </MemoryRouter>,
   );
 }
 

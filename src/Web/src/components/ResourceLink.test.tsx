@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { ThemeProvider } from '@primer/react';
+import { MemoryRouter } from 'react-router-dom';
 import { ResourceLink } from './ResourceLink';
 import { resolveReference, type ResolvedReferenceResult } from '../api/client';
 
@@ -16,9 +17,11 @@ const resolved: ResolvedReferenceResult = {
 
 function renderLink(props: { reference: string; service?: string; label?: string }) {
   return render(
-    <ThemeProvider colorMode="night">
-      <ResourceLink {...props} />
-    </ThemeProvider>,
+    <MemoryRouter>
+      <ThemeProvider colorMode="night">
+        <ResourceLink {...props} />
+      </ThemeProvider>
+    </MemoryRouter>,
   );
 }
 

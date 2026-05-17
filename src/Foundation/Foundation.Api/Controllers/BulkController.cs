@@ -32,17 +32,17 @@ public partial class BulkController : ControllerBase
     /// Applies the specified action to a set of resources, returning a per-item result so that
     /// partial success is reported, and broadcasting progress to connected clients.
     /// </summary>
-    /// <param name="action">The action to apply, taken from the route, for example <c>delete</c>.</param>
+    /// <param name="actionName">The action to apply, taken from the route, for example <c>delete</c>.</param>
     /// <param name="request">The resources to apply the action to.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>An HTTP 200 result carrying the aggregate outcome with per-item results.</returns>
-    [HttpPost("{action}")]
+    [HttpPost("{actionName}")]
     [ProducesResponseType(typeof(BulkActionResponse), StatusCodes.Status200OK)]
-    public async Task<IResult> Execute(string action, [FromBody] BulkActionRequest request, CancellationToken cancellationToken)
+    public async Task<IResult> Execute(string actionName, [FromBody] BulkActionRequest request, CancellationToken cancellationToken)
     {
-        LogHandling(action, request.ResourceIds?.Count ?? 0);
+        LogHandling(actionName, request.ResourceIds?.Count ?? 0);
         var result = await _sender.Send(
-            new ExecuteBulkActionCommand(action, request.ResourceIds ?? []),
+            new ExecuteBulkActionCommand(actionName, request.ResourceIds ?? []),
             cancellationToken);
         LogHandled(result.IsSuccess);
         return result.Match(

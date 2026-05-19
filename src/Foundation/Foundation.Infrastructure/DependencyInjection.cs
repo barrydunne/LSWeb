@@ -5,6 +5,7 @@ using Foundation.Application.Configuration;
 using Foundation.Application.Connectivity;
 using Foundation.Application.Diagnostics;
 using Foundation.Application.Health;
+using Foundation.Application.Lambda;
 using Foundation.Application.Navigation;
 using Foundation.Application.Preferences;
 using Foundation.Application.Search;
@@ -17,6 +18,7 @@ using Foundation.Infrastructure.Connectivity;
 using Foundation.Infrastructure.Diagnostics;
 using Foundation.Infrastructure.Errors;
 using Foundation.Infrastructure.Health;
+using Foundation.Infrastructure.Lambda;
 using Foundation.Infrastructure.Navigation;
 using Foundation.Infrastructure.Preferences;
 using Foundation.Infrastructure.Search;
@@ -71,6 +73,8 @@ public static class DependencyInjection
             .AddSingleton<ICapabilityDetector>(_ => _.GetRequiredService<CapabilityDetector>())
             .AddSingleton<ICapabilityProvider>(_ => _.GetRequiredService<CapabilityDetector>())
             .AddSingleton<IConnectivityProbe, ConnectivityProbe>()
+            .AddSingleton<ILambdaClient, LambdaClientAdapter>()
+            .AddSingleton<IResourceSource, LambdaResourceSource>()
             .AddSingleton<IReferenceResolver, ReferenceResolver>()
             .AddSingleton<IBackendHealthProbe, BackendHealthProbe>()
             .AddSingleton<HealthStatusStore>()
@@ -86,6 +90,7 @@ public static class DependencyInjection
             .AddSingleton<INotificationPublisher, NotificationPublisher>()
             .AddSingleton<IActivityLog, ActivityLog>()
             .AddSingleton<IUserDataStore>(CreateUserDataStore)
+            .AddSingleton<ITestEventStore>(CreateTestEventStore)
             .AddHostedService<HealthMonitor>()
             .AddHostedService<SearchIndexer>();
     }
@@ -96,6 +101,14 @@ public static class DependencyInjection
         return string.IsNullOrWhiteSpace(settings.DataDirectory)
             ? ActivatorUtilities.CreateInstance<InMemoryUserDataStore>(provider)
             : ActivatorUtilities.CreateInstance<FileUserDataStore>(provider);
+    }
+
+    private static ITestEventStore CreateTestEventStore(IServiceProvider provider)
+    {
+        var settings = provider.GetRequiredService<UserDataSettings>();
+        return string.IsNullOrWhiteSpace(settings.DataDirectory)
+            ? ActivatorUtilities.CreateInstance<InMemoryTestEventStore>(provider)
+            : ActivatorUtilities.CreateInstance<FileTestEventStore>(provider);
     }
 
     /// <summary>

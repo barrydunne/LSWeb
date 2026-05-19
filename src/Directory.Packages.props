@@ -8,7 +8,9 @@
   <ItemGroup>
     <PackageVersion Include="AspNet.KickStarter.CQRS" Version="1.5.0" />
     <PackageVersion Include="AspNet.KickStarter.FunctionalResult" Version="1.5.0" />
-    <PackageVersion Include="AWSSDK.Core" Version="4.0.8.1" />
+    <PackageVersion Include="AWSSDK.CloudWatchLogs" Version="4.0.26.3" />
+    <PackageVersion Include="AWSSDK.Core" Version="4.0.9" />
+    <PackageVersion Include="AWSSDK.Lambda" Version="4.0.17.3" />
     <PackageVersion Include="AWSSDK.SecurityToken" Version="4.0.7.2" />
     <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.8" />

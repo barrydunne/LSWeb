@@ -69,4 +69,48 @@ describe('ResourceDetailPage', () => {
       expect(screen.getByTestId('resource-detail-heading')).toHaveTextContent('Resource not found'),
     );
   });
+
+  it('shows an error state when the catalogue request fails', async () => {
+    getCatalogueMock.mockRejectedValue(new Error('boom'));
+
+    renderAt('/services/sqs/orders');
+
+    await waitFor(() =>
+      expect(screen.getByTestId('empty-state-message')).toHaveTextContent('Unable to load this resource'),
+    );
+  });
+
+  it('treats a missing splat segment as an empty resource id', async () => {
+    registerServiceView('sqs', {
+      detail: ({ resourceId }) => <div data-testid="sqs-detail">[{resourceId}]</div>,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/services/sqs']}>
+        <ThemeProvider colorMode="night">
+          <Routes>
+            <Route path="services/:serviceKey" element={<ResourceDetailPage />} />
+          </Routes>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('sqs-detail')).toHaveTextContent('[]'));
+  });
+
+  it('treats a missing service key param as an empty key', async () => {
+    render(
+      <MemoryRouter initialEntries={['/orphan']}>
+        <ThemeProvider colorMode="night">
+          <Routes>
+            <Route path="orphan" element={<ResourceDetailPage />} />
+          </Routes>
+        </ThemeProvider>
+      </MemoryRouter>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('resource-detail-heading')).toHaveTextContent('Resource not found'),
+    );
+  });
 });

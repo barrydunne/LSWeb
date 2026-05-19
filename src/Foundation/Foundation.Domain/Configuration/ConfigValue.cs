@@ -10,7 +10,12 @@ namespace Foundation.Domain.Configuration;
 public sealed record ConfigValue(string Name, string Value, ConfigSource Source, bool IsSensitive)
 {
     /// <summary>
+    /// The sentinel returned in place of a sensitive value when it is masked.
+    /// </summary>
+    public const string Mask = "********";
+
+    /// <summary>
     /// Gets a representation of the value that is safe to display, masking sensitive values.
     /// </summary>
-    public string Display => IsSensitive ? "********" : Value;
+    public string Display => IsSensitive ? Mask : Value;
 }

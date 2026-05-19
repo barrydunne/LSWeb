@@ -18,6 +18,22 @@ import {
   addFavourite,
   removeFavourite,
   executeBulkAction,
+  getLambdaFunctions,
+  getLambdaFunction,
+  getLambdaEnvironment,
+  updateLambdaEnvironment,
+  invokeLambdaFunction,
+  createLambdaFunction,
+  updateLambdaFunction,
+  deleteLambdaFunction,
+  getLambdaTestEvents,
+  saveLambdaTestEvent,
+  deleteLambdaTestEvent,
+  getLambdaEventSourceMappings,
+  setLambdaEventSourceMappingState,
+  getLambdaLogEvents,
+  getLambdaInvocationInsights,
+  getLambdaLayers,
 } from './client';
 
 describe('getLiveness', () => {
@@ -666,6 +682,620 @@ describe('executeBulkAction', () => {
 
     await expect(executeBulkAction('delete', ['a'])).rejects.toThrow(
       'Bulk action request failed with status 500',
+    );
+  });
+});
+
+describe('getLambdaFunctions', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed functions when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        functions: [
+          {
+            functionName: 'process-orders',
+            runtime: 'dotnet8',
+            description: 'Order processor',
+            lastModified: '2026-01-02T03:04:05Z',
+            memorySize: 256,
+            timeout: 30,
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getLambdaFunctions();
+
+    expect(result.functions).toHaveLength(1);
+    expect(result.functions[0].functionName).toBe('process-orders');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/lambda/functions', { signal: undefined });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getLambdaFunctions()).rejects.toThrow(
+      'Lambda functions request failed with status 503',
+    );
+  });
+});
+
+describe('getLambdaFunction', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('requests the encoded function name and returns the parsed result', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        functionName: 'process orders',
+        functionArn: 'arn:aws:lambda:eu-west-1:000000000000:function:process-orders',
+        runtime: 'dotnet8',
+        handler: 'Orders::Handler',
+        description: 'Order processor',
+        lastModified: '2026-01-02T03:04:05Z',
+        memorySize: 256,
+        timeout: 30,
+        role: 'arn:aws:iam::000000000000:role/lambda-orders',
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getLambdaFunction('process orders');
+
+    expect(result.handler).toBe('Orders::Handler');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/lambda/functions/process%20orders', {
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getLambdaFunction('missing')).rejects.toThrow(
+      'Lambda function request failed with status 404',
+    );
+  });
+});
+
+describe('getLambdaEnvironment', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('requests the encoded function name with the reveal flag and returns the parsed result', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        variables: [{ name: 'API_KEY', value: '********', isSensitive: true }],
+        revealAllowed: true,
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getLambdaEnvironment('process orders', true);
+
+    expect(result.revealAllowed).toBe(true);
+    expect(result.variables[0].name).toBe('API_KEY');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/lambda/functions/process%20orders/environment?reveal=true',
+      { signal: undefined },
+    );
+  });
+
+  it('defaults the reveal flag to false', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ variables: [], revealAllowed: false }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await getLambdaEnvironment('orders');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/lambda/functions/orders/environment?reveal=false',
+      { signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(getLambdaEnvironment('orders')).rejects.toThrow(
+      'Lambda environment request failed with status 500',
+    );
+  });
+});
+
+describe('updateLambdaEnvironment', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends the variables as a PUT body to the encoded endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await updateLambdaEnvironment('process orders', [{ name: 'STAGE', value: 'prod' }]);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/lambda/functions/process%20orders/environment',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ variables: [{ name: 'STAGE', value: 'prod' }] }),
+        signal: undefined,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 409 }));
+
+    await expect(
+      updateLambdaEnvironment('orders', [{ name: 'STAGE', value: 'prod' }]),
+    ).rejects.toThrow('Lambda environment update request failed with status 409');
+  });
+});
+
+describe('invokeLambdaFunction', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the payload to the encoded endpoint and returns the result', async () => {
+    const invocation = {
+      statusCode: 200,
+      payload: '{"ok":true}',
+      logTail: 'log',
+      functionError: '',
+      durationMs: 12,
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(invocation),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await invokeLambdaFunction('process orders', '{"id":1}');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/lambda/functions/process%20orders/invocations',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ payload: '{"id":1}' }),
+        signal: undefined,
+      },
+    );
+    expect(result).toEqual(invocation);
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(invokeLambdaFunction('orders', '{}')).rejects.toThrow(
+      'Lambda invoke request failed with status 500',
+    );
+  });
+});
+
+describe('createLambdaFunction', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const payload = {
+    functionName: 'new-fn',
+    runtime: 'dotnet8',
+    handler: 'index.handler',
+    role: 'arn:aws:iam::000000000000:role/lambda',
+    description: 'A new function',
+    memorySize: 256,
+    timeout: 15,
+    zipFileBase64: 'QkFTRTY0',
+  };
+
+  it('posts the payload to the functions endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await createLambdaFunction(payload);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/lambda/functions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(createLambdaFunction(payload)).rejects.toThrow(
+      'Lambda create request failed with status 400',
+    );
+  });
+});
+
+describe('updateLambdaFunction', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const payload = {
+    runtime: 'dotnet8',
+    handler: 'index.handler',
+    role: 'arn:aws:iam::000000000000:role/lambda',
+    description: 'A new function',
+    memorySize: 256,
+    timeout: 15,
+    zipFileBase64: null,
+  };
+
+  it('puts the payload to the encoded endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await updateLambdaFunction('process orders', payload);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/lambda/functions/process%20orders',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: undefined,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(updateLambdaFunction('orders', payload)).rejects.toThrow(
+      'Lambda update request failed with status 404',
+    );
+  });
+});
+
+describe('deleteLambdaFunction', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends a DELETE to the encoded endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await deleteLambdaFunction('process orders');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/lambda/functions/process%20orders',
+      {
+        method: 'DELETE',
+        signal: undefined,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(deleteLambdaFunction('orders')).rejects.toThrow(
+      'Lambda delete request failed with status 404',
+    );
+  });
+});
+
+describe('getLambdaTestEvents', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('requests the encoded test-events endpoint and returns the payload', async () => {
+    const result = { events: [{ name: 'a', payload: '{}' }], templates: [] };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(result),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(getLambdaTestEvents('process orders')).resolves.toEqual(result);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/lambda/functions/process%20orders/test-events',
+      { signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(getLambdaTestEvents('orders')).rejects.toThrow(
+      'Lambda test events request failed with status 500',
+    );
+  });
+});
+
+describe('saveLambdaTestEvent', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends a PUT with the event name and payload', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await saveLambdaTestEvent('process orders', 'my event', '{"a":1}');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/lambda/functions/process%20orders/test-events',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: 'my event', payload: '{"a":1}' }),
+        signal: undefined,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(saveLambdaTestEvent('orders', 'name', '{}')).rejects.toThrow(
+      'Lambda test event save request failed with status 400',
+    );
+  });
+});
+
+describe('deleteLambdaTestEvent', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends a DELETE to the encoded endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await deleteLambdaTestEvent('process orders', 'my event');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/lambda/functions/process%20orders/test-events/my%20event',
+      {
+        method: 'DELETE',
+        signal: undefined,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(deleteLambdaTestEvent('orders', 'name')).rejects.toThrow(
+      'Lambda test event delete request failed with status 404',
+    );
+  });
+});
+
+describe('getLambdaEventSourceMappings', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('requests the encoded event-source-mappings endpoint and returns the payload', async () => {
+    const result = {
+      mappings: [
+        {
+          uuid: 'abc',
+          eventSourceArn: 'arn:aws:sqs:us-east-1:000000000000:orders',
+          functionArn: 'arn:aws:lambda:us-east-1:000000000000:function:orders',
+          state: 'Enabled',
+          batchSize: 10,
+          lastModified: '2026-01-02T03:04:05.0000000Z',
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(result),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(getLambdaEventSourceMappings('process orders')).resolves.toEqual(result);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/lambda/functions/process%20orders/event-source-mappings',
+      { signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(getLambdaEventSourceMappings('orders')).rejects.toThrow(
+      'Lambda event source mappings request failed with status 500',
+    );
+  });
+});
+
+describe('setLambdaEventSourceMappingState', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends a PUT with the enabled flag to the encoded endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await setLambdaEventSourceMappingState('process orders', 'my uuid', false);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/lambda/functions/process%20orders/event-source-mappings/my%20uuid/state',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: false }),
+        signal: undefined,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(setLambdaEventSourceMappingState('orders', 'uuid', true)).rejects.toThrow(
+      'Lambda event source mapping state request failed with status 400',
+    );
+  });
+});
+
+describe('getLambdaLogEvents', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('requests the encoded logs endpoint with the limit query and returns the payload', async () => {
+    const result = {
+      logGroupName: '/aws/lambda/orders',
+      events: [
+        {
+          timestamp: '2026-01-02T03:04:05.0000000+00:00',
+          message: 'START RequestId: abc',
+          logStreamName: '2026/01/02/[$LATEST]abcdef',
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(result),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(getLambdaLogEvents('process orders', 50)).resolves.toEqual(result);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/lambda/functions/process%20orders/logs?limit=50',
+      { signal: undefined },
+    );
+  });
+
+  it('omits the limit query when no limit is supplied', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve({ logGroupName: '/aws/lambda/orders', events: [] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await getLambdaLogEvents('orders');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/lambda/functions/orders/logs', {
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(getLambdaLogEvents('orders')).rejects.toThrow(
+      'Lambda log events request failed with status 500',
+    );
+  });
+});
+
+describe('getLambdaInvocationInsights', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('requests the encoded insights endpoint with the limit query and returns the payload', async () => {
+    const result = {
+      logGroupName: '/aws/lambda/orders',
+      metrics: { invocationCount: 2, errorCount: 1, averageDurationMs: 15, maxDurationMs: 30 },
+      recentInvocations: [
+        {
+          requestId: 'abc',
+          timestamp: '2026-01-02T03:04:05.0000000+00:00',
+          durationMs: 30,
+          hasError: true,
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(result),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(getLambdaInvocationInsights('process orders', 50)).resolves.toEqual(result);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/lambda/functions/process%20orders/invocation-insights?limit=50',
+      { signal: undefined },
+    );
+  });
+
+  it('omits the limit query when no limit is supplied', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          logGroupName: '/aws/lambda/orders',
+          metrics: { invocationCount: 0, errorCount: 0, averageDurationMs: 0, maxDurationMs: 0 },
+          recentInvocations: [],
+        }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await getLambdaInvocationInsights('orders');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/lambda/functions/orders/invocation-insights',
+      { signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(getLambdaInvocationInsights('orders')).rejects.toThrow(
+      'Lambda invocation insights request failed with status 500',
+    );
+  });
+});
+
+describe('getLambdaLayers', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('requests the encoded layers endpoint and returns the payload', async () => {
+    const result = {
+      layers: [
+        { arn: 'arn:aws:lambda:eu-west-1:123456789012:layer:shared-utils:7', name: 'shared-utils', version: '7' },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(result),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(getLambdaLayers('process orders')).resolves.toEqual(result);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/lambda/functions/process%20orders/layers',
+      { signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(getLambdaLayers('orders')).rejects.toThrow(
+      'Lambda layers request failed with status 500',
     );
   });
 });

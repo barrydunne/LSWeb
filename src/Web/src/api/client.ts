@@ -296,3 +296,391 @@ export async function executeBulkAction(
   }
   return (await response.json()) as BulkActionResult;
 }
+
+export interface LambdaFunctionSummaryItem {
+  functionName: string;
+  runtime: string;
+  description: string;
+  lastModified: string;
+  memorySize: number;
+  timeout: number;
+}
+
+export interface LambdaFunctionListResult {
+  functions: LambdaFunctionSummaryItem[];
+}
+
+export async function getLambdaFunctions(signal?: AbortSignal): Promise<LambdaFunctionListResult> {
+  const response = await fetch('/api/services/lambda/functions', { signal });
+  if (!response.ok) {
+    throw new Error(`Lambda functions request failed with status ${response.status}`);
+  }
+  return (await response.json()) as LambdaFunctionListResult;
+}
+
+export interface LambdaFunctionResult {
+  functionName: string;
+  functionArn: string;
+  runtime: string;
+  handler: string;
+  description: string;
+  lastModified: string;
+  memorySize: number;
+  timeout: number;
+  role: string;
+}
+
+export async function getLambdaFunction(
+  functionName: string,
+  signal?: AbortSignal,
+): Promise<LambdaFunctionResult> {
+  const response = await fetch(
+    `/api/services/lambda/functions/${encodeURIComponent(functionName)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`Lambda function request failed with status ${response.status}`);
+  }
+  return (await response.json()) as LambdaFunctionResult;
+}
+
+export interface LambdaEnvironmentVariableItem {
+  name: string;
+  value: string;
+  isSensitive: boolean;
+}
+
+export interface LambdaEnvironmentResult {
+  variables: LambdaEnvironmentVariableItem[];
+  revealAllowed: boolean;
+}
+
+export async function getLambdaEnvironment(
+  functionName: string,
+  reveal = false,
+  signal?: AbortSignal,
+): Promise<LambdaEnvironmentResult> {
+  const response = await fetch(
+    `/api/services/lambda/functions/${encodeURIComponent(functionName)}/environment?reveal=${reveal}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`Lambda environment request failed with status ${response.status}`);
+  }
+  return (await response.json()) as LambdaEnvironmentResult;
+}
+
+export async function updateLambdaEnvironment(
+  functionName: string,
+  variables: { name: string; value: string }[],
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/lambda/functions/${encodeURIComponent(functionName)}/environment`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ variables }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Lambda environment update request failed with status ${response.status}`);
+  }
+}
+
+export interface LambdaInvocationResult {
+  statusCode: number;
+  payload: string;
+  logTail: string;
+  functionError: string;
+  durationMs: number;
+}
+
+export async function invokeLambdaFunction(
+  functionName: string,
+  payload: string,
+  signal?: AbortSignal,
+): Promise<LambdaInvocationResult> {
+  const response = await fetch(
+    `/api/services/lambda/functions/${encodeURIComponent(functionName)}/invocations`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ payload }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Lambda invoke request failed with status ${response.status}`);
+  }
+  return (await response.json()) as LambdaInvocationResult;
+}
+
+export interface LambdaFunctionCreatePayload {
+  functionName: string;
+  runtime: string;
+  handler: string;
+  role: string;
+  description: string;
+  memorySize: number;
+  timeout: number;
+  zipFileBase64: string;
+}
+
+export async function createLambdaFunction(
+  payload: LambdaFunctionCreatePayload,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/lambda/functions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`Lambda create request failed with status ${response.status}`);
+  }
+}
+
+export interface LambdaFunctionUpdatePayload {
+  runtime: string;
+  handler: string;
+  role: string;
+  description: string;
+  memorySize: number;
+  timeout: number;
+  zipFileBase64: string | null;
+}
+
+export async function updateLambdaFunction(
+  functionName: string,
+  payload: LambdaFunctionUpdatePayload,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/lambda/functions/${encodeURIComponent(functionName)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Lambda update request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteLambdaFunction(
+  functionName: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/lambda/functions/${encodeURIComponent(functionName)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Lambda delete request failed with status ${response.status}`);
+  }
+}
+
+export interface LambdaTestEventItem {
+  name: string;
+  payload: string;
+}
+
+export interface LambdaTestEventListResult {
+  events: LambdaTestEventItem[];
+  templates: LambdaTestEventItem[];
+}
+
+export async function getLambdaTestEvents(
+  functionName: string,
+  signal?: AbortSignal,
+): Promise<LambdaTestEventListResult> {
+  const response = await fetch(
+    `/api/services/lambda/functions/${encodeURIComponent(functionName)}/test-events`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`Lambda test events request failed with status ${response.status}`);
+  }
+  return (await response.json()) as LambdaTestEventListResult;
+}
+
+export async function saveLambdaTestEvent(
+  functionName: string,
+  name: string,
+  payload: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/lambda/functions/${encodeURIComponent(functionName)}/test-events`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, payload }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Lambda test event save request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteLambdaTestEvent(
+  functionName: string,
+  name: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/lambda/functions/${encodeURIComponent(functionName)}/test-events/${encodeURIComponent(name)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Lambda test event delete request failed with status ${response.status}`);
+  }
+}
+
+export interface LambdaEventSourceMappingItem {
+  uuid: string;
+  eventSourceArn: string;
+  functionArn: string;
+  state: string;
+  batchSize: number;
+  lastModified: string;
+}
+
+export interface LambdaEventSourceMappingListResult {
+  mappings: LambdaEventSourceMappingItem[];
+}
+
+export async function getLambdaEventSourceMappings(
+  functionName: string,
+  signal?: AbortSignal,
+): Promise<LambdaEventSourceMappingListResult> {
+  const response = await fetch(
+    `/api/services/lambda/functions/${encodeURIComponent(functionName)}/event-source-mappings`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`Lambda event source mappings request failed with status ${response.status}`);
+  }
+  return (await response.json()) as LambdaEventSourceMappingListResult;
+}
+
+export async function setLambdaEventSourceMappingState(
+  functionName: string,
+  uuid: string,
+  enabled: boolean,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/lambda/functions/${encodeURIComponent(functionName)}/event-source-mappings/${encodeURIComponent(uuid)}/state`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(
+      `Lambda event source mapping state request failed with status ${response.status}`,
+    );
+  }
+}
+
+export interface LambdaLogEventItem {
+  timestamp: string;
+  message: string;
+  logStreamName: string;
+}
+
+export interface LambdaLogEventListResult {
+  logGroupName: string;
+  events: LambdaLogEventItem[];
+}
+
+export async function getLambdaLogEvents(
+  functionName: string,
+  limit?: number,
+  signal?: AbortSignal,
+): Promise<LambdaLogEventListResult> {
+  const query = limit === undefined ? '' : `?limit=${limit}`;
+  const response = await fetch(
+    `/api/services/lambda/functions/${encodeURIComponent(functionName)}/logs${query}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`Lambda log events request failed with status ${response.status}`);
+  }
+  return (await response.json()) as LambdaLogEventListResult;
+}
+
+export interface LambdaInvocationMetrics {
+  invocationCount: number;
+  errorCount: number;
+  averageDurationMs: number;
+  maxDurationMs: number;
+}
+
+export interface LambdaRecentInvocationItem {
+  requestId: string;
+  timestamp: string;
+  durationMs: number;
+  hasError: boolean;
+}
+
+export interface LambdaInvocationInsightsResult {
+  logGroupName: string;
+  metrics: LambdaInvocationMetrics;
+  recentInvocations: LambdaRecentInvocationItem[];
+}
+
+export async function getLambdaInvocationInsights(
+  functionName: string,
+  limit?: number,
+  signal?: AbortSignal,
+): Promise<LambdaInvocationInsightsResult> {
+  const query = limit === undefined ? '' : `?limit=${limit}`;
+  const response = await fetch(
+    `/api/services/lambda/functions/${encodeURIComponent(functionName)}/invocation-insights${query}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`Lambda invocation insights request failed with status ${response.status}`);
+  }
+  return (await response.json()) as LambdaInvocationInsightsResult;
+}
+
+export interface LambdaLayerItem {
+  arn: string;
+  name: string;
+  version: string;
+}
+
+export interface LambdaLayerListResult {
+  layers: LambdaLayerItem[];
+}
+
+export async function getLambdaLayers(
+  functionName: string,
+  signal?: AbortSignal,
+): Promise<LambdaLayerListResult> {
+  const response = await fetch(
+    `/api/services/lambda/functions/${encodeURIComponent(functionName)}/layers`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`Lambda layers request failed with status ${response.status}`);
+  }
+  return (await response.json()) as LambdaLayerListResult;
+}

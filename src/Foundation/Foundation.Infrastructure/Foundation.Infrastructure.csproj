@@ -17,6 +17,7 @@
     <PackageReference Include="AWSSDK.CloudWatchLogs" />
     <PackageReference Include="AWSSDK.Core" />
     <PackageReference Include="AWSSDK.Lambda" />
+    <PackageReference Include="AWSSDK.S3" />
     <PackageReference Include="AWSSDK.SecurityToken" />
     <PackageReference Include="Polly.Core" />
   </ItemGroup>

@@ -8,6 +8,7 @@ using Foundation.Application.Health;
 using Foundation.Application.Lambda;
 using Foundation.Application.Navigation;
 using Foundation.Application.Preferences;
+using Foundation.Application.S3;
 using Foundation.Application.Search;
 using Foundation.Application.Streaming;
 using Foundation.Infrastructure.Activity;
@@ -21,6 +22,7 @@ using Foundation.Infrastructure.Health;
 using Foundation.Infrastructure.Lambda;
 using Foundation.Infrastructure.Navigation;
 using Foundation.Infrastructure.Preferences;
+using Foundation.Infrastructure.S3;
 using Foundation.Infrastructure.Search;
 using Foundation.Infrastructure.Streaming;
 using Microsoft.AspNetCore.Builder;
@@ -75,6 +77,8 @@ public static class DependencyInjection
             .AddSingleton<IConnectivityProbe, ConnectivityProbe>()
             .AddSingleton<ILambdaClient, LambdaClientAdapter>()
             .AddSingleton<IResourceSource, LambdaResourceSource>()
+            .AddSingleton<IS3Client, S3ClientAdapter>()
+            .AddSingleton<IResourceSource, S3ResourceSource>()
             .AddSingleton<IReferenceResolver, ReferenceResolver>()
             .AddSingleton<IBackendHealthProbe, BackendHealthProbe>()
             .AddSingleton<HealthStatusStore>()

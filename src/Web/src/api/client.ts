@@ -684,3 +684,45 @@ export async function getLambdaLayers(
   }
   return (await response.json()) as LambdaLayerListResult;
 }
+
+export interface S3BucketSummaryItem {
+  name: string;
+  creationDate: string;
+}
+
+export interface S3BucketListResult {
+  buckets: S3BucketSummaryItem[];
+}
+
+export async function getS3Buckets(signal?: AbortSignal): Promise<S3BucketListResult> {
+  const response = await fetch('/api/services/s3/buckets', { signal });
+  if (!response.ok) {
+    throw new Error(`S3 buckets request failed with status ${response.status}`);
+  }
+  return (await response.json()) as S3BucketListResult;
+}
+
+export async function createS3Bucket(bucketName: string, signal?: AbortSignal): Promise<void> {
+  const response = await fetch('/api/services/s3/buckets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ bucketName }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`S3 bucket create request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteS3Bucket(bucketName: string, signal?: AbortSignal): Promise<void> {
+  const response = await fetch(
+    `/api/services/s3/buckets/${encodeURIComponent(bucketName)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`S3 bucket delete request failed with status ${response.status}`);
+  }
+}

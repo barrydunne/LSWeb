@@ -7,12 +7,14 @@ describe('registerServiceViews', () => {
     clearServiceViews();
   });
 
-  it('registers the lambda list and detail views', () => {
-    // The module self-invokes on import, so the lambda view is already registered.
-    const view = getServiceView('lambda');
+  it('registers the lambda and s3 views', () => {
+    // The module self-invokes on import, so the views are already registered.
+    const lambda = getServiceView('lambda');
+    expect(lambda?.list).toBeDefined();
+    expect(lambda?.detail).toBeDefined();
 
-    expect(view?.list).toBeDefined();
-    expect(view?.detail).toBeDefined();
+    const s3 = getServiceView('s3');
+    expect(s3?.list).toBeDefined();
   });
 
   it('is idempotent and does not re-register after the first call', () => {

@@ -34,6 +34,9 @@ import {
   getLambdaLogEvents,
   getLambdaInvocationInsights,
   getLambdaLayers,
+  getS3Buckets,
+  createS3Bucket,
+  deleteS3Bucket,
 } from './client';
 
 describe('getLiveness', () => {
@@ -1296,6 +1299,88 @@ describe('getLambdaLayers', () => {
 
     await expect(getLambdaLayers('orders')).rejects.toThrow(
       'Lambda layers request failed with status 500',
+    );
+  });
+});
+
+describe('getS3Buckets', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed buckets when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        buckets: [{ name: 'orders', creationDate: '2026-01-02T03:04:05.0000000Z' }],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getS3Buckets();
+
+    expect(result.buckets).toHaveLength(1);
+    expect(result.buckets[0].name).toBe('orders');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/s3/buckets', { signal: undefined });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getS3Buckets()).rejects.toThrow('S3 buckets request failed with status 503');
+  });
+});
+
+describe('createS3Bucket', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the bucket name to the buckets endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await createS3Bucket('orders');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/s3/buckets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ bucketName: 'orders' }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(createS3Bucket('orders')).rejects.toThrow(
+      'S3 bucket create request failed with status 400',
+    );
+  });
+});
+
+describe('deleteS3Bucket', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends a DELETE to the encoded endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await deleteS3Bucket('my bucket');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/s3/buckets/my%20bucket', {
+      method: 'DELETE',
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(deleteS3Bucket('orders')).rejects.toThrow(
+      'S3 bucket delete request failed with status 404',
     );
   });
 });

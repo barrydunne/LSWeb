@@ -727,6 +727,268 @@ export async function deleteS3Bucket(bucketName: string, signal?: AbortSignal): 
   }
 }
 
+export interface SqsQueueSummaryItem {
+  name: string;
+  url: string;
+  approximateMessageCount: number;
+  approximateInFlightCount: number;
+  approximateDelayedCount: number;
+}
+
+export interface SqsQueueListResult {
+  queues: SqsQueueSummaryItem[];
+}
+
+export async function getSqsQueues(signal?: AbortSignal): Promise<SqsQueueListResult> {
+  const response = await fetch('/api/services/sqs/queues', { signal });
+  if (!response.ok) {
+    throw new Error(`SQS queues request failed with status ${response.status}`);
+  }
+  return (await response.json()) as SqsQueueListResult;
+}
+
+export async function createSqsQueue(
+  queueName: string,
+  fifoQueue: boolean,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/sqs/queues', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ queueName, fifoQueue }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`SQS queue create request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteSqsQueue(queueName: string, signal?: AbortSignal): Promise<void> {
+  const response = await fetch(
+    `/api/services/sqs/queues/${encodeURIComponent(queueName)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`SQS queue delete request failed with status ${response.status}`);
+  }
+}
+
+export type SqsPollMode = 'peek' | 'consume';
+
+export interface SqsMessageItem {
+  messageId: string;
+  receiptHandle: string;
+  body: string;
+  attributes: Record<string, string>;
+  messageAttributes: Record<string, string>;
+}
+
+export interface SqsMessageListResult {
+  messages: SqsMessageItem[];
+}
+
+export async function pollSqsMessages(
+  queueName: string,
+  mode: SqsPollMode,
+  maxMessages?: number,
+  signal?: AbortSignal,
+): Promise<SqsMessageListResult> {
+  const params = new URLSearchParams({ mode });
+  if (maxMessages !== undefined) {
+    params.set('maxMessages', String(maxMessages));
+  }
+  const response = await fetch(
+    `/api/services/sqs/queues/${encodeURIComponent(queueName)}/messages?${params.toString()}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`SQS poll request failed with status ${response.status}`);
+  }
+  return (await response.json()) as SqsMessageListResult;
+}
+
+export async function deleteSqsMessage(
+  queueName: string,
+  receiptHandle: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/sqs/queues/${encodeURIComponent(queueName)}/messages?receiptHandle=${encodeURIComponent(receiptHandle)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`SQS delete request failed with status ${response.status}`);
+  }
+}
+
+export async function purgeSqsQueue(queueName: string, signal?: AbortSignal): Promise<void> {
+  const response = await fetch(
+    `/api/services/sqs/queues/${encodeURIComponent(queueName)}/purge`,
+    {
+      method: 'POST',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`SQS purge request failed with status ${response.status}`);
+  }
+}
+
+export interface SqsSendMessageInput {
+  body: string;
+  messageAttributes?: Record<string, string>;
+  messageGroupId?: string;
+  messageDeduplicationId?: string;
+}
+
+export async function sendSqsMessage(
+  queueName: string,
+  input: SqsSendMessageInput,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/sqs/queues/${encodeURIComponent(queueName)}/messages`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        body: input.body,
+        messageAttributes: input.messageAttributes,
+        messageGroupId: input.messageGroupId,
+        messageDeduplicationId: input.messageDeduplicationId,
+      }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`SQS send request failed with status ${response.status}`);
+  }
+}
+
+export interface SqsSubscriptionItem {
+  topicArn: string;
+  topicName: string;
+}
+
+export interface SqsSubscriptionListResult {
+  subscriptions: SqsSubscriptionItem[];
+}
+
+export async function getSqsQueueSubscriptions(
+  queueName: string,
+  signal?: AbortSignal,
+): Promise<SqsSubscriptionListResult> {
+  const response = await fetch(
+    `/api/services/sqs/queues/${encodeURIComponent(queueName)}/subscriptions`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`SQS subscriptions request failed with status ${response.status}`);
+  }
+  return (await response.json()) as SqsSubscriptionListResult;
+}
+
+export interface SqsQueueAttributesItem {
+  visibilityTimeoutSeconds: number;
+  messageRetentionPeriodSeconds: number;
+  delaySeconds: number;
+  receiveMessageWaitTimeSeconds: number;
+  maximumMessageSizeBytes: number;
+  queueArn: string;
+  fifoQueue: boolean;
+}
+
+export interface SqsQueueAttributesUpdateInput {
+  visibilityTimeoutSeconds: number;
+  messageRetentionPeriodSeconds: number;
+  delaySeconds: number;
+  receiveMessageWaitTimeSeconds: number;
+}
+
+export async function getSqsQueueAttributes(
+  queueName: string,
+  signal?: AbortSignal,
+): Promise<SqsQueueAttributesItem> {
+  const response = await fetch(
+    `/api/services/sqs/queues/${encodeURIComponent(queueName)}/attributes`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`SQS attributes request failed with status ${response.status}`);
+  }
+  return (await response.json()) as SqsQueueAttributesItem;
+}
+
+export async function updateSqsQueueAttributes(
+  queueName: string,
+  input: SqsQueueAttributesUpdateInput,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/sqs/queues/${encodeURIComponent(queueName)}/attributes`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        visibilityTimeoutSeconds: input.visibilityTimeoutSeconds,
+        messageRetentionPeriodSeconds: input.messageRetentionPeriodSeconds,
+        delaySeconds: input.delaySeconds,
+        receiveMessageWaitTimeSeconds: input.receiveMessageWaitTimeSeconds,
+      }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`SQS attributes update request failed with status ${response.status}`);
+  }
+}
+
+export interface SqsRedriveTarget {
+  queueArn: string;
+  queueName: string;
+  maxReceiveCount: number;
+}
+
+export interface SqsRedriveSource {
+  queueArn: string;
+  queueName: string;
+}
+
+export interface SqsRedriveResult {
+  deadLetterTarget: SqsRedriveTarget | null;
+  sources: SqsRedriveSource[];
+}
+
+export async function getSqsQueueRedrive(
+  queueName: string,
+  signal?: AbortSignal,
+): Promise<SqsRedriveResult> {
+  const response = await fetch(
+    `/api/services/sqs/queues/${encodeURIComponent(queueName)}/redrive`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`SQS redrive request failed with status ${response.status}`);
+  }
+  return (await response.json()) as SqsRedriveResult;
+}
+
+export async function redriveSqsQueue(queueName: string, signal?: AbortSignal): Promise<void> {
+  const response = await fetch(
+    `/api/services/sqs/queues/${encodeURIComponent(queueName)}/redrive`,
+    { method: 'POST', signal },
+  );
+  if (!response.ok) {
+    throw new Error(`SQS redrive start request failed with status ${response.status}`);
+  }
+}
+
 export interface S3ObjectItem {
   key: string;
   size: number;

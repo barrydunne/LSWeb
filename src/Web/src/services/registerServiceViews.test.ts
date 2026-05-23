@@ -16,6 +16,10 @@ describe('registerServiceViews', () => {
     const s3 = getServiceView('s3');
     expect(s3?.list).toBeDefined();
     expect(s3?.detail).toBeDefined();
+
+    const sqs = getServiceView('sqs');
+    expect(sqs?.list).toBeDefined();
+    expect(sqs?.detail).toBeDefined();
   });
 
   it('is idempotent and does not re-register after the first call', () => {

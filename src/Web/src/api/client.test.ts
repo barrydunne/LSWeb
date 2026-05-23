@@ -37,6 +37,18 @@ import {
   getS3Buckets,
   createS3Bucket,
   deleteS3Bucket,
+  getSqsQueues,
+  createSqsQueue,
+  deleteSqsQueue,
+  pollSqsMessages,
+  deleteSqsMessage,
+  purgeSqsQueue,
+  sendSqsMessage,
+  getSqsQueueSubscriptions,
+  getSqsQueueAttributes,
+  getSqsQueueRedrive,
+  redriveSqsQueue,
+  updateSqsQueueAttributes,
   getS3Objects,
   createS3Folder,
   uploadS3Object,
@@ -49,6 +61,7 @@ import {
   copyS3Object,
   moveS3Object,
   getS3BucketStorageSummary,
+  getS3BucketConfiguration,
 } from './client';
 
 describe('getLiveness', () => {
@@ -1374,6 +1387,45 @@ describe('getS3BucketStorageSummary', () => {
   });
 });
 
+describe('getS3BucketConfiguration', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed configuration when the request succeeds', async () => {
+    const configuration = {
+      versioningStatus: 'Enabled',
+      encryptionAlgorithm: 'aws:kms',
+      encryptionKeyId: 'key-1',
+      lifecycleRules: [{ id: 'rule-1', status: 'Enabled', prefix: 'logs/' }],
+      notifications: [{ type: 'Queue', targetArn: 'arn:aws:sqs:eu-west-1:000000000000:orders', events: ['s3:ObjectCreated:*'] }],
+      policy: '{"Version":"2012-10-17"}',
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => configuration,
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getS3BucketConfiguration('my bucket', controller.signal);
+
+    expect(result).toEqual(configuration);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/s3/buckets/my%20bucket/configuration',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(getS3BucketConfiguration('orders')).rejects.toThrow(
+      'S3 bucket configuration request failed with status 500',
+    );
+  });
+});
+
 describe('createS3Bucket', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -1424,6 +1476,466 @@ describe('deleteS3Bucket', () => {
 
     await expect(deleteS3Bucket('orders')).rejects.toThrow(
       'S3 bucket delete request failed with status 404',
+    );
+  });
+});
+
+describe('getSqsQueues', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed queue list when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        queues: [
+          {
+            name: 'orders',
+            url: 'http://localstack:4566/000000000000/orders',
+            approximateMessageCount: 3,
+            approximateInFlightCount: 1,
+            approximateDelayedCount: 0,
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const controller = new AbortController();
+    const result = await getSqsQueues(controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/sqs/queues', {
+      signal: controller.signal,
+    });
+    expect(result.queues).toHaveLength(1);
+    expect(result.queues[0]?.name).toBe('orders');
+    expect(result.queues[0]?.approximateMessageCount).toBe(3);
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getSqsQueues()).rejects.toThrow('SQS queues request failed with status 503');
+  });
+});
+
+describe('createSqsQueue', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the queue name and fifo flag to the queues endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await createSqsQueue('orders', false);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/sqs/queues', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ queueName: 'orders', fifoQueue: false }),
+      signal: undefined,
+    });
+  });
+
+  it('posts the fifo flag as true when requested', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await createSqsQueue('orders.fifo', true);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/sqs/queues', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ queueName: 'orders.fifo', fifoQueue: true }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(createSqsQueue('orders', false)).rejects.toThrow(
+      'SQS queue create request failed with status 400',
+    );
+  });
+});
+
+describe('deleteSqsQueue', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends a DELETE to the encoded endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await deleteSqsQueue('my queue');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/sqs/queues/my%20queue', {
+      method: 'DELETE',
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(deleteSqsQueue('orders')).rejects.toThrow(
+      'SQS queue delete request failed with status 404',
+    );
+  });
+});
+
+describe('pollSqsMessages', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed message list and builds the peek query', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        messages: [
+          {
+            messageId: 'id-1',
+            receiptHandle: 'receipt-1',
+            body: 'hello',
+            attributes: { SentTimestamp: '1' },
+            messageAttributes: { trace: 'abc' },
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const controller = new AbortController();
+    const result = await pollSqsMessages('my queue', 'peek', 5, controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/sqs/queues/my%20queue/messages?mode=peek&maxMessages=5',
+      { signal: controller.signal },
+    );
+    expect(result.messages).toHaveLength(1);
+    expect(result.messages[0]?.messageId).toBe('id-1');
+  });
+
+  it('omits maxMessages when it is not provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ messages: [] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await pollSqsMessages('orders', 'consume');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/sqs/queues/orders/messages?mode=consume',
+      { signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(pollSqsMessages('orders', 'peek')).rejects.toThrow(
+      'SQS poll request failed with status 500',
+    );
+  });
+});
+
+describe('deleteSqsMessage', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('issues a delete with the encoded queue name and receipt handle', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await deleteSqsMessage('my queue', 'receipt/handle');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/sqs/queues/my%20queue/messages?receiptHandle=receipt%2Fhandle',
+      { method: 'DELETE', signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(deleteSqsMessage('orders', 'receipt-1')).rejects.toThrow(
+      'SQS delete request failed with status 404',
+    );
+  });
+});
+
+describe('purgeSqsQueue', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('issues a post to the purge endpoint with the encoded queue name', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const controller = new AbortController();
+    await purgeSqsQueue('my queue', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/sqs/queues/my%20queue/purge',
+      { method: 'POST', signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(purgeSqsQueue('orders')).rejects.toThrow(
+      'SQS purge request failed with status 500',
+    );
+  });
+});
+
+describe('sendSqsMessage', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the message body and ids to the encoded send endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const controller = new AbortController();
+    await sendSqsMessage(
+      'orders.fifo',
+      {
+        body: 'hello world',
+        messageAttributes: { source: 'web' },
+        messageGroupId: 'group-1',
+        messageDeduplicationId: 'dedup-1',
+      },
+      controller.signal,
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/sqs/queues/orders.fifo/messages',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          body: 'hello world',
+          messageAttributes: { source: 'web' },
+          messageGroupId: 'group-1',
+          messageDeduplicationId: 'dedup-1',
+        }),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(sendSqsMessage('orders', { body: 'hi' })).rejects.toThrow(
+      'SQS send request failed with status 400',
+    );
+  });
+});
+
+describe('getSqsQueueSubscriptions', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed subscriptions when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        subscriptions: [
+          { topicArn: 'arn:aws:sns:eu-west-1:000000000000:order-events', topicName: 'order-events' },
+        ],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const controller = new AbortController();
+    const result = await getSqsQueueSubscriptions('my queue', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/sqs/queues/my%20queue/subscriptions',
+      { signal: controller.signal },
+    );
+    expect(result.subscriptions).toHaveLength(1);
+    expect(result.subscriptions[0]?.topicName).toBe('order-events');
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(getSqsQueueSubscriptions('orders')).rejects.toThrow(
+      'SQS subscriptions request failed with status 500',
+    );
+  });
+});
+
+describe('getSqsQueueAttributes', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed attributes when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        visibilityTimeoutSeconds: 45,
+        messageRetentionPeriodSeconds: 86400,
+        delaySeconds: 10,
+        receiveMessageWaitTimeSeconds: 5,
+        maximumMessageSizeBytes: 262144,
+        queueArn: 'arn:aws:sqs:eu-west-1:000000000000:orders',
+        fifoQueue: false,
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const controller = new AbortController();
+    const result = await getSqsQueueAttributes('my queue', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/sqs/queues/my%20queue/attributes',
+      { signal: controller.signal },
+    );
+    expect(result.visibilityTimeoutSeconds).toBe(45);
+    expect(result.queueArn).toBe('arn:aws:sqs:eu-west-1:000000000000:orders');
+    expect(result.fifoQueue).toBe(false);
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(getSqsQueueAttributes('orders')).rejects.toThrow(
+      'SQS attributes request failed with status 500',
+    );
+  });
+});
+
+describe('updateSqsQueueAttributes', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the editable attributes to the encoded attributes endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const controller = new AbortController();
+    await updateSqsQueueAttributes(
+      'my queue',
+      {
+        visibilityTimeoutSeconds: 45,
+        messageRetentionPeriodSeconds: 86400,
+        delaySeconds: 10,
+        receiveMessageWaitTimeSeconds: 5,
+      },
+      controller.signal,
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/sqs/queues/my%20queue/attributes',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          visibilityTimeoutSeconds: 45,
+          messageRetentionPeriodSeconds: 86400,
+          delaySeconds: 10,
+          receiveMessageWaitTimeSeconds: 5,
+        }),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      updateSqsQueueAttributes('orders', {
+        visibilityTimeoutSeconds: 0,
+        messageRetentionPeriodSeconds: 60,
+        delaySeconds: 0,
+        receiveMessageWaitTimeSeconds: 0,
+      }),
+    ).rejects.toThrow('SQS attributes update request failed with status 400');
+  });
+});
+
+describe('getSqsQueueRedrive', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed redrive relationships when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        deadLetterTarget: {
+          queueArn: 'arn:aws:sqs:eu-west-1:000000000000:orders-dlq',
+          queueName: 'orders-dlq',
+          maxReceiveCount: 5,
+        },
+        sources: [
+          { queueArn: 'arn:aws:sqs:eu-west-1:000000000000:orders', queueName: 'orders' },
+        ],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const controller = new AbortController();
+    const result = await getSqsQueueRedrive('my queue', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/sqs/queues/my%20queue/redrive',
+      { signal: controller.signal },
+    );
+    expect(result.deadLetterTarget?.queueName).toBe('orders-dlq');
+    expect(result.sources).toHaveLength(1);
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(getSqsQueueRedrive('orders')).rejects.toThrow(
+      'SQS redrive request failed with status 500',
+    );
+  });
+});
+
+describe('redriveSqsQueue', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts to the encoded redrive endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const controller = new AbortController();
+    await redriveSqsQueue('my queue', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/sqs/queues/my%20queue/redrive',
+      { method: 'POST', signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(redriveSqsQueue('orders')).rejects.toThrow(
+      'SQS redrive start request failed with status 400',
     );
   });
 });

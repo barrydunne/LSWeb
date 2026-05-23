@@ -5,6 +5,8 @@ const LambdaListView = lazy(() => import('./lambda/LambdaListView'));
 const LambdaDetailView = lazy(() => import('./lambda/LambdaDetailView'));
 const S3ListView = lazy(() => import('./s3/S3ListView'));
 const S3DetailView = lazy(() => import('./s3/S3DetailView'));
+const SqsListView = lazy(() => import('./sqs/SqsListView'));
+const SqsDetailView = lazy(() => import('./sqs/SqsDetailView'));
 
 let registered = false;
 
@@ -19,6 +21,7 @@ export function registerServiceViews(): void {
 
   registerServiceView('lambda', { list: LambdaListView, detail: LambdaDetailView });
   registerServiceView('s3', { list: S3ListView, detail: S3DetailView });
+  registerServiceView('sqs', { list: SqsListView, detail: SqsDetailView });
 }
 
 registerServiceViews();

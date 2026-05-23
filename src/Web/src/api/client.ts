@@ -726,3 +726,281 @@ export async function deleteS3Bucket(bucketName: string, signal?: AbortSignal): 
     throw new Error(`S3 bucket delete request failed with status ${response.status}`);
   }
 }
+
+export interface S3ObjectItem {
+  key: string;
+  size: number;
+  lastModified: string;
+}
+
+export interface S3ObjectListingResult {
+  prefixes: string[];
+  objects: S3ObjectItem[];
+}
+
+export async function getS3Objects(
+  bucketName: string,
+  prefix: string,
+  signal?: AbortSignal,
+): Promise<S3ObjectListingResult> {
+  const response = await fetch(
+    `/api/services/s3/buckets/${encodeURIComponent(bucketName)}/objects?prefix=${encodeURIComponent(prefix)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`S3 objects request failed with status ${response.status}`);
+  }
+  return (await response.json()) as S3ObjectListingResult;
+}
+
+export async function createS3Folder(
+  bucketName: string,
+  folderKey: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/s3/buckets/${encodeURIComponent(bucketName)}/folders`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folderKey }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`S3 folder create request failed with status ${response.status}`);
+  }
+}
+
+export async function uploadS3Object(
+  bucketName: string,
+  prefix: string,
+  file: File,
+  signal?: AbortSignal,
+): Promise<void> {
+  const form = new FormData();
+  form.append('file', file);
+  form.append('prefix', prefix);
+  const response = await fetch(
+    `/api/services/s3/buckets/${encodeURIComponent(bucketName)}/objects`,
+    {
+      method: 'POST',
+      body: form,
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`S3 object upload request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteS3Object(
+  bucketName: string,
+  key: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/s3/buckets/${encodeURIComponent(bucketName)}/objects?key=${encodeURIComponent(key)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`S3 object delete request failed with status ${response.status}`);
+  }
+}
+
+export function s3ObjectDownloadUrl(bucketName: string, key: string): string {
+  return `/api/services/s3/buckets/${encodeURIComponent(bucketName)}/objects/content?key=${encodeURIComponent(key)}`;
+}
+
+export interface S3ObjectPreviewResult {
+  kind: string;
+  contentType: string;
+  truncated: boolean;
+  totalSize: number;
+  text: string | null;
+  dataUrl: string | null;
+}
+
+export async function getS3ObjectPreview(
+  bucketName: string,
+  key: string,
+  signal?: AbortSignal,
+): Promise<S3ObjectPreviewResult> {
+  const response = await fetch(
+    `/api/services/s3/buckets/${encodeURIComponent(bucketName)}/objects/preview?key=${encodeURIComponent(key)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`S3 object preview request failed with status ${response.status}`);
+  }
+  return (await response.json()) as S3ObjectPreviewResult;
+}
+
+export interface S3PresignedUrlResult {
+  url: string;
+  expirySeconds: number;
+}
+
+export async function getS3PresignedUrl(
+  bucketName: string,
+  key: string,
+  expirySeconds: number,
+  signal?: AbortSignal,
+): Promise<S3PresignedUrlResult> {
+  const response = await fetch(
+    `/api/services/s3/buckets/${encodeURIComponent(bucketName)}/objects/presign?key=${encodeURIComponent(key)}&expirySeconds=${expirySeconds}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`S3 presigned URL request failed with status ${response.status}`);
+  }
+  return (await response.json()) as S3PresignedUrlResult;
+}
+
+export interface S3MetadataEntry {
+  key: string;
+  value: string;
+}
+
+export interface S3ObjectMetadataResult {
+  contentType: string;
+  contentLength: number;
+  lastModified: string;
+  eTag: string;
+  metadata: S3MetadataEntry[];
+  tags: S3MetadataEntry[];
+}
+
+export async function getS3ObjectMetadata(
+  bucketName: string,
+  key: string,
+  signal?: AbortSignal,
+): Promise<S3ObjectMetadataResult> {
+  const response = await fetch(
+    `/api/services/s3/buckets/${encodeURIComponent(bucketName)}/objects/metadata?key=${encodeURIComponent(key)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`S3 object metadata request failed with status ${response.status}`);
+  }
+  return (await response.json()) as S3ObjectMetadataResult;
+}
+
+export async function updateS3ObjectTags(
+  bucketName: string,
+  key: string,
+  tags: Record<string, string>,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/s3/buckets/${encodeURIComponent(bucketName)}/objects/tags?key=${encodeURIComponent(key)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`S3 object tags update request failed with status ${response.status}`);
+  }
+}
+
+export async function copyS3Object(
+  bucketName: string,
+  key: string,
+  destinationBucketName: string,
+  destinationKey: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/s3/buckets/${encodeURIComponent(bucketName)}/objects/copy?key=${encodeURIComponent(key)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ destinationBucketName, destinationKey }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`S3 object copy request failed with status ${response.status}`);
+  }
+}
+
+export async function moveS3Object(
+  bucketName: string,
+  key: string,
+  destinationBucketName: string,
+  destinationKey: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/s3/buckets/${encodeURIComponent(bucketName)}/objects/move?key=${encodeURIComponent(key)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ destinationBucketName, destinationKey }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`S3 object move request failed with status ${response.status}`);
+  }
+}
+
+export interface S3LifecycleRuleResult {
+  id: string;
+  status: string;
+  prefix: string;
+}
+
+export interface S3NotificationResult {
+  type: string;
+  targetArn: string;
+  events: string[];
+}
+
+export interface S3BucketConfigurationResult {
+  versioningStatus: string;
+  encryptionAlgorithm: string;
+  encryptionKeyId: string;
+  lifecycleRules: S3LifecycleRuleResult[];
+  notifications: S3NotificationResult[];
+  policy: string;
+}
+
+export async function getS3BucketConfiguration(
+  bucketName: string,
+  signal?: AbortSignal,
+): Promise<S3BucketConfigurationResult> {
+  const response = await fetch(
+    `/api/services/s3/buckets/${encodeURIComponent(bucketName)}/configuration`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`S3 bucket configuration request failed with status ${response.status}`);
+  }
+  return (await response.json()) as S3BucketConfigurationResult;
+}
+
+export interface S3BucketStorageSummaryResult {
+  objectCount: number;
+  totalSizeBytes: number;
+}
+
+export async function getS3BucketStorageSummary(
+  bucketName: string,
+  signal?: AbortSignal,
+): Promise<S3BucketStorageSummaryResult> {
+  const response = await fetch(
+    `/api/services/s3/buckets/${encodeURIComponent(bucketName)}/storage-summary`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`S3 bucket storage summary request failed with status ${response.status}`);
+  }
+  return (await response.json()) as S3BucketStorageSummaryResult;
+}

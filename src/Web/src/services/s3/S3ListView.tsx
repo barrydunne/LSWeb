@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
+import { Link } from 'react-router-dom';
 import { DataListShell } from '../../components/DataListShell';
 import type { DataListColumn, DataListRow } from '../../components/DataListShell';
 import { ConfirmationHost } from '../../components/ConfirmationHost';
@@ -61,8 +62,7 @@ type ListState =
 
 type CreateState = 'idle' | 'saving' | 'created' | 'error';
 
-export function S3ListView(_props: ServiceListViewProps) {
-  void _props;
+export function S3ListView({ serviceKey }: ServiceListViewProps) {
   const [state, setState] = useState<ListState>({ kind: 'loading' });
   const [reloadToken, setReloadToken] = useState(0);
   const [showCreate, setShowCreate] = useState(false);
@@ -123,7 +123,11 @@ export function S3ListView(_props: ServiceListViewProps) {
     id: bucket.name,
     filterText: bucket.name,
     cells: {
-      name: bucket.name,
+      name: (
+        <Link data-testid="s3-list-link" to={`/services/${serviceKey}/${encodeURIComponent(bucket.name)}`}>
+          {bucket.name}
+        </Link>
+      ),
       creationDate: bucket.creationDate,
       actions: (
         <ConfirmationHost

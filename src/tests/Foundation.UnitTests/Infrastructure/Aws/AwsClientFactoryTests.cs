@@ -1,3 +1,4 @@
+using Amazon.S3;
 using Amazon.SecurityToken;
 using Foundation.Infrastructure.Aws;
 using Foundation.Infrastructure.Configuration;
@@ -35,6 +36,20 @@ public class AwsClientFactoryTests
         // Assert
         client.Config.ServiceURL.Should().StartWith("http://localhost:4566");
         client.Config.AuthenticationRegion.Should().Be("eu-west-1");
+    }
+
+    [Fact]
+    public void CreateClient_ForS3_EnablesPathStyleAddressing()
+    {
+        // Arrange
+        var provider = new ConfigProvider(new AwsSettings { ServiceUrl = "http://localhost:4566", Region = "eu-west-1" });
+        using var sut = new AwsClientFactory(provider);
+
+        // Act
+        var client = sut.CreateClient<AmazonS3Client>();
+
+        // Assert
+        ((AmazonS3Config)client.Config).ForcePathStyle.Should().BeTrue();
     }
 
     [Fact]

@@ -37,6 +37,18 @@ import {
   getS3Buckets,
   createS3Bucket,
   deleteS3Bucket,
+  getS3Objects,
+  createS3Folder,
+  uploadS3Object,
+  deleteS3Object,
+  s3ObjectDownloadUrl,
+  getS3ObjectPreview,
+  getS3PresignedUrl,
+  getS3ObjectMetadata,
+  updateS3ObjectTags,
+  copyS3Object,
+  moveS3Object,
+  getS3BucketStorageSummary,
 } from './client';
 
 describe('getLiveness', () => {
@@ -1331,6 +1343,37 @@ describe('getS3Buckets', () => {
   });
 });
 
+describe('getS3BucketStorageSummary', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed summary when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ objectCount: 9, totalSizeBytes: 8192 }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getS3BucketStorageSummary('my bucket', controller.signal);
+
+    expect(result).toEqual({ objectCount: 9, totalSizeBytes: 8192 });
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/s3/buckets/my%20bucket/storage-summary',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(getS3BucketStorageSummary('orders')).rejects.toThrow(
+      'S3 bucket storage summary request failed with status 500',
+    );
+  });
+});
+
 describe('createS3Bucket', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -1382,5 +1425,339 @@ describe('deleteS3Bucket', () => {
     await expect(deleteS3Bucket('orders')).rejects.toThrow(
       'S3 bucket delete request failed with status 404',
     );
+  });
+});
+
+describe('getS3Objects', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed listing when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        prefixes: ['orders/2026/'],
+        objects: [{ key: 'orders/readme.txt', size: 12, lastModified: '2026-01-02T03:04:05.0000000Z' }],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getS3Objects('my bucket', 'orders/');
+
+    expect(result.prefixes).toEqual(['orders/2026/']);
+    expect(result.objects[0].key).toBe('orders/readme.txt');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/s3/buckets/my%20bucket/objects?prefix=orders%2F',
+      { signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getS3Objects('orders', '')).rejects.toThrow(
+      'S3 objects request failed with status 503',
+    );
+  });
+});
+
+describe('createS3Folder', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the folder key to the folders endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await createS3Folder('my bucket', 'orders/2026/');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/s3/buckets/my%20bucket/folders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ folderKey: 'orders/2026/' }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(createS3Folder('orders', 'data/')).rejects.toThrow(
+      'S3 folder create request failed with status 400',
+    );
+  });
+});
+
+describe('uploadS3Object', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the file and prefix as multipart form data', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const file = new File(['hello'], 'note.txt', { type: 'text/plain' });
+
+    await uploadS3Object('my bucket', 'orders/', file);
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe('/api/services/s3/buckets/my%20bucket/objects');
+    expect(init.method).toBe('POST');
+    expect(init.body).toBeInstanceOf(FormData);
+    const form = init.body as FormData;
+    expect(form.get('file')).toBe(file);
+    expect(form.get('prefix')).toBe('orders/');
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+    const file = new File(['hello'], 'note.txt', { type: 'text/plain' });
+
+    await expect(uploadS3Object('orders', '', file)).rejects.toThrow(
+      'S3 object upload request failed with status 500',
+    );
+  });
+});
+
+describe('deleteS3Object', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends a DELETE request with the encoded key', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await deleteS3Object('my bucket', 'orders/readme.txt');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/s3/buckets/my%20bucket/objects?key=orders%2Freadme.txt',
+      { method: 'DELETE', signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(deleteS3Object('orders', 'data.txt')).rejects.toThrow(
+      'S3 object delete request failed with status 404',
+    );
+  });
+});
+
+describe('s3ObjectDownloadUrl', () => {
+  it('builds an encoded download URL', () => {
+    expect(s3ObjectDownloadUrl('my bucket', 'orders/readme.txt')).toBe(
+      '/api/services/s3/buckets/my%20bucket/objects/content?key=orders%2Freadme.txt',
+    );
+  });
+});
+
+describe('getS3ObjectPreview', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('requests the encoded preview endpoint and returns the result', async () => {
+    const payload = {
+      kind: 'Text',
+      contentType: 'text/plain',
+      truncated: false,
+      totalSize: 11,
+      text: 'hello world',
+      dataUrl: null,
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(payload),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getS3ObjectPreview('my bucket', 'orders/readme.txt');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/s3/buckets/my%20bucket/objects/preview?key=orders%2Freadme.txt',
+      { signal: undefined },
+    );
+    expect(result).toEqual(payload);
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getS3ObjectPreview('orders', 'data.txt')).rejects.toThrow(
+      'S3 object preview request failed with status 404',
+    );
+  });
+});
+
+describe('getS3PresignedUrl', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('requests the encoded presign endpoint and returns the result', async () => {
+    const payload = { url: 'https://example.test/presigned', expirySeconds: 900 };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(payload),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getS3PresignedUrl('my bucket', 'orders/readme.txt', 900);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/s3/buckets/my%20bucket/objects/presign?key=orders%2Freadme.txt&expirySeconds=900',
+      { signal: undefined },
+    );
+    expect(result).toEqual(payload);
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 403 }));
+
+    await expect(getS3PresignedUrl('orders', 'data.txt', 60)).rejects.toThrow(
+      'S3 presigned URL request failed with status 403',
+    );
+  });
+});
+
+describe('getS3ObjectMetadata', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('requests the encoded metadata endpoint and returns the result', async () => {
+    const payload = {
+      contentType: 'text/plain',
+      contentLength: 42,
+      lastModified: '2026-01-02T03:04:05.0000000Z',
+      eTag: '"abc123"',
+      metadata: [{ key: 'owner', value: 'alice' }],
+      tags: [{ key: 'stage', value: 'prod' }],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: () => Promise.resolve(payload),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getS3ObjectMetadata('my bucket', 'orders/readme.txt');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/s3/buckets/my%20bucket/objects/metadata?key=orders%2Freadme.txt',
+      { signal: undefined },
+    );
+    expect(result).toEqual(payload);
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getS3ObjectMetadata('orders', 'data.txt')).rejects.toThrow(
+      'S3 object metadata request failed with status 404',
+    );
+  });
+});
+
+describe('updateS3ObjectTags', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends a PUT request with the encoded endpoint and tag body', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await updateS3ObjectTags('my bucket', 'orders/readme.txt', { stage: 'prod' });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/s3/buckets/my%20bucket/objects/tags?key=orders%2Freadme.txt',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags: { stage: 'prod' } }),
+        signal: undefined,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(updateS3ObjectTags('orders', 'data.txt', {})).rejects.toThrow(
+      'S3 object tags update request failed with status 400',
+    );
+  });
+});
+
+describe('copyS3Object', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends a POST request with the encoded endpoint and destination body', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await copyS3Object('my bucket', 'orders/readme.txt', 'archive', 'orders/2026/readme.txt');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/s3/buckets/my%20bucket/objects/copy?key=orders%2Freadme.txt',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          destinationBucketName: 'archive',
+          destinationKey: 'orders/2026/readme.txt',
+        }),
+        signal: undefined,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      copyS3Object('orders', 'data.txt', 'orders', 'copies/data.txt'),
+    ).rejects.toThrow('S3 object copy request failed with status 400');
+  });
+});
+
+describe('moveS3Object', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends a POST request with the encoded endpoint and destination body', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await moveS3Object('my bucket', 'orders/readme.txt', 'archive', 'moved/readme.txt');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/s3/buckets/my%20bucket/objects/move?key=orders%2Freadme.txt',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          destinationBucketName: 'archive',
+          destinationKey: 'moved/readme.txt',
+        }),
+        signal: undefined,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      moveS3Object('orders', 'data.txt', 'orders', 'moved/data.txt'),
+    ).rejects.toThrow('S3 object move request failed with status 400');
   });
 });

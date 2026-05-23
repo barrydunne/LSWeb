@@ -60,6 +60,16 @@ describe('S3ListView', () => {
     expect(screen.getByTestId('data-list-row-invoices')).toBeInTheDocument();
   });
 
+  it('links each bucket name to its detail route', async () => {
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('s3-list-view')).toBeInTheDocument());
+
+    const links = screen.getAllByTestId('s3-list-link');
+    expect(links[0]).toHaveAttribute('href', '/services/s3/orders');
+    expect(links[1]).toHaveAttribute('href', '/services/s3/invoices');
+  });
+
   it('creates a bucket from the form and refreshes the list', async () => {
     createS3BucketMock.mockResolvedValue();
 

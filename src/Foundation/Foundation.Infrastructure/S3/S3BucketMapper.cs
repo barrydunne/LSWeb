@@ -18,4 +18,15 @@ internal static class S3BucketMapper
         => new(
             bucket.BucketName ?? string.Empty,
             bucket.CreationDate?.ToString("O", CultureInfo.InvariantCulture) ?? string.Empty);
+
+    /// <summary>
+    /// Map an AWS object summary to its domain representation.
+    /// </summary>
+    /// <param name="s3Object">The SDK object to map.</param>
+    /// <returns>The domain object.</returns>
+    public static S3Object ToObject(Amazon.S3.Model.S3Object s3Object)
+        => new(
+            s3Object.Key ?? string.Empty,
+            s3Object.Size ?? 0,
+            s3Object.LastModified?.ToString("O", CultureInfo.InvariantCulture) ?? string.Empty);
 }

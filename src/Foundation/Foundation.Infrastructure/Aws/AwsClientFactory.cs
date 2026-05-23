@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using Amazon.Runtime;
+using Amazon.S3;
 using Foundation.Application.Configuration;
 
 namespace Foundation.Infrastructure.Aws;
@@ -50,6 +51,12 @@ internal sealed class AwsClientFactory : IAwsClientFactory, IDisposable
         var config = (ClientConfig)Activator.CreateInstance(configType)!;
         config.ServiceURL = serviceUrl;
         config.AuthenticationRegion = region;
+
+        // LocalStack is reached over a single endpoint host, so virtual-host-style
+        // bucket addressing (bucket.<host>) cannot be resolved; force path-style.
+        if (config is AmazonS3Config s3Config)
+            s3Config.ForcePathStyle = true;
+
         return config;
     }
 }

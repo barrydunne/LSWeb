@@ -5,6 +5,7 @@ using Foundation.Application.CloudWatchLogs;
 using Foundation.Application.Configuration;
 using Foundation.Application.Connectivity;
 using Foundation.Application.Diagnostics;
+using Foundation.Application.DynamoDb;
 using Foundation.Application.Health;
 using Foundation.Application.Lambda;
 using Foundation.Application.Navigation;
@@ -20,6 +21,7 @@ using Foundation.Infrastructure.CloudWatchLogs;
 using Foundation.Infrastructure.Configuration;
 using Foundation.Infrastructure.Connectivity;
 using Foundation.Infrastructure.Diagnostics;
+using Foundation.Infrastructure.DynamoDb;
 using Foundation.Infrastructure.Errors;
 using Foundation.Infrastructure.Health;
 using Foundation.Infrastructure.Lambda;
@@ -87,6 +89,8 @@ public static class DependencyInjection
             .AddSingleton<IResourceSource, SqsResourceSource>()
             .AddSingleton<ICloudWatchLogsClient, CloudWatchLogsClientAdapter>()
             .AddSingleton<IResourceSource, CloudWatchLogsResourceSource>()
+            .AddSingleton<IDynamoDbClient, DynamoDbClientAdapter>()
+            .AddSingleton<IResourceSource, DynamoDbResourceSource>()
             .AddSingleton<IReferenceResolver, ReferenceResolver>()
             .AddSingleton<IBackendHealthProbe, BackendHealthProbe>()
             .AddSingleton<HealthStatusStore>()

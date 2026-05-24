@@ -183,7 +183,7 @@ describe('S3DetailView', () => {
     await waitFor(() => expect(screen.getByTestId('s3-detail-create-status')).toBeInTheDocument());
 
     expect(createS3FolderMock).toHaveBeenCalledWith('data', 'reports/');
-    expect(getS3ObjectsMock).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(getS3ObjectsMock).toHaveBeenCalledTimes(2));
     expect(screen.queryByTestId('s3-detail-create-form')).not.toBeInTheDocument();
   });
 

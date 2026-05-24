@@ -9,6 +9,8 @@ const SqsListView = lazy(() => import('./sqs/SqsListView'));
 const SqsDetailView = lazy(() => import('./sqs/SqsDetailView'));
 const CloudWatchLogsListView = lazy(() => import('./cloudwatch-logs/CloudWatchLogsListView'));
 const CloudWatchLogsDetailView = lazy(() => import('./cloudwatch-logs/CloudWatchLogsDetailView'));
+const DynamoDbListView = lazy(() => import('./dynamodb/DynamoDbListView'));
+const DynamoDbDetailView = lazy(() => import('./dynamodb/DynamoDbDetailView'));
 
 let registered = false;
 
@@ -28,6 +30,7 @@ export function registerServiceViews(): void {
     list: CloudWatchLogsListView,
     detail: CloudWatchLogsDetailView,
   });
+  registerServiceView('dynamodb', { list: DynamoDbListView, detail: DynamoDbDetailView });
 }
 
 registerServiceViews();

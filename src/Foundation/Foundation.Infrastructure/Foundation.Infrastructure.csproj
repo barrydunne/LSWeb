@@ -16,6 +16,7 @@
   <ItemGroup>
     <PackageReference Include="AWSSDK.CloudWatchLogs" />
     <PackageReference Include="AWSSDK.Core" />
+    <PackageReference Include="AWSSDK.DynamoDBv2" />
     <PackageReference Include="AWSSDK.Lambda" />
     <PackageReference Include="AWSSDK.S3" />
     <PackageReference Include="AWSSDK.SecurityToken" />

@@ -1390,3 +1390,255 @@ export async function filterLogEvents(
   }
   return (await response.json()) as LogEventListResult;
 }
+
+export interface DynamoDbTableItem {
+  name: string;
+}
+
+export interface DynamoDbTableListResult {
+  tables: DynamoDbTableItem[];
+}
+
+export interface DynamoDbKeyAttribute {
+  attributeName: string;
+  keyType: string;
+}
+
+export interface DynamoDbAttributeDefinition {
+  attributeName: string;
+  attributeType: string;
+}
+
+export interface DynamoDbSecondaryIndex {
+  name: string;
+  status: string | null;
+  keySchema: DynamoDbKeyAttribute[];
+}
+
+export interface DynamoDbTableDetail {
+  name: string;
+  arn: string;
+  status: string;
+  itemCount: number;
+  tableSizeBytes: number;
+  billingMode: string | null;
+  readCapacityUnits: number | null;
+  writeCapacityUnits: number | null;
+  createdAt: string | null;
+  keySchema: DynamoDbKeyAttribute[];
+  attributes: DynamoDbAttributeDefinition[];
+  globalSecondaryIndexes: DynamoDbSecondaryIndex[];
+  localSecondaryIndexes: DynamoDbSecondaryIndex[];
+  streamEnabled: boolean;
+  streamViewType: string | null;
+  latestStreamArn: string | null;
+}
+
+export async function getDynamoDbTables(signal?: AbortSignal): Promise<DynamoDbTableListResult> {
+  const response = await fetch('/api/services/dynamodb/tables', { signal });
+  if (!response.ok) {
+    throw new Error(`DynamoDB tables request failed with status ${response.status}`);
+  }
+  return (await response.json()) as DynamoDbTableListResult;
+}
+
+export async function getDynamoDbTable(
+  tableName: string,
+  signal?: AbortSignal,
+): Promise<DynamoDbTableDetail> {
+  const response = await fetch(
+    `/api/services/dynamodb/tables/${encodeURIComponent(tableName)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`DynamoDB table request failed with status ${response.status}`);
+  }
+  return (await response.json()) as DynamoDbTableDetail;
+}
+
+export interface DynamoDbTableCreateRequest {
+  tableName: string;
+  partitionKeyName: string;
+  partitionKeyType: string;
+  sortKeyName: string | null;
+  sortKeyType: string | null;
+  billingMode: string;
+  readCapacityUnits: number | null;
+  writeCapacityUnits: number | null;
+}
+
+export async function createDynamoDbTable(
+  request: DynamoDbTableCreateRequest,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/dynamodb/tables', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`DynamoDB table create request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteDynamoDbTable(
+  tableName: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/dynamodb/tables/${encodeURIComponent(tableName)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`DynamoDB table delete request failed with status ${response.status}`);
+  }
+}
+
+export interface DynamoDbItem {
+  json: string;
+}
+
+export interface DynamoDbItemListResult {
+  items: DynamoDbItem[];
+  truncated: boolean;
+}
+
+export async function scanDynamoDbItems(
+  tableName: string,
+  limit: number,
+  signal?: AbortSignal,
+): Promise<DynamoDbItemListResult> {
+  const response = await fetch(
+    `/api/services/dynamodb/tables/${encodeURIComponent(tableName)}/items?limit=${limit}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`DynamoDB item scan request failed with status ${response.status}`);
+  }
+  return (await response.json()) as DynamoDbItemListResult;
+}
+
+export async function getDynamoDbItem(
+  tableName: string,
+  keyJson: string,
+  signal?: AbortSignal,
+): Promise<DynamoDbItem> {
+  const response = await fetch(
+    `/api/services/dynamodb/tables/${encodeURIComponent(tableName)}/item?key=${encodeURIComponent(keyJson)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`DynamoDB item request failed with status ${response.status}`);
+  }
+  return (await response.json()) as DynamoDbItem;
+}
+
+export async function putDynamoDbItem(
+  tableName: string,
+  itemJson: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/dynamodb/tables/${encodeURIComponent(tableName)}/items`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item: itemJson }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`DynamoDB item put request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteDynamoDbItem(
+  tableName: string,
+  keyJson: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/dynamodb/tables/${encodeURIComponent(tableName)}/item?key=${encodeURIComponent(keyJson)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`DynamoDB item delete request failed with status ${response.status}`);
+  }
+}
+
+export interface DynamoDbQueryCondition {
+  attributeName: string;
+  operator: string;
+  valueType: string;
+  value: string;
+  secondValue: string | null;
+}
+
+export interface DynamoDbQueryRequest {
+  indexName: string | null;
+  scan: boolean;
+  partitionKey: DynamoDbQueryCondition | null;
+  sortKey: DynamoDbQueryCondition | null;
+  filters: DynamoDbQueryCondition[];
+  limit: number;
+  startToken: string | null;
+}
+
+export interface DynamoDbQueryResult {
+  items: DynamoDbItem[];
+  nextToken: string | null;
+}
+
+export async function queryDynamoDbTable(
+  tableName: string,
+  request: DynamoDbQueryRequest,
+  signal?: AbortSignal,
+): Promise<DynamoDbQueryResult> {
+  const response = await fetch(
+    `/api/services/dynamodb/tables/${encodeURIComponent(tableName)}/query`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`DynamoDB query request failed with status ${response.status}`);
+  }
+  return (await response.json()) as DynamoDbQueryResult;
+}
+
+export interface DynamoDbStatementRequest {
+  statement: string;
+  limit: number;
+  nextToken: string | null;
+}
+
+export interface DynamoDbStatementResult {
+  items: DynamoDbItem[];
+  nextToken: string | null;
+}
+
+export async function executeDynamoDbStatement(
+  request: DynamoDbStatementRequest,
+  signal?: AbortSignal,
+): Promise<DynamoDbStatementResult> {
+  const response = await fetch('/api/services/dynamodb/statement', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`DynamoDB statement request failed with status ${response.status}`);
+  }
+  return (await response.json()) as DynamoDbStatementResult;
+}

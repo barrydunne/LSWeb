@@ -1266,3 +1266,127 @@ export async function getS3BucketStorageSummary(
   }
   return (await response.json()) as S3BucketStorageSummaryResult;
 }
+
+export interface LogGroupItem {
+  name: string;
+  arn: string;
+  storedBytes: number;
+  retentionInDays: number | null;
+  createdAt: string | null;
+}
+
+export interface LogGroupListResult {
+  logGroups: LogGroupItem[];
+}
+
+export async function getLogGroups(signal?: AbortSignal): Promise<LogGroupListResult> {
+  const response = await fetch('/api/services/cloudwatch-logs/groups', { signal });
+  if (!response.ok) {
+    throw new Error(`Log groups request failed with status ${response.status}`);
+  }
+  return (await response.json()) as LogGroupListResult;
+}
+
+export async function createLogGroup(
+  logGroupName: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/cloudwatch-logs/groups', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ logGroupName }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`Log group create request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteLogGroup(
+  logGroupName: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const params = new URLSearchParams({ logGroupName });
+  const response = await fetch(
+    `/api/services/cloudwatch-logs/groups?${params.toString()}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Log group delete request failed with status ${response.status}`);
+  }
+}
+
+export interface LogStreamItem {
+  name: string;
+  lastEventTimestamp: string | null;
+}
+
+export interface LogStreamListResult {
+  logStreams: LogStreamItem[];
+}
+
+export async function getLogStreams(
+  logGroupName: string,
+  signal?: AbortSignal,
+): Promise<LogStreamListResult> {
+  const params = new URLSearchParams({ logGroupName });
+  const response = await fetch(
+    `/api/services/cloudwatch-logs/streams?${params.toString()}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`Log streams request failed with status ${response.status}`);
+  }
+  return (await response.json()) as LogStreamListResult;
+}
+
+export interface LogEventItem {
+  timestamp: string;
+  message: string;
+}
+
+export interface LogEventListResult {
+  events: LogEventItem[];
+}
+
+export async function getLogEvents(
+  logGroupName: string,
+  logStreamName: string,
+  signal?: AbortSignal,
+): Promise<LogEventListResult> {
+  const params = new URLSearchParams({ logGroupName, logStreamName });
+  const response = await fetch(
+    `/api/services/cloudwatch-logs/events?${params.toString()}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`Log events request failed with status ${response.status}`);
+  }
+  return (await response.json()) as LogEventListResult;
+}
+
+export async function filterLogEvents(
+  logGroupName: string,
+  filterPattern?: string,
+  startTime?: number,
+  signal?: AbortSignal,
+): Promise<LogEventListResult> {
+  const params = new URLSearchParams({ logGroupName });
+  if (filterPattern) {
+    params.set('filterPattern', filterPattern);
+  }
+  if (startTime !== undefined) {
+    params.set('startTime', String(startTime));
+  }
+  const response = await fetch(
+    `/api/services/cloudwatch-logs/filter?${params.toString()}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`Log filter request failed with status ${response.status}`);
+  }
+  return (await response.json()) as LogEventListResult;
+}

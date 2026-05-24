@@ -62,6 +62,12 @@ import {
   moveS3Object,
   getS3BucketStorageSummary,
   getS3BucketConfiguration,
+  getLogGroups,
+  getLogStreams,
+  getLogEvents,
+  filterLogEvents,
+  createLogGroup,
+  deleteLogGroup,
 } from './client';
 
 describe('getLiveness', () => {
@@ -2271,5 +2277,213 @@ describe('moveS3Object', () => {
     await expect(
       moveS3Object('orders', 'data.txt', 'orders', 'moved/data.txt'),
     ).rejects.toThrow('S3 object move request failed with status 400');
+  });
+});
+
+describe('getLogGroups', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed log groups when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        logGroups: [
+          {
+            name: '/aws/lambda/orders',
+            arn: 'arn:aws:logs:eu-west-1:000000000000:log-group:/aws/lambda/orders',
+            storedBytes: 2048,
+            retentionInDays: 7,
+            createdAt: '2026-01-02T03:04:05Z',
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getLogGroups();
+
+    expect(result.logGroups).toHaveLength(1);
+    expect(result.logGroups[0].name).toBe('/aws/lambda/orders');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/cloudwatch-logs/groups', {
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getLogGroups()).rejects.toThrow('Log groups request failed with status 503');
+  });
+});
+
+describe('createLogGroup', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the log group name to the groups endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await createLogGroup('/aws/lambda/orders');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/cloudwatch-logs/groups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ logGroupName: '/aws/lambda/orders' }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(createLogGroup('/aws/lambda/orders')).rejects.toThrow(
+      'Log group create request failed with status 400',
+    );
+  });
+});
+
+describe('deleteLogGroup', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends a DELETE with the log group name query parameter', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await deleteLogGroup('/aws/lambda/orders');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cloudwatch-logs/groups?logGroupName=%2Faws%2Flambda%2Forders',
+      {
+        method: 'DELETE',
+        signal: undefined,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(deleteLogGroup('/aws/lambda/orders')).rejects.toThrow(
+      'Log group delete request failed with status 404',
+    );
+  });
+});
+
+describe('getLogStreams', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed log streams when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        logStreams: [{ name: '2026/01/02/[$LATEST]abc', lastEventTimestamp: '2026-01-02T03:04:05Z' }],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getLogStreams('/aws/lambda/orders');
+
+    expect(result.logStreams).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cloudwatch-logs/streams?logGroupName=%2Faws%2Flambda%2Forders',
+      { signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getLogStreams('/aws/lambda/orders')).rejects.toThrow(
+      'Log streams request failed with status 404',
+    );
+  });
+});
+
+describe('getLogEvents', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed log events when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        events: [{ timestamp: '2026-01-02T03:04:05Z', message: 'hello' }],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getLogEvents('/aws/lambda/orders', '2026/01/02/[$LATEST]abc');
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].message).toBe('hello');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cloudwatch-logs/events?logGroupName=%2Faws%2Flambda%2Forders&logStreamName=2026%2F01%2F02%2F%5B%24LATEST%5Dabc',
+      { signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(
+      getLogEvents('/aws/lambda/orders', '2026/01/02/[$LATEST]abc'),
+    ).rejects.toThrow('Log events request failed with status 500');
+  });
+});
+
+describe('filterLogEvents', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed events with filter pattern and start time', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        events: [{ timestamp: '2026-01-02T03:04:05Z', message: 'boom' }],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await filterLogEvents('/aws/lambda/orders', 'ERROR', 1700000000000);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].message).toBe('boom');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cloudwatch-logs/filter?logGroupName=%2Faws%2Flambda%2Forders&filterPattern=ERROR&startTime=1700000000000',
+      { signal: undefined },
+    );
+  });
+
+  it('omits optional parameters when not supplied', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ events: [] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await filterLogEvents('/aws/lambda/orders');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cloudwatch-logs/filter?logGroupName=%2Faws%2Flambda%2Forders',
+      { signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(filterLogEvents('/aws/lambda/orders', 'ERROR')).rejects.toThrow(
+      'Log filter request failed with status 500',
+    );
   });
 });

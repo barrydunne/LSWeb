@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Foundation.Application.Activity;
 using Foundation.Application.Capabilities;
+using Foundation.Application.CloudWatchLogs;
 using Foundation.Application.Configuration;
 using Foundation.Application.Connectivity;
 using Foundation.Application.Diagnostics;
@@ -15,6 +16,7 @@ using Foundation.Application.Streaming;
 using Foundation.Infrastructure.Activity;
 using Foundation.Infrastructure.Aws;
 using Foundation.Infrastructure.Capabilities;
+using Foundation.Infrastructure.CloudWatchLogs;
 using Foundation.Infrastructure.Configuration;
 using Foundation.Infrastructure.Connectivity;
 using Foundation.Infrastructure.Diagnostics;
@@ -83,6 +85,8 @@ public static class DependencyInjection
             .AddSingleton<IResourceSource, S3ResourceSource>()
             .AddSingleton<ISqsClient, SqsClientAdapter>()
             .AddSingleton<IResourceSource, SqsResourceSource>()
+            .AddSingleton<ICloudWatchLogsClient, CloudWatchLogsClientAdapter>()
+            .AddSingleton<IResourceSource, CloudWatchLogsResourceSource>()
             .AddSingleton<IReferenceResolver, ReferenceResolver>()
             .AddSingleton<IBackendHealthProbe, BackendHealthProbe>()
             .AddSingleton<HealthStatusStore>()

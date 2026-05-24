@@ -7,6 +7,8 @@ const S3ListView = lazy(() => import('./s3/S3ListView'));
 const S3DetailView = lazy(() => import('./s3/S3DetailView'));
 const SqsListView = lazy(() => import('./sqs/SqsListView'));
 const SqsDetailView = lazy(() => import('./sqs/SqsDetailView'));
+const CloudWatchLogsListView = lazy(() => import('./cloudwatch-logs/CloudWatchLogsListView'));
+const CloudWatchLogsDetailView = lazy(() => import('./cloudwatch-logs/CloudWatchLogsDetailView'));
 
 let registered = false;
 
@@ -22,6 +24,10 @@ export function registerServiceViews(): void {
   registerServiceView('lambda', { list: LambdaListView, detail: LambdaDetailView });
   registerServiceView('s3', { list: S3ListView, detail: S3DetailView });
   registerServiceView('sqs', { list: SqsListView, detail: SqsDetailView });
+  registerServiceView('cloudwatch-logs', {
+    list: CloudWatchLogsListView,
+    detail: CloudWatchLogsDetailView,
+  });
 }
 
 registerServiceViews();

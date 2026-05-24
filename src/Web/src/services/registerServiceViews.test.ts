@@ -20,6 +20,10 @@ describe('registerServiceViews', () => {
     const sqs = getServiceView('sqs');
     expect(sqs?.list).toBeDefined();
     expect(sqs?.detail).toBeDefined();
+
+    const logs = getServiceView('cloudwatch-logs');
+    expect(logs?.list).toBeDefined();
+    expect(logs?.detail).toBeDefined();
   });
 
   it('is idempotent and does not re-register after the first call', () => {

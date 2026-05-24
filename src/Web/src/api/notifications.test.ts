@@ -4,7 +4,10 @@ import {
   createConnection,
   notificationMethod,
   streamHubUrl,
+  streamLogGroup,
   subscribeToNotifications,
+  tailMethod,
+  type LiveLogEvent,
   type Notification,
 } from './notifications';
 
@@ -87,5 +90,56 @@ describe('notifications', () => {
 
   it('exposes the stream hub url constant', () => {
     expect(streamHubUrl).toBe('/hub/stream');
+  });
+
+  it('streamLogGroup starts the connection, subscribes and forwards events', async () => {
+    let observer: {
+      next: (event: LiveLogEvent) => void;
+      error: (error: unknown) => void;
+      complete: () => void;
+    } | null = null;
+    const dispose = vi.fn();
+    const stream = vi.fn(() => ({
+      subscribe: (incoming: typeof observer) => {
+        observer = incoming;
+        return { dispose };
+      },
+    }));
+    const connection = {
+      start: vi.fn().mockResolvedValue(undefined),
+      stop: vi.fn().mockResolvedValue(undefined),
+      stream,
+    } as unknown as HubConnection;
+    const handler = vi.fn();
+
+    const subscription = await streamLogGroup('/aws/lambda/orders', 'ERROR', handler, connection);
+
+    expect(connection.start).toHaveBeenCalledTimes(1);
+    expect(stream).toHaveBeenCalledWith(tailMethod, '/aws/lambda/orders', 'ERROR');
+
+    const event: LiveLogEvent = { timestamp: '2026-01-01T00:00:00Z', message: 'live' };
+    observer!.next(event);
+    expect(handler).toHaveBeenCalledWith(event);
+    observer!.error(new Error('ignored'));
+    observer!.complete();
+
+    await subscription.stop();
+    expect(dispose).toHaveBeenCalledTimes(1);
+    expect((connection.stop as ReturnType<typeof vi.fn>)).toHaveBeenCalledTimes(1);
+  });
+
+  it('streamLogGroup creates a connection when none is supplied', async () => {
+    const dispose = vi.fn();
+    const connection = {
+      start: vi.fn().mockResolvedValue(undefined),
+      stop: vi.fn().mockResolvedValue(undefined),
+      stream: vi.fn(() => ({ subscribe: () => ({ dispose }) })),
+    } as unknown as HubConnection;
+    builderModule.__built.connection = connection;
+
+    await streamLogGroup('/aws/lambda/orders', '', vi.fn());
+
+    expect(builderModule.HubConnectionBuilder).toHaveBeenCalledTimes(1);
+    expect((connection.start as ReturnType<typeof vi.fn>)).toHaveBeenCalledTimes(1);
   });
 });

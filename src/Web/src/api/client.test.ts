@@ -78,8 +78,19 @@ import {
   deleteDynamoDbItem,
   queryDynamoDbTable,
   executeDynamoDbStatement,
+  getSecrets,
+  createSecret,
+  deleteSecret,
+  getSecretValue,
+  putSecretValue,
+  getSecretVersions,
 } from './client';
-import type { DynamoDbQueryRequest, DynamoDbStatementRequest } from './client';
+import type {
+  DynamoDbQueryRequest,
+  DynamoDbStatementRequest,
+  SecretCreateRequest,
+  SecretValueUpdateRequest,
+} from './client';
 
 describe('getLiveness', () => {
   afterEach(() => {
@@ -2822,6 +2833,217 @@ describe('executeDynamoDbStatement', () => {
 
     await expect(executeDynamoDbStatement(request)).rejects.toThrow(
       'DynamoDB statement request failed with status 400',
+    );
+  });
+});
+
+describe('getSecrets', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed secrets when the request succeeds', async () => {
+    const payload = {
+      secrets: [
+        {
+          name: 'db-password',
+          arn: 'arn:db-password',
+          description: 'primary db',
+          createdDate: null,
+          lastChangedDate: null,
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getSecrets();
+
+    expect(result.secrets).toHaveLength(1);
+    expect(result.secrets[0].name).toBe('db-password');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/secrets-manager/secrets', {
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getSecrets()).rejects.toThrow(
+      'Secrets Manager secrets request failed with status 503',
+    );
+  });
+});
+
+describe('createSecret', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const request: SecretCreateRequest = {
+    name: 'db-password',
+    description: 'primary db',
+    secretString: 's3cr3t',
+  };
+
+  it('posts the secret specification when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await createSecret(request, controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/secrets-manager/secrets', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(createSecret(request)).rejects.toThrow(
+      'Secrets Manager secret create request failed with status 400',
+    );
+  });
+});
+
+describe('deleteSecret', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends a delete request when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await deleteSecret('db-password', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/secrets-manager/secrets/db-password', {
+      method: 'DELETE',
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 409 }));
+
+    await expect(deleteSecret('db-password')).rejects.toThrow(
+      'Secrets Manager secret delete request failed with status 409',
+    );
+  });
+});
+
+describe('getSecretValue', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed secret value when the request succeeds', async () => {
+    const payload = {
+      name: 'db-password',
+      arn: 'arn:db-password',
+      versionId: 'v1',
+      value: '********',
+      revealAllowed: true,
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getSecretValue('db-password', true, controller.signal);
+
+    expect(result.name).toBe('db-password');
+    expect(result.value).toBe('********');
+    expect(result.revealAllowed).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/secrets-manager/secrets/db-password/value?reveal=true',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getSecretValue('db-password', false)).rejects.toThrow(
+      'Secrets Manager secret value request failed with status 404',
+    );
+  });
+});
+
+describe('putSecretValue', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const request: SecretValueUpdateRequest = {
+    secretString: 'new-value',
+  };
+
+  it('puts the secret value when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await putSecretValue('db-password', request, controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/secrets-manager/secrets/db-password/value',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(putSecretValue('db-password', request)).rejects.toThrow(
+      'Secrets Manager secret value update request failed with status 400',
+    );
+  });
+});
+
+describe('getSecretVersions', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed version list when the request succeeds', async () => {
+    const payload = {
+      name: 'db-password',
+      arn: 'arn:db-password',
+      versions: [
+        { versionId: 'v2', stages: ['AWSCURRENT'], createdDate: null, lastAccessedDate: null },
+        { versionId: 'v1', stages: ['AWSPREVIOUS'], createdDate: null, lastAccessedDate: null },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getSecretVersions('db-password', controller.signal);
+
+    expect(result.name).toBe('db-password');
+    expect(result.versions).toHaveLength(2);
+    expect(result.versions[0].stages).toEqual(['AWSCURRENT']);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/secrets-manager/secrets/db-password/versions',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getSecretVersions('db-password')).rejects.toThrow(
+      'Secrets Manager secret versions request failed with status 404',
     );
   });
 });

@@ -11,6 +11,8 @@ const CloudWatchLogsListView = lazy(() => import('./cloudwatch-logs/CloudWatchLo
 const CloudWatchLogsDetailView = lazy(() => import('./cloudwatch-logs/CloudWatchLogsDetailView'));
 const DynamoDbListView = lazy(() => import('./dynamodb/DynamoDbListView'));
 const DynamoDbDetailView = lazy(() => import('./dynamodb/DynamoDbDetailView'));
+const SecretsManagerListView = lazy(() => import('./secrets-manager/SecretsManagerListView'));
+const SecretsManagerDetailView = lazy(() => import('./secrets-manager/SecretsManagerDetailView'));
 
 let registered = false;
 
@@ -31,6 +33,7 @@ export function registerServiceViews(): void {
     detail: CloudWatchLogsDetailView,
   });
   registerServiceView('dynamodb', { list: DynamoDbListView, detail: DynamoDbDetailView });
+  registerServiceView('secrets-manager', { list: SecretsManagerListView, detail: SecretsManagerDetailView });
 }
 
 registerServiceViews();

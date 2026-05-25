@@ -1642,3 +1642,133 @@ export async function executeDynamoDbStatement(
   }
   return (await response.json()) as DynamoDbStatementResult;
 }
+
+export interface SecretItem {
+  name: string;
+  arn: string;
+  description: string | null;
+  createdDate: string | null;
+  lastChangedDate: string | null;
+}
+
+export interface SecretListResult {
+  secrets: SecretItem[];
+}
+
+export async function getSecrets(signal?: AbortSignal): Promise<SecretListResult> {
+  const response = await fetch('/api/services/secrets-manager/secrets', { signal });
+  if (!response.ok) {
+    throw new Error(`Secrets Manager secrets request failed with status ${response.status}`);
+  }
+  return (await response.json()) as SecretListResult;
+}
+
+export interface SecretCreateRequest {
+  name: string;
+  description: string | null;
+  secretString: string;
+}
+
+export async function createSecret(
+  request: SecretCreateRequest,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/secrets-manager/secrets', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`Secrets Manager secret create request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteSecret(
+  secretId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/secrets-manager/secrets/${encodeURIComponent(secretId)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Secrets Manager secret delete request failed with status ${response.status}`);
+  }
+}
+
+export interface SecretValueResult {
+  name: string;
+  arn: string;
+  versionId: string | null;
+  value: string;
+  revealAllowed: boolean;
+}
+
+export async function getSecretValue(
+  secretId: string,
+  reveal: boolean,
+  signal?: AbortSignal,
+): Promise<SecretValueResult> {
+  const response = await fetch(
+    `/api/services/secrets-manager/secrets/${encodeURIComponent(secretId)}/value?reveal=${reveal}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`Secrets Manager secret value request failed with status ${response.status}`);
+  }
+  return (await response.json()) as SecretValueResult;
+}
+
+export interface SecretValueUpdateRequest {
+  secretString: string;
+}
+
+export async function putSecretValue(
+  secretId: string,
+  request: SecretValueUpdateRequest,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/secrets-manager/secrets/${encodeURIComponent(secretId)}/value`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Secrets Manager secret value update request failed with status ${response.status}`);
+  }
+}
+
+export interface SecretVersionItem {
+  versionId: string;
+  stages: string[];
+  createdDate: string | null;
+  lastAccessedDate: string | null;
+}
+
+export interface SecretVersionListResult {
+  name: string;
+  arn: string;
+  versions: SecretVersionItem[];
+}
+
+export async function getSecretVersions(
+  secretId: string,
+  signal?: AbortSignal,
+): Promise<SecretVersionListResult> {
+  const response = await fetch(
+    `/api/services/secrets-manager/secrets/${encodeURIComponent(secretId)}/versions`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`Secrets Manager secret versions request failed with status ${response.status}`);
+  }
+  return (await response.json()) as SecretVersionListResult;
+}

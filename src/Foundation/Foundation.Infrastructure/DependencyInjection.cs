@@ -14,6 +14,7 @@ using Foundation.Application.S3;
 using Foundation.Application.Search;
 using Foundation.Application.SecretsManager;
 using Foundation.Application.Sqs;
+using Foundation.Application.Ssm;
 using Foundation.Application.Streaming;
 using Foundation.Infrastructure.Activity;
 using Foundation.Infrastructure.Aws;
@@ -32,6 +33,7 @@ using Foundation.Infrastructure.S3;
 using Foundation.Infrastructure.Search;
 using Foundation.Infrastructure.SecretsManager;
 using Foundation.Infrastructure.Sqs;
+using Foundation.Infrastructure.Ssm;
 using Foundation.Infrastructure.Streaming;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
@@ -95,6 +97,8 @@ public static class DependencyInjection
             .AddSingleton<IResourceSource, DynamoDbResourceSource>()
             .AddSingleton<ISecretsManagerClient, SecretsManagerClientAdapter>()
             .AddSingleton<IResourceSource, SecretsManagerResourceSource>()
+            .AddSingleton<ISsmClient, SsmClientAdapter>()
+            .AddSingleton<IResourceSource, SsmResourceSource>()
             .AddSingleton<IReferenceResolver, ReferenceResolver>()
             .AddSingleton<IBackendHealthProbe, BackendHealthProbe>()
             .AddSingleton<HealthStatusStore>()

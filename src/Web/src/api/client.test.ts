@@ -84,12 +84,19 @@ import {
   getSecretValue,
   putSecretValue,
   getSecretVersions,
+  getParameters,
+  createParameter,
+  deleteParameter,
+  getParameterValue,
+  updateParameterValue,
+  getParameterHistory,
 } from './client';
 import type {
   DynamoDbQueryRequest,
   DynamoDbStatementRequest,
   SecretCreateRequest,
   SecretValueUpdateRequest,
+  ParameterCreateRequest,
 } from './client';
 
 describe('getLiveness', () => {
@@ -3044,6 +3051,253 @@ describe('getSecretVersions', () => {
 
     await expect(getSecretVersions('db-password')).rejects.toThrow(
       'Secrets Manager secret versions request failed with status 404',
+    );
+  });
+});
+
+describe('getParameters', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed parameters when the request succeeds', async () => {
+    const payload = {
+      path: '/',
+      parameters: [
+        {
+          name: '/app/config/db-host',
+          type: 'String',
+          version: 3,
+          lastModifiedDate: null,
+          arn: 'arn:db-host',
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getParameters('/app/config', true, controller.signal);
+
+    expect(result.parameters).toHaveLength(1);
+    expect(result.parameters[0].name).toBe('/app/config/db-host');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/ssm-parameter-store/parameters?path=%2Fapp%2Fconfig&recursive=true',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getParameters('/', false)).rejects.toThrow(
+      'SSM parameters request failed with status 503',
+    );
+  });
+});
+
+describe('createParameter', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const request: ParameterCreateRequest = {
+    name: '/app/config/db-host',
+    type: 'String',
+    value: 'localhost',
+    description: 'primary config',
+  };
+
+  it('posts the parameter specification when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await createParameter(request, controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/ssm-parameter-store/parameters', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(createParameter(request)).rejects.toThrow(
+      'SSM parameter create request failed with status 400',
+    );
+  });
+});
+
+describe('deleteParameter', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends a delete request when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await deleteParameter('/app/config/db-host', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/ssm-parameter-store/parameters?name=%2Fapp%2Fconfig%2Fdb-host',
+      {
+        method: 'DELETE',
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 409 }));
+
+    await expect(deleteParameter('/app/config/db-host')).rejects.toThrow(
+      'SSM parameter delete request failed with status 409',
+    );
+  });
+});
+
+describe('getParameterValue', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const payload = {
+    name: '/app/db/password',
+    type: 'SecureString',
+    version: 3,
+    value: '********',
+    isSensitive: true,
+    revealAllowed: false,
+  };
+
+  it('requests the masked value without a reveal flag by default', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getParameterValue('/app/db/password', false, controller.signal);
+
+    expect(result.name).toBe('/app/db/password');
+    expect(result.value).toBe('********');
+    expect(result.isSensitive).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/ssm-parameter-store/parameters/value?name=%2Fapp%2Fdb%2Fpassword',
+      { signal: controller.signal },
+    );
+  });
+
+  it('appends the reveal flag when reveal is requested', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await getParameterValue('/app/db/password', true);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/ssm-parameter-store/parameters/value?name=%2Fapp%2Fdb%2Fpassword&reveal=true',
+      { signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getParameterValue('/app/db/password')).rejects.toThrow(
+      'SSM parameter value request failed with status 404',
+    );
+  });
+});
+
+describe('updateParameterValue', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the parameter value when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await updateParameterValue('/app/db/password', 'new-value', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/ssm-parameter-store/parameters/value?name=%2Fapp%2Fdb%2Fpassword',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: 'new-value' }),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(updateParameterValue('/app/db/password', 'new-value')).rejects.toThrow(
+      'SSM parameter value update request failed with status 400',
+    );
+  });
+});
+
+describe('getParameterHistory', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const payload = {
+    name: '/app/db/password',
+    revealAllowed: false,
+    entries: [
+      {
+        type: 'SecureString',
+        version: 3,
+        value: '********',
+        lastModifiedDate: '2024-05-06T07:08:09Z',
+        lastModifiedUser: 'arn:user/admin',
+        isSensitive: true,
+      },
+    ],
+  };
+
+  it('requests the masked history without a reveal flag by default', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getParameterHistory('/app/db/password', false, controller.signal);
+
+    expect(result.name).toBe('/app/db/password');
+    expect(result.entries).toHaveLength(1);
+    expect(result.entries[0].version).toBe(3);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/ssm-parameter-store/parameters/history?name=%2Fapp%2Fdb%2Fpassword',
+      { signal: controller.signal },
+    );
+  });
+
+  it('appends the reveal flag when reveal is requested', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await getParameterHistory('/app/db/password', true);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/ssm-parameter-store/parameters/history?name=%2Fapp%2Fdb%2Fpassword&reveal=true',
+      { signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getParameterHistory('/app/db/password')).rejects.toThrow(
+      'SSM parameter history request failed with status 404',
     );
   });
 });

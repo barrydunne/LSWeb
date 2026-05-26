@@ -24,6 +24,9 @@ describe('registerServiceViews', () => {
     const logs = getServiceView('cloudwatch-logs');
     expect(logs?.list).toBeDefined();
     expect(logs?.detail).toBeDefined();
+
+    const ssm = getServiceView('ssm-parameter-store');
+    expect(ssm?.list).toBeDefined();
   });
 
   it('is idempotent and does not re-register after the first call', () => {

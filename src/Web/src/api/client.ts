@@ -1772,3 +1772,148 @@ export async function getSecretVersions(
   }
   return (await response.json()) as SecretVersionListResult;
 }
+
+export interface ParameterItem {
+  name: string;
+  type: string;
+  version: number;
+  lastModifiedDate: string | null;
+  arn: string;
+}
+
+export interface ParameterListResult {
+  path: string;
+  parameters: ParameterItem[];
+}
+
+export async function getParameters(
+  path: string,
+  recursive: boolean,
+  signal?: AbortSignal,
+): Promise<ParameterListResult> {
+  const response = await fetch(
+    `/api/services/ssm-parameter-store/parameters?path=${encodeURIComponent(path)}&recursive=${recursive}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`SSM parameters request failed with status ${response.status}`);
+  }
+  return (await response.json()) as ParameterListResult;
+}
+
+export interface ParameterCreateRequest {
+  name: string;
+  type: string;
+  value: string;
+  description: string | null;
+}
+
+export async function createParameter(
+  request: ParameterCreateRequest,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/ssm-parameter-store/parameters', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`SSM parameter create request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteParameter(
+  name: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/ssm-parameter-store/parameters?name=${encodeURIComponent(name)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`SSM parameter delete request failed with status ${response.status}`);
+  }
+}
+
+export interface ParameterValueResult {
+  name: string;
+  type: string;
+  version: number;
+  value: string;
+  isSensitive: boolean;
+  revealAllowed: boolean;
+}
+
+export async function getParameterValue(
+  name: string,
+  reveal?: boolean,
+  signal?: AbortSignal,
+): Promise<ParameterValueResult> {
+  const query = reveal === true
+    ? `?name=${encodeURIComponent(name)}&reveal=true`
+    : `?name=${encodeURIComponent(name)}`;
+  const response = await fetch(
+    `/api/services/ssm-parameter-store/parameters/value${query}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`SSM parameter value request failed with status ${response.status}`);
+  }
+  return (await response.json()) as ParameterValueResult;
+}
+
+export async function updateParameterValue(
+  name: string,
+  value: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/ssm-parameter-store/parameters/value?name=${encodeURIComponent(name)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`SSM parameter value update request failed with status ${response.status}`);
+  }
+}
+
+export interface ParameterHistoryEntry {
+  type: string;
+  version: number;
+  value: string;
+  lastModifiedDate: string | null;
+  lastModifiedUser: string;
+  isSensitive: boolean;
+}
+
+export interface ParameterHistoryResult {
+  name: string;
+  revealAllowed: boolean;
+  entries: ParameterHistoryEntry[];
+}
+
+export async function getParameterHistory(
+  name: string,
+  reveal?: boolean,
+  signal?: AbortSignal,
+): Promise<ParameterHistoryResult> {
+  const query = reveal === true
+    ? `?name=${encodeURIComponent(name)}&reveal=true`
+    : `?name=${encodeURIComponent(name)}`;
+  const response = await fetch(
+    `/api/services/ssm-parameter-store/parameters/history${query}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`SSM parameter history request failed with status ${response.status}`);
+  }
+  return (await response.json()) as ParameterHistoryResult;
+}

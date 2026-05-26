@@ -13,6 +13,8 @@ const DynamoDbListView = lazy(() => import('./dynamodb/DynamoDbListView'));
 const DynamoDbDetailView = lazy(() => import('./dynamodb/DynamoDbDetailView'));
 const SecretsManagerListView = lazy(() => import('./secrets-manager/SecretsManagerListView'));
 const SecretsManagerDetailView = lazy(() => import('./secrets-manager/SecretsManagerDetailView'));
+const SsmParameterStoreListView = lazy(() => import('./ssm-parameter-store/SsmParameterStoreListView'));
+const SsmParameterStoreDetailView = lazy(() => import('./ssm-parameter-store/SsmParameterStoreDetailView'));
 
 let registered = false;
 
@@ -34,6 +36,10 @@ export function registerServiceViews(): void {
   });
   registerServiceView('dynamodb', { list: DynamoDbListView, detail: DynamoDbDetailView });
   registerServiceView('secrets-manager', { list: SecretsManagerListView, detail: SecretsManagerDetailView });
+  registerServiceView('ssm-parameter-store', {
+    list: SsmParameterStoreListView,
+    detail: SsmParameterStoreDetailView,
+  });
 }
 
 registerServiceViews();

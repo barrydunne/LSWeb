@@ -21,6 +21,7 @@
     <PackageReference Include="AWSSDK.S3" />
     <PackageReference Include="AWSSDK.SecretsManager" />
     <PackageReference Include="AWSSDK.SecurityToken" />
+    <PackageReference Include="AWSSDK.SimpleSystemsManagement" />
     <PackageReference Include="AWSSDK.SQS" />
     <PackageReference Include="Polly.Core" />
   </ItemGroup>

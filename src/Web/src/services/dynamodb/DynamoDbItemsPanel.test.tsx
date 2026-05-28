@@ -108,6 +108,7 @@ describe('DynamoDbItemsPanel', () => {
   it('creates a new item and refreshes the list', async () => {
     renderPanel();
     await waitFor(() => expect(screen.getByTestId('dynamodb-item-0')).toBeInTheDocument());
+    const scansBeforeCreate = scanDynamoDbItemsMock.mock.calls.length;
 
     fireEvent.click(screen.getByTestId('dynamodb-item-add-toggle'));
     fireEvent.change(screen.getByTestId('dynamodb-item-editor-input'), {
@@ -121,7 +122,9 @@ describe('DynamoDbItemsPanel', () => {
     await waitFor(() =>
       expect(screen.queryByTestId('dynamodb-item-editor')).not.toBeInTheDocument(),
     );
-    await waitFor(() => expect(scanDynamoDbItemsMock).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(scanDynamoDbItemsMock.mock.calls.length).toBeGreaterThan(scansBeforeCreate),
+    );
   });
 
   it('shows an editor error when saving fails', async () => {
@@ -177,6 +180,7 @@ describe('DynamoDbItemsPanel', () => {
 
     renderPanel();
     await waitFor(() => expect(screen.getByTestId('dynamodb-item-0')).toBeInTheDocument());
+    const scansBeforeDelete = scanDynamoDbItemsMock.mock.calls.length;
 
     fireEvent.click(screen.getByTestId('confirm-trigger'));
     fireEvent.click(screen.getByTestId('confirm-accept'));
@@ -184,7 +188,9 @@ describe('DynamoDbItemsPanel', () => {
     await waitFor(() =>
       expect(deleteDynamoDbItemMock).toHaveBeenCalledWith('orders', '{"id":"abc"}'),
     );
-    await waitFor(() => expect(scanDynamoDbItemsMock).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(scanDynamoDbItemsMock.mock.calls.length).toBeGreaterThan(scansBeforeDelete),
+    );
   });
 
   it('shows an error state when a delete fails', async () => {

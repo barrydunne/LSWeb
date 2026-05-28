@@ -90,6 +90,10 @@ import {
   getParameterValue,
   updateParameterValue,
   getParameterHistory,
+  getSnsTopics,
+  createSnsTopic,
+  deleteSnsTopic,
+  getSnsSubscriptions,
 } from './client';
 import type {
   DynamoDbQueryRequest,
@@ -97,6 +101,7 @@ import type {
   SecretCreateRequest,
   SecretValueUpdateRequest,
   ParameterCreateRequest,
+  SnsTopicCreateRequest,
 } from './client';
 
 describe('getLiveness', () => {
@@ -3299,5 +3304,147 @@ describe('getParameterHistory', () => {
     await expect(getParameterHistory('/app/db/password')).rejects.toThrow(
       'SSM parameter history request failed with status 404',
     );
+  });
+});
+
+describe('getSnsTopics', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed topics when the request succeeds', async () => {
+    const payload = {
+      topics: [
+        {
+          name: 'orders-topic',
+          topicArn: 'arn:aws:sns:eu-west-1:000000000000:orders-topic',
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getSnsTopics(controller.signal);
+
+    expect(result.topics).toHaveLength(1);
+    expect(result.topics[0].name).toBe('orders-topic');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/sns/topics', {
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getSnsTopics()).rejects.toThrow('SNS topics request failed with status 503');
+  });
+});
+
+describe('createSnsTopic', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const request: SnsTopicCreateRequest = {
+    name: 'orders-topic',
+  };
+
+  it('posts the topic specification when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await createSnsTopic(request, controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/sns/topics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(createSnsTopic(request)).rejects.toThrow(
+      'SNS topic create request failed with status 400',
+    );
+  });
+});
+
+describe('deleteSnsTopic', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends a delete request when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await deleteSnsTopic('arn:aws:sns:eu-west-1:000000000000:orders-topic', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/sns/topics?arn=arn%3Aaws%3Asns%3Aeu-west-1%3A000000000000%3Aorders-topic',
+      {
+        method: 'DELETE',
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 409 }));
+
+    await expect(
+      deleteSnsTopic('arn:aws:sns:eu-west-1:000000000000:orders-topic'),
+    ).rejects.toThrow('SNS topic delete request failed with status 409');
+  });
+});
+
+describe('getSnsSubscriptions', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed subscriptions when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        subscriptions: [
+          {
+            subscriptionArn: 'arn:aws:sns:eu-west-1:000000000000:orders-topic:8c1f',
+            protocol: 'sqs',
+            endpoint: 'arn:aws:sqs:eu-west-1:000000000000:orders',
+            owner: '000000000000',
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const controller = new AbortController();
+    const result = await getSnsSubscriptions(
+      'arn:aws:sns:eu-west-1:000000000000:orders-topic',
+      controller.signal,
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/sns/subscriptions?arn=arn%3Aaws%3Asns%3Aeu-west-1%3A000000000000%3Aorders-topic',
+      { signal: controller.signal },
+    );
+    expect(result.subscriptions).toHaveLength(1);
+    expect(result.subscriptions[0]?.protocol).toBe('sqs');
+    expect(result.subscriptions[0]?.endpoint).toBe('arn:aws:sqs:eu-west-1:000000000000:orders');
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(
+      getSnsSubscriptions('arn:aws:sns:eu-west-1:000000000000:orders-topic'),
+    ).rejects.toThrow('SNS subscriptions request failed with status 503');
   });
 });

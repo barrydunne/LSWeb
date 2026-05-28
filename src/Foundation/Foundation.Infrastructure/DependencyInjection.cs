@@ -13,6 +13,7 @@ using Foundation.Application.Preferences;
 using Foundation.Application.S3;
 using Foundation.Application.Search;
 using Foundation.Application.SecretsManager;
+using Foundation.Application.Sns;
 using Foundation.Application.Sqs;
 using Foundation.Application.Ssm;
 using Foundation.Application.Streaming;
@@ -32,6 +33,7 @@ using Foundation.Infrastructure.Preferences;
 using Foundation.Infrastructure.S3;
 using Foundation.Infrastructure.Search;
 using Foundation.Infrastructure.SecretsManager;
+using Foundation.Infrastructure.Sns;
 using Foundation.Infrastructure.Sqs;
 using Foundation.Infrastructure.Ssm;
 using Foundation.Infrastructure.Streaming;
@@ -99,6 +101,8 @@ public static class DependencyInjection
             .AddSingleton<IResourceSource, SecretsManagerResourceSource>()
             .AddSingleton<ISsmClient, SsmClientAdapter>()
             .AddSingleton<IResourceSource, SsmResourceSource>()
+            .AddSingleton<ISnsClient, SnsClientAdapter>()
+            .AddSingleton<IResourceSource, SnsResourceSource>()
             .AddSingleton<IReferenceResolver, ReferenceResolver>()
             .AddSingleton<IBackendHealthProbe, BackendHealthProbe>()
             .AddSingleton<HealthStatusStore>()

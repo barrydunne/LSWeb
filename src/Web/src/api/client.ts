@@ -1917,3 +1917,74 @@ export async function getParameterHistory(
   }
   return (await response.json()) as ParameterHistoryResult;
 }
+
+export interface SnsTopicItem {
+  name: string;
+  topicArn: string;
+}
+
+export interface SnsTopicListResult {
+  topics: SnsTopicItem[];
+}
+
+export async function getSnsTopics(signal?: AbortSignal): Promise<SnsTopicListResult> {
+  const response = await fetch('/api/services/sns/topics', { signal });
+  if (!response.ok) {
+    throw new Error(`SNS topics request failed with status ${response.status}`);
+  }
+  return (await response.json()) as SnsTopicListResult;
+}
+
+export interface SnsTopicCreateRequest {
+  name: string;
+}
+
+export async function createSnsTopic(
+  request: SnsTopicCreateRequest,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/sns/topics', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`SNS topic create request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteSnsTopic(arn: string, signal?: AbortSignal): Promise<void> {
+  const response = await fetch(`/api/services/sns/topics?arn=${encodeURIComponent(arn)}`, {
+    method: 'DELETE',
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`SNS topic delete request failed with status ${response.status}`);
+  }
+}
+
+export interface SnsSubscriptionItem {
+  subscriptionArn: string;
+  protocol: string;
+  endpoint: string;
+  owner: string;
+}
+
+export interface SnsSubscriptionListResult {
+  subscriptions: SnsSubscriptionItem[];
+}
+
+export async function getSnsSubscriptions(
+  topicArn: string,
+  signal?: AbortSignal,
+): Promise<SnsSubscriptionListResult> {
+  const response = await fetch(
+    `/api/services/sns/subscriptions?arn=${encodeURIComponent(topicArn)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`SNS subscriptions request failed with status ${response.status}`);
+  }
+  return (await response.json()) as SnsSubscriptionListResult;
+}

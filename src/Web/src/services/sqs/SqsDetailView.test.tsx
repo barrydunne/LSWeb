@@ -453,6 +453,13 @@ describe('SqsDetailView', () => {
 
     await waitFor(() => expect(screen.getByTestId('sqs-redrive')).toBeInTheDocument());
     expect(screen.getByTestId('sqs-redrive-target')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(resolveReferenceMock).toHaveBeenCalledWith(
+        'arn:aws:sqs:eu-west-1:000000000000:orders-dlq',
+        'sqs',
+        expect.anything(),
+      ),
+    );
     expect(screen.getByTestId('sqs-redrive-max-receive')).toHaveTextContent('after 5 receives');
     expect(screen.queryByTestId('sqs-redrive-source-list')).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Redrive messages' })).not.toBeInTheDocument();

@@ -27,6 +27,10 @@ describe('registerServiceViews', () => {
 
     const ssm = getServiceView('ssm-parameter-store');
     expect(ssm?.list).toBeDefined();
+
+    const sns = getServiceView('sns');
+    expect(sns?.list).toBeDefined();
+    expect(sns?.detail).toBeDefined();
   });
 
   it('is idempotent and does not re-register after the first call', () => {

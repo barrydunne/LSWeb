@@ -93,6 +93,15 @@ public interface ILambdaClient
     Task<Result<IReadOnlyList<LambdaEventSourceMapping>>> ListEventSourceMappingsAsync(string functionName, CancellationToken cancellationToken);
 
     /// <summary>
+    /// List the S3 buckets configured to trigger a Lambda function, read from the function's
+    /// resource-based policy.
+    /// </summary>
+    /// <param name="functionName">The name of the function whose S3 triggers to list.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The S3 triggers on success; otherwise a failure describing the error.</returns>
+    Task<Result<IReadOnlyList<LambdaS3Trigger>>> ListS3TriggersAsync(string functionName, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Enable or disable an existing Lambda event source mapping.
     /// </summary>
     /// <param name="uuid">The unique identifier of the mapping to update.</param>

@@ -20,4 +20,14 @@ public interface IRedactionService
     /// <param name="reveal">Whether the caller has explicitly requested the unmasked value.</param>
     /// <returns>The unmasked value when reveal is requested and permitted; otherwise the masked form.</returns>
     string Resolve(ConfigValue value, bool reveal);
+
+    /// <summary>
+    /// Resolve the display form of a user-owned secret value, masking it by default but honouring an
+    /// explicit reveal request without the host diagnostic gate. Secrets are surfaced through dedicated
+    /// service views whose purpose is to inspect their own values, so reveal is always available.
+    /// </summary>
+    /// <param name="value">The secret value to resolve.</param>
+    /// <param name="reveal">Whether the caller has explicitly requested the unmasked value.</param>
+    /// <returns>The unmasked value when reveal is requested; otherwise the masked form.</returns>
+    string ResolveUserSecret(ConfigValue value, bool reveal);
 }

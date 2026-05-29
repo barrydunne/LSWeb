@@ -23,4 +23,12 @@ internal sealed class RedactionService : IRedactionService
 
         return reveal && _allowReveal ? value.Value : value.Display;
     }
+
+    public string ResolveUserSecret(ConfigValue value, bool reveal)
+    {
+        if (!value.IsSensitive)
+            return value.Value;
+
+        return reveal ? value.Value : value.Display;
+    }
 }

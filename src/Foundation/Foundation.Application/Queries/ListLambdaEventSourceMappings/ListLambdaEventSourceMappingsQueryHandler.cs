@@ -20,19 +20,31 @@ internal sealed partial class ListLambdaEventSourceMappingsQueryHandler : IQuery
     {
         LogHandling(request.FunctionName);
         var mappings = await _client.ListEventSourceMappingsAsync(request.FunctionName, cancellationToken);
-        LogHandled(mappings.IsSuccess);
-
         if (!mappings.IsSuccess)
         {
+            LogHandled(false);
             Result<ListLambdaEventSourceMappingsQueryResult> failure = mappings.Error!.Value;
             return failure;
         }
 
-        var ordered = mappings.Value
+        var triggers = await _client.ListS3TriggersAsync(request.FunctionName, cancellationToken);
+        if (!triggers.IsSuccess)
+        {
+            LogHandled(false);
+            Result<ListLambdaEventSourceMappingsQueryResult> failure = triggers.Error!.Value;
+            return failure;
+        }
+
+        LogHandled(true);
+
+        var orderedMappings = mappings.Value
             .OrderBy(_ => _.EventSourceArn, StringComparer.Ordinal)
             .ToList();
+        var orderedTriggers = triggers.Value
+            .OrderBy(_ => _.BucketArn, StringComparer.Ordinal)
+            .ToList();
 
-        return new ListLambdaEventSourceMappingsQueryResult(ordered);
+        return new ListLambdaEventSourceMappingsQueryResult(orderedMappings, orderedTriggers);
     }
 
     [LoggerMessage(LogLevel.Trace, "Listing Lambda event source mappings for {FunctionName}.")]

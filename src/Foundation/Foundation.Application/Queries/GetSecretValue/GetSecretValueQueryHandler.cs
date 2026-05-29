@@ -32,7 +32,7 @@ internal sealed partial class GetSecretValueQueryHandler : IQueryHandler<GetSecr
             return failure;
         }
 
-        var value = _redaction.Resolve(
+        var value = _redaction.ResolveUserSecret(
             new ConfigValue(secret.Value.Name, secret.Value.SecretString, ConfigSource.Default, IsSensitive: true),
             request.Reveal);
 
@@ -41,7 +41,7 @@ internal sealed partial class GetSecretValueQueryHandler : IQueryHandler<GetSecr
             secret.Value.Arn,
             secret.Value.VersionId,
             value,
-            _redaction.CanReveal);
+            RevealAllowed: true);
     }
 
     [LoggerMessage(LogLevel.Trace, "Getting Secrets Manager secret value for {SecretId}. Reveal: {Reveal}")]

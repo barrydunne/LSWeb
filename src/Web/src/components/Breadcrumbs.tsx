@@ -10,8 +10,14 @@ function buildCrumbs(pathname: string): Crumb[] {
   const segments = pathname.split('/').filter((segment) => segment.length > 0);
   const crumbs: Crumb[] = [{ label: 'Home', href: '/' }];
   let cumulative = '';
-  for (const segment of segments) {
+  for (const [index, segment] of segments.entries()) {
     cumulative += `/${segment}`;
+    // The leading "services" segment is a routing prefix with no page of its
+    // own (/services 404s), so it is accumulated into child hrefs but never
+    // rendered as a crumb.
+    if (index === 0 && segment === 'services') {
+      continue;
+    }
     crumbs.push({ label: decodeURIComponent(segment), href: cumulative });
   }
   return crumbs;

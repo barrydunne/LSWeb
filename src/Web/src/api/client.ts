@@ -558,8 +558,13 @@ export interface LambdaEventSourceMappingItem {
   lastModified: string;
 }
 
+export interface LambdaS3TriggerItem {
+  bucketArn: string;
+}
+
 export interface LambdaEventSourceMappingListResult {
   mappings: LambdaEventSourceMappingItem[];
+  s3Triggers: LambdaS3TriggerItem[];
 }
 
 export async function getLambdaEventSourceMappings(
@@ -894,6 +899,30 @@ export async function getSqsQueueSubscriptions(
   return (await response.json()) as SqsSubscriptionListResult;
 }
 
+export interface SqsConsumerLambdaItem {
+  functionName: string;
+  functionArn: string;
+  state: string;
+}
+
+export interface SqsConsumerLambdaListResult {
+  lambdas: SqsConsumerLambdaItem[];
+}
+
+export async function getSqsQueueConsumerLambdas(
+  queueName: string,
+  signal?: AbortSignal,
+): Promise<SqsConsumerLambdaListResult> {
+  const response = await fetch(
+    `/api/services/sqs/queues/${encodeURIComponent(queueName)}/lambda-triggers`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`SQS consumer Lambdas request failed with status ${response.status}`);
+  }
+  return (await response.json()) as SqsConsumerLambdaListResult;
+}
+
 export interface SqsQueueAttributesItem {
   visibilityTimeoutSeconds: number;
   messageRetentionPeriodSeconds: number;
@@ -902,6 +931,9 @@ export interface SqsQueueAttributesItem {
   maximumMessageSizeBytes: number;
   queueArn: string;
   fifoQueue: boolean;
+  approximateMessageCount: number;
+  approximateInFlightCount: number;
+  approximateDelayedCount: number;
 }
 
 export interface SqsQueueAttributesUpdateInput {
@@ -1223,6 +1255,8 @@ export interface S3NotificationResult {
   type: string;
   targetArn: string;
   events: string[];
+  prefix: string;
+  suffix: string;
 }
 
 export interface S3BucketConfigurationResult {

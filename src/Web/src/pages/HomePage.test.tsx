@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { ThemeProvider } from '@primer/react';
 import { MemoryRouter } from 'react-router-dom';
 import { HomePage } from './HomePage';
@@ -49,7 +49,7 @@ describe('HomePage', () => {
   });
 
   afterEach(() => {
-    vi.resetAllMocks();
+    vi.clearAllMocks();
   });
 
   it('shows a loading message while the catalogue is pending', () => {
@@ -61,7 +61,7 @@ describe('HomePage', () => {
     expect(screen.getByTestId('home-recent-empty')).toBeInTheDocument();
   });
 
-  it('renders quick links capped at the limit, sourced from the catalogue', async () => {
+  it('renders a quick link for every service in the catalogue', async () => {
     getCatalogueMock.mockResolvedValue({
       services: Array.from({ length: 8 }, (_, index) =>
         service({ key: `svc-${index}`, displayName: `Service ${index}`, route: `/services/svc-${index}` }),
@@ -73,8 +73,40 @@ describe('HomePage', () => {
     await waitFor(() => expect(screen.getByTestId('home-quick-links')).toBeInTheDocument());
 
     const links = screen.getAllByTestId('home-quick-link');
-    expect(links).toHaveLength(6);
+    expect(links).toHaveLength(8);
     expect(links[0]).toHaveAttribute('href', '/services/svc-0');
+  });
+
+  it('groups recently-viewed resources onto their service cards, capped at three', async () => {
+    getCatalogueMock.mockResolvedValue({
+      services: [
+        service({ key: 'sqs', displayName: 'Simple Queue Service', route: '/services/sqs' }),
+        service({ key: 's3', displayName: 'Simple Storage Service', route: '/services/s3' }),
+        service({ key: 'lambda', displayName: 'Lambda', route: '/services/lambda' }),
+      ],
+    });
+    getRecentlyViewedMock.mockResolvedValue({
+      references: ['sqs://a', 'sqs://b', 'sqs://c', 'sqs://d', 's3://x', 'broken'],
+    });
+    resolveReferenceMock.mockImplementation((reference) => {
+      if (reference === 'broken') {
+        return Promise.reject(new Error('unresolved'));
+      }
+      const [serviceKey, resourceId] = reference.split('://');
+      return Promise.resolve({ serviceKey, resourceId, route: `/services/${serviceKey}/${resourceId}` });
+    });
+
+    renderHome();
+
+    await waitFor(() => expect(screen.getAllByTestId('home-quick-link-card')).toHaveLength(3));
+    await waitFor(() => expect(screen.getAllByTestId('home-quick-link-resource')).toHaveLength(4));
+
+    const cards = screen.getAllByTestId('home-quick-link-card');
+    expect(within(cards[0]).getAllByTestId('home-quick-link-resource')).toHaveLength(3);
+    expect(within(cards[0]).getByText('a')).toBeInTheDocument();
+    expect(within(cards[0]).queryByText('d')).not.toBeInTheDocument();
+    expect(within(cards[1]).getAllByTestId('home-quick-link-resource')).toHaveLength(1);
+    expect(within(cards[2]).queryByTestId('home-quick-link-resources')).not.toBeInTheDocument();
   });
 
   it('filters the quick links by the search query', async () => {

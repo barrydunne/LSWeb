@@ -12,6 +12,7 @@ import {
   getLambdaLogEvents,
   getLambdaInvocationInsights,
   getLambdaLayers,
+  resolveReference,
 } from '../../api/client';
 import type { LambdaFunctionResult } from '../../api/client';
 
@@ -25,6 +26,7 @@ const getLambdaEventSourceMappingsMock = vi.mocked(getLambdaEventSourceMappings)
 const getLambdaLogEventsMock = vi.mocked(getLambdaLogEvents);
 const getLambdaInvocationInsightsMock = vi.mocked(getLambdaInvocationInsights);
 const getLambdaLayersMock = vi.mocked(getLambdaLayers);
+const resolveReferenceMock = vi.mocked(resolveReference);
 
 const functionResult: LambdaFunctionResult = {
   functionName: 'process-orders',
@@ -51,13 +53,14 @@ describe('LambdaDetailView', () => {
     getLambdaFunctionMock.mockResolvedValue(functionResult);
     getLambdaEnvironmentMock.mockResolvedValue({ variables: [], revealAllowed: false });
     getLambdaTestEventsMock.mockResolvedValue({ events: [], templates: [] });
-    getLambdaEventSourceMappingsMock.mockResolvedValue({ mappings: [] });
+    getLambdaEventSourceMappingsMock.mockResolvedValue({ mappings: [], s3Triggers: [] });
     getLambdaLogEventsMock.mockResolvedValue({ logGroupName: '/aws/lambda/process-orders', events: [] });
     getLambdaInvocationInsightsMock.mockResolvedValue({
       logGroupName: '/aws/lambda/process-orders',
       metrics: { invocationCount: 0, errorCount: 0, averageDurationMs: 0, maxDurationMs: 0 },
       recentInvocations: [],
     });
+    resolveReferenceMock.mockRejectedValue(new Error('unresolved'));
     getLambdaLayersMock.mockResolvedValue({ layers: [] });
   });
 

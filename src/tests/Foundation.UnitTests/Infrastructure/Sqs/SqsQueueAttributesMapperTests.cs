@@ -17,6 +17,9 @@ public class SqsQueueAttributesMapperTests
             ["MaximumMessageSize"] = "262144",
             ["QueueArn"] = "arn:aws:sqs:eu-west-1:000000000000:orders",
             ["FifoQueue"] = "true",
+            ["ApproximateNumberOfMessages"] = "7",
+            ["ApproximateNumberOfMessagesNotVisible"] = "3",
+            ["ApproximateNumberOfMessagesDelayed"] = "2",
         };
 
         // Act
@@ -30,6 +33,9 @@ public class SqsQueueAttributesMapperTests
         result.MaximumMessageSizeBytes.Should().Be(262144);
         result.QueueArn.Should().Be("arn:aws:sqs:eu-west-1:000000000000:orders");
         result.FifoQueue.Should().BeTrue();
+        result.ApproximateMessageCount.Should().Be(7);
+        result.ApproximateInFlightCount.Should().Be(3);
+        result.ApproximateDelayedCount.Should().Be(2);
     }
 
     [Fact]
@@ -46,6 +52,9 @@ public class SqsQueueAttributesMapperTests
         result.MaximumMessageSizeBytes.Should().Be(0);
         result.QueueArn.Should().BeEmpty();
         result.FifoQueue.Should().BeFalse();
+        result.ApproximateMessageCount.Should().Be(0);
+        result.ApproximateInFlightCount.Should().Be(0);
+        result.ApproximateDelayedCount.Should().Be(0);
     }
 
     [Fact]
@@ -94,5 +103,21 @@ public class SqsQueueAttributesMapperTests
 
         // Assert
         result.FifoQueue.Should().BeFalse();
+    }
+
+    [Fact]
+    public void ToAttributes_WhenCountUnparseable_DefaultsToZero()
+    {
+        // Arrange
+        var attributes = new Dictionary<string, string>
+        {
+            ["ApproximateNumberOfMessages"] = "lots",
+        };
+
+        // Act
+        var result = SqsQueueAttributesMapper.ToAttributes(attributes);
+
+        // Assert
+        result.ApproximateMessageCount.Should().Be(0);
     }
 }

@@ -132,13 +132,21 @@ const hiddenInputStyle: CSSProperties = { display: 'none' };
 
 const actionsCellStyle: CSSProperties = {
   ...cellStyle,
+  textAlign: 'right',
   whiteSpace: 'nowrap',
+};
+
+const actionsRowStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
+  flexWrap: 'nowrap',
+  gap: 12,
 };
 
 const downloadLinkStyle: CSSProperties = {
   fontSize: 13,
   color: '#58a6ff',
-  marginRight: 12,
 };
 
 const previewButtonStyle: CSSProperties = {
@@ -148,7 +156,6 @@ const previewButtonStyle: CSSProperties = {
   background: 'transparent',
   color: '#58a6ff',
   cursor: 'pointer',
-  marginRight: 12,
 };
 
 const previewPanelStyle: CSSProperties = {
@@ -197,7 +204,6 @@ const presignButtonStyle: CSSProperties = {
   background: 'transparent',
   color: '#58a6ff',
   cursor: 'pointer',
-  marginRight: 12,
 };
 
 const presignUrlStyle: CSSProperties = {
@@ -780,7 +786,7 @@ export function S3DetailView({ resourceId }: ServiceDetailViewProps) {
               <th style={cellStyle}>Type</th>
               <th style={cellStyle}>Size</th>
               <th style={cellStyle}>Last modified</th>
-              <th style={cellStyle}>Actions</th>
+              <th style={actionsCellStyle}>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -809,51 +815,53 @@ export function S3DetailView({ resourceId }: ServiceDetailViewProps) {
                 <td style={cellStyle}>{object.size}</td>
                 <td style={cellStyle}>{object.lastModified}</td>
                 <td style={actionsCellStyle}>
-                  <button
-                    type="button"
-                    data-testid="s3-detail-preview-button"
-                    style={previewButtonStyle}
-                    onClick={() => handlePreview(object.key)}
-                  >
-                    Preview
-                  </button>
-                  <button
-                    type="button"
-                    data-testid="s3-detail-presign-button"
-                    style={presignButtonStyle}
-                    onClick={() => openPresign(object.key)}
-                  >
-                    Share link
-                  </button>
-                  <button
-                    type="button"
-                    data-testid="s3-detail-meta-button"
-                    style={presignButtonStyle}
-                    onClick={() => openMeta(object.key)}
-                  >
-                    Details
-                  </button>
-                  <button
-                    type="button"
-                    data-testid="s3-detail-transfer-button"
-                    style={presignButtonStyle}
-                    onClick={() => openTransfer(object.key)}
-                  >
-                    Copy/Move
-                  </button>
-                  <a
-                    data-testid="s3-detail-download-link"
-                    style={downloadLinkStyle}
-                    href={s3ObjectDownloadUrl(bucketName, object.key)}
-                  >
-                    Download
-                  </a>
-                  <ConfirmationHost
-                    actionLabel="Delete"
-                    prompt={`Delete ${objectName(object.key, prefix)}?`}
-                    confirmLabel="Confirm"
-                    onConfirm={() => handleDelete(object.key)}
-                  />
+                  <div style={actionsRowStyle}>
+                    <button
+                      type="button"
+                      data-testid="s3-detail-preview-button"
+                      style={previewButtonStyle}
+                      onClick={() => handlePreview(object.key)}
+                    >
+                      Preview
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="s3-detail-presign-button"
+                      style={presignButtonStyle}
+                      onClick={() => openPresign(object.key)}
+                    >
+                      Share link
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="s3-detail-meta-button"
+                      style={presignButtonStyle}
+                      onClick={() => openMeta(object.key)}
+                    >
+                      Details
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="s3-detail-transfer-button"
+                      style={presignButtonStyle}
+                      onClick={() => openTransfer(object.key)}
+                    >
+                      Copy/Move
+                    </button>
+                    <a
+                      data-testid="s3-detail-download-link"
+                      style={downloadLinkStyle}
+                      href={s3ObjectDownloadUrl(bucketName, object.key)}
+                    >
+                      Download
+                    </a>
+                    <ConfirmationHost
+                      actionLabel="Delete"
+                      prompt={`Delete ${objectName(object.key, prefix)}?`}
+                      confirmLabel="Confirm"
+                      onConfirm={() => handleDelete(object.key)}
+                    />
+                  </div>
                 </td>
               </tr>
             ))}

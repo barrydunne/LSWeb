@@ -28,8 +28,8 @@ public class GetS3BucketConfigurationQueryHandlerTests
             },
             new List<S3NotificationConfiguration>
             {
-                new("Lambda", "arn:aws:lambda:us-east-1:000000000000:function:process", ["s3:ObjectCreated:*"]),
-                new("Queue", "arn:aws:sqs:us-east-1:000000000000:events", ["s3:ObjectRemoved:*"]),
+                new("Lambda", "arn:aws:lambda:us-east-1:000000000000:function:process", ["s3:ObjectCreated:*"], "uploads/", ".json"),
+                new("Queue", "arn:aws:sqs:us-east-1:000000000000:events", ["s3:ObjectRemoved:*"], string.Empty, string.Empty),
             },
             "{\"Version\":\"2012-10-17\"}");
         _client
@@ -54,8 +54,8 @@ public class GetS3BucketConfigurationQueryHandlerTests
         result.Value.Notifications.Should().BeEquivalentTo(
             new[]
             {
-                new S3NotificationResult("Lambda", "arn:aws:lambda:us-east-1:000000000000:function:process", ["s3:ObjectCreated:*"]),
-                new S3NotificationResult("Queue", "arn:aws:sqs:us-east-1:000000000000:events", ["s3:ObjectRemoved:*"]),
+                new S3NotificationResult("Lambda", "arn:aws:lambda:us-east-1:000000000000:function:process", ["s3:ObjectCreated:*"], "uploads/", ".json"),
+                new S3NotificationResult("Queue", "arn:aws:sqs:us-east-1:000000000000:events", ["s3:ObjectRemoved:*"], string.Empty, string.Empty),
             },
             options => options.WithStrictOrdering());
         await _client.Received(1).GetBucketConfigurationAsync("data", Arg.Any<CancellationToken>());

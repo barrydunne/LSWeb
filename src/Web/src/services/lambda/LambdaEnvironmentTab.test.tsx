@@ -107,6 +107,52 @@ describe('LambdaEnvironmentTab', () => {
     expect(screen.getByTestId('lambda-environment-reveal')).toHaveTextContent('Hide values');
   });
 
+  it('reveals values when the sensitive badge is clicked', async () => {
+    const user = userEvent.setup();
+    getLambdaEnvironmentMock.mockResolvedValueOnce(environment).mockResolvedValueOnce({
+      variables: [
+        { name: 'API_KEY', value: 'super-secret', isSensitive: true },
+        { name: 'REGION', value: 'eu-west-1', isSensitive: false },
+      ],
+      revealAllowed: true,
+    });
+
+    renderTab();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('lambda-environment-tab')).toBeInTheDocument(),
+    );
+
+    await user.click(screen.getByTestId('lambda-environment-sensitive-0'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('lambda-environment-value-2')).toHaveValue('super-secret'),
+    );
+    expect(getLambdaEnvironmentMock).toHaveBeenLastCalledWith('process-orders', true, undefined);
+  });
+
+  it('renders the sensitive badge as a static indicator when revealing is not allowed', async () => {
+    const user = userEvent.setup();
+    getLambdaEnvironmentMock.mockResolvedValue({
+      variables: [{ name: 'API_KEY', value: '********', isSensitive: true }],
+      revealAllowed: false,
+    });
+
+    renderTab();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('lambda-environment-tab')).toBeInTheDocument(),
+    );
+
+    const badge = screen.getByTestId('lambda-environment-sensitive-0');
+    expect(badge.tagName).toBe('SPAN');
+
+    getLambdaEnvironmentMock.mockClear();
+    await user.click(badge);
+
+    expect(getLambdaEnvironmentMock).not.toHaveBeenCalled();
+  });
+
   it('adds, edits and removes variable rows', async () => {
     const user = userEvent.setup();
     renderTab();

@@ -34,7 +34,7 @@ internal sealed partial class GetLambdaEnvironmentQueryHandler : IQueryHandler<G
         }
 
         var variables = environment.Value
-            .OrderBy(pair => pair.Key, StringComparer.Ordinal)
+            .OrderBy(pair => pair.Key, StringComparer.OrdinalIgnoreCase)
             .Select(pair =>
             {
                 var isSensitive = LambdaEnvironmentClassifier.IsSensitive(pair.Key);

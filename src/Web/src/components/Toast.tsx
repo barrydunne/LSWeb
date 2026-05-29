@@ -1,7 +1,10 @@
+import { useEffect, useRef } from 'react';
 import { Button, Label, Text } from '@primer/react';
 import type { Notification, OperationState } from '../api/notifications';
 
 type LabelVariant = 'accent' | 'success' | 'danger';
+
+const autoDismissMs = 5000;
 
 const variantByState: Record<OperationState, LabelVariant> = {
   InProgress: 'accent',
@@ -32,6 +35,17 @@ export interface ToastProps {
 }
 
 export function Toast({ notification, onDismiss }: ToastProps) {
+  const onDismissRef = useRef(onDismiss);
+  onDismissRef.current = onDismiss;
+
+  useEffect(() => {
+    if (notification.state === 'InProgress') {
+      return;
+    }
+    const handle = setTimeout(() => onDismissRef.current(), autoDismissMs);
+    return () => clearTimeout(handle);
+  }, [notification.state]);
+
   return (
     <div data-testid="toast" style={toastStyle}>
       <Label variant={variantByState[notification.state]} data-testid="toast-status">

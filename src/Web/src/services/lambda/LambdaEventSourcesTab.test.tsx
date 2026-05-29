@@ -8,7 +8,7 @@ import {
   setLambdaEventSourceMappingState,
   resolveReference,
 } from '../../api/client';
-import type { LambdaEventSourceMappingItem } from '../../api/client';
+import type { LambdaEventSourceMappingItem, LambdaS3TriggerItem } from '../../api/client';
 
 vi.mock('../../api/client');
 
@@ -32,6 +32,10 @@ const disabledMapping: LambdaEventSourceMappingItem = {
   state: 'Disabled',
   batchSize: 5,
   lastModified: '2026-01-03T03:04:05.0000000Z',
+};
+
+const s3Trigger: LambdaS3TriggerItem = {
+  bucketArn: 'arn:aws:s3:::orders-bucket',
 };
 
 function renderTab() {
@@ -70,7 +74,7 @@ describe('LambdaEventSourcesTab', () => {
   });
 
   it('shows an empty state when there are no mappings', async () => {
-    getMappingsMock.mockResolvedValue({ mappings: [] });
+    getMappingsMock.mockResolvedValue({ mappings: [], s3Triggers: [] });
 
     renderTab();
 
@@ -81,7 +85,7 @@ describe('LambdaEventSourcesTab', () => {
   });
 
   it('renders enabled and disabled mappings with their details', async () => {
-    getMappingsMock.mockResolvedValue({ mappings: [enabledMapping, disabledMapping] });
+    getMappingsMock.mockResolvedValue({ mappings: [enabledMapping, disabledMapping], s3Triggers: [] });
 
     renderTab();
 
@@ -94,10 +98,54 @@ describe('LambdaEventSourcesTab', () => {
     expect(screen.getByTestId('lambda-event-source-state-uuid-2')).toHaveTextContent('Disabled');
     expect(screen.getByTestId('lambda-event-source-toggle-uuid-2')).toHaveTextContent('Enable');
     expect(screen.getByTestId('lambda-event-source-uuid-1')).toHaveTextContent('10');
+    expect(screen.getByTestId('lambda-event-source-type-uuid-1')).toHaveTextContent('SQS');
+    expect(screen.getByTestId('lambda-event-source-type-uuid-2')).toHaveTextContent('DynamoDB');
+  });
+
+  it('labels an unrecognised event source by its ARN service segment', async () => {
+    getMappingsMock.mockResolvedValue({
+      mappings: [
+        {
+          ...enabledMapping,
+          uuid: 'uuid-9',
+          eventSourceArn: 'arn:aws:docdb:us-east-1:000000000000:cluster/demo',
+        },
+      ],
+      s3Triggers: [],
+    });
+
+    renderTab();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('lambda-event-sources-tab')).toBeInTheDocument(),
+    );
+
+    expect(screen.getByTestId('lambda-event-source-type-uuid-9')).toHaveTextContent('DOCDB');
+  });
+
+  it('renders S3 triggers surfaced from the function policy', async () => {
+    getMappingsMock.mockResolvedValue({ mappings: [], s3Triggers: [s3Trigger] });
+
+    renderTab();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('lambda-event-sources-tab')).toBeInTheDocument(),
+    );
+
+    expect(
+      screen.getByTestId('lambda-s3-trigger-arn:aws:s3:::orders-bucket'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('lambda-s3-trigger-type-arn:aws:s3:::orders-bucket'),
+    ).toHaveTextContent('S3');
+    expect(screen.getByTestId('lambda-s3-trigger-arn:aws:s3:::orders-bucket')).toHaveTextContent(
+      'S3 bucket notification',
+    );
+    expect(screen.queryByTestId('lambda-event-sources-empty')).not.toBeInTheDocument();
   });
 
   it('disables an enabled mapping and reloads', async () => {
-    getMappingsMock.mockResolvedValue({ mappings: [enabledMapping] });
+    getMappingsMock.mockResolvedValue({ mappings: [enabledMapping], s3Triggers: [] });
     setStateMock.mockResolvedValue();
     const user = userEvent.setup();
 
@@ -116,7 +164,7 @@ describe('LambdaEventSourcesTab', () => {
   });
 
   it('enables a disabled mapping and reloads', async () => {
-    getMappingsMock.mockResolvedValue({ mappings: [disabledMapping] });
+    getMappingsMock.mockResolvedValue({ mappings: [disabledMapping], s3Triggers: [] });
     setStateMock.mockResolvedValue();
     const user = userEvent.setup();
 
@@ -134,7 +182,7 @@ describe('LambdaEventSourcesTab', () => {
   });
 
   it('shows an action error when the toggle fails', async () => {
-    getMappingsMock.mockResolvedValue({ mappings: [enabledMapping] });
+    getMappingsMock.mockResolvedValue({ mappings: [enabledMapping], s3Triggers: [] });
     setStateMock.mockRejectedValue(new Error('boom'));
     const user = userEvent.setup();
 

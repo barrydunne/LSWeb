@@ -52,6 +52,12 @@ const badgeStyle: CSSProperties = {
   color: '#e3b341',
 };
 
+const sensitiveButtonStyle: CSSProperties = {
+  ...badgeStyle,
+  background: 'transparent',
+  cursor: 'pointer',
+};
+
 const messageStyle: CSSProperties = { fontSize: 14 };
 
 interface EditableRow {
@@ -189,9 +195,22 @@ export function LambdaEnvironmentTab({ functionName }: { functionName: string })
             onChange={(event) => handleValueChange(row.id, event.target.value)}
           />
           {row.isSensitive ? (
-            <span data-testid={`lambda-environment-sensitive-${row.id}`} style={badgeStyle}>
-              Sensitive
-            </span>
+            result?.revealAllowed ? (
+              <button
+                type="button"
+                data-testid={`lambda-environment-sensitive-${row.id}`}
+                style={sensitiveButtonStyle}
+                onClick={handleToggleReveal}
+                title={reveal ? 'Hide value' : 'Reveal value'}
+                aria-pressed={reveal}
+              >
+                {reveal ? 'Sensitive \u00b7 hide' : 'Sensitive \u00b7 reveal'}
+              </button>
+            ) : (
+              <span data-testid={`lambda-environment-sensitive-${row.id}`} style={badgeStyle}>
+                Sensitive
+              </span>
+            )
           ) : null}
           <button
             type="button"

@@ -13,5 +13,7 @@ public record ListLambdaEventSourceMappingsQuery(string FunctionName) : IQuery<L
 /// The event source mappings configured for a Lambda function.
 /// </summary>
 /// <param name="Mappings">The event source mappings, ordered by their source ARN.</param>
+/// <param name="S3Triggers">The S3 buckets configured to trigger the function, ordered by their bucket ARN.</param>
 public record ListLambdaEventSourceMappingsQueryResult(
-    IReadOnlyList<LambdaEventSourceMapping> Mappings);
+    IReadOnlyList<LambdaEventSourceMapping> Mappings,
+    IReadOnlyList<LambdaS3Trigger> S3Triggers);

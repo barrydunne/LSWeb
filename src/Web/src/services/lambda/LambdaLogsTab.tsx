@@ -4,6 +4,7 @@ import { Button, Text } from '@primer/react';
 import { getLambdaLogEvents } from '../../api/client';
 import type { LambdaLogEventItem } from '../../api/client';
 import { AutoRefreshToggle } from '../../components/AutoRefreshToggle';
+import { ResourceLink } from '../../components/ResourceLink';
 
 const containerStyle: CSSProperties = {
   display: 'flex',
@@ -101,11 +102,10 @@ export function LambdaLogsTab({ functionName }: { functionName: string }) {
     <div data-testid="lambda-logs-tab" style={containerStyle}>
       <div style={headerStyle}>
         <div>
-          <Text style={labelStyle}>Log group</Text>
-          <Text data-testid="lambda-logs-group" style={valueStyle}>
-            {' '}
-            {logGroupName}
-          </Text>
+          <Text style={labelStyle}>Log group</Text>{' '}
+          <span data-testid="lambda-logs-group" style={valueStyle}>
+            <ResourceLink reference={logGroupName} service="cloudwatch-logs" />
+          </span>
         </div>
         <div style={controlsStyle}>
           <Button size="small" data-testid="lambda-logs-refresh" onClick={() => void load()}>

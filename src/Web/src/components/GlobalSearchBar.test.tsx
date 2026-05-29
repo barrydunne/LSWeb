@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { ThemeProvider } from '@primer/react';
 import { MemoryRouter } from 'react-router-dom';
 import { GlobalSearchBar } from './GlobalSearchBar';
@@ -178,5 +179,20 @@ describe('GlobalSearchBar', () => {
 
     await waitFor(() => expect(screen.getByTestId('search-results-group')).toBeInTheDocument());
     expect(screen.queryByTestId('search-results-state')).not.toBeInTheDocument();
+  });
+
+  it('hides the results panel and clears the query after a result is clicked', async () => {
+    getSearchMock.mockResolvedValue({ matches: [match('sqs', 'orders')] });
+
+    renderBar();
+    type('ord');
+
+    const link = await screen.findByRole('link', { name: 'orders' });
+    expect(screen.getByTestId('global-search-panel')).toBeInTheDocument();
+
+    await userEvent.click(link);
+
+    await waitFor(() => expect(screen.queryByTestId('global-search-panel')).not.toBeInTheDocument());
+    expect(screen.getByTestId('global-search-input')).toHaveValue('');
   });
 });

@@ -37,7 +37,8 @@ internal sealed partial class GetS3BucketConfigurationQueryHandler
             .ToList();
         var notifications = value.Notifications
             .Select(notification => new S3NotificationResult(
-                notification.Type, notification.TargetArn, notification.Events))
+                notification.Type, notification.TargetArn, notification.Events,
+                notification.Prefix, notification.Suffix))
             .ToList();
 
         return new GetS3BucketConfigurationQueryResult(

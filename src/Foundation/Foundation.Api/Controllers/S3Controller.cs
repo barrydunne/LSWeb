@@ -389,7 +389,8 @@ public partial class S3Controller : ControllerBase
                     .ToList(),
                 configuration.Notifications
                     .Select(notification => new S3NotificationResponse(
-                        notification.Type, notification.TargetArn, notification.Events))
+                        notification.Type, notification.TargetArn, notification.Events,
+                        notification.Prefix, notification.Suffix))
                     .ToList(),
                 configuration.Policy)),
             error => error.AsHttpResult());

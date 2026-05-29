@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
-import { Heading, Label, Text } from '@primer/react';
+import { Heading, Text } from '@primer/react';
 import { Link } from 'react-router-dom';
 import {
   getCatalogue,
   getFavourites,
   getRecentlyViewed,
+  resolveReference,
   type CatalogueServiceItem,
+  type ResolvedReferenceResult,
 } from '../api/client';
 import { ResourceLink } from '../components/ResourceLink';
 
@@ -15,7 +17,9 @@ type HomeState =
   | { kind: 'ready'; services: CatalogueServiceItem[] }
   | { kind: 'error' };
 
-const quickLinkLimit = 6;
+type RecentResource = ResolvedReferenceResult & { reference: string };
+
+const maxRecentPerService = 3;
 
 const gridStyle: CSSProperties = {
   display: 'grid',
@@ -62,11 +66,48 @@ const referenceItemStyle: CSSProperties = {
   background: '#161b22',
 };
 
+const categoryPillStyle: CSSProperties = {
+  alignSelf: 'flex-start',
+  fontSize: 11,
+  padding: '1px 8px',
+  borderRadius: 10,
+  border: '1px solid #30363d',
+  background: '#21262d',
+  color: '#c9d1d9',
+};
+
+const quickLinkHeaderStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 8,
+  textDecoration: 'none',
+  color: 'inherit',
+};
+
+const cardResourceListStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 4,
+  listStyle: 'none',
+  margin: 0,
+  marginTop: 4,
+  padding: 0,
+  paddingTop: 8,
+  borderTop: '1px solid #30363d',
+};
+
+const cardResourceLinkStyle: CSSProperties = {
+  color: '#58a6ff',
+  textDecoration: 'none',
+  fontSize: 13,
+};
+
 export function HomePage() {
   const [state, setState] = useState<HomeState>({ kind: 'loading' });
   const [query, setQuery] = useState('');
   const [recent, setRecent] = useState<string[]>([]);
   const [favourites, setFavourites] = useState<string[]>([]);
+  const [recentByService, setRecentByService] = useState<Map<string, RecentResource[]>>(new Map());
 
   useEffect(() => {
     const controller = new AbortController();
@@ -82,6 +123,40 @@ export function HomePage() {
     return () => controller.abort();
   }, []);
 
+  useEffect(() => {
+    if (recent.length === 0) {
+      setRecentByService(new Map());
+      return;
+    }
+    const controller = new AbortController();
+    const buildGroups = async () => {
+      const resolved = await Promise.all(
+        recent.map(async (reference): Promise<RecentResource | null> => {
+          try {
+            const result = await resolveReference(reference, undefined, controller.signal);
+            return { reference, ...result };
+          } catch {
+            return null;
+          }
+        }),
+      );
+      const grouped = new Map<string, RecentResource[]>();
+      for (const item of resolved) {
+        if (item === null) {
+          continue;
+        }
+        const bucket = grouped.get(item.serviceKey) ?? [];
+        if (bucket.length < maxRecentPerService) {
+          bucket.push(item);
+          grouped.set(item.serviceKey, bucket);
+        }
+      }
+      setRecentByService(grouped);
+    };
+    void buildGroups();
+    return () => controller.abort();
+  }, [recent]);
+
   const serviceCount = state.kind === 'ready' ? state.services.length : 0;
 
   const quickLinks = useMemo(() => {
@@ -89,9 +164,9 @@ export function HomePage() {
       return [];
     }
     const needle = query.trim().toLowerCase();
-    return state.services
-      .filter((service) => `${service.displayName} ${service.category}`.toLowerCase().includes(needle))
-      .slice(0, quickLinkLimit);
+    return state.services.filter((service) =>
+      `${service.displayName} ${service.category}`.toLowerCase().includes(needle),
+    );
   }, [state, query]);
 
   return (
@@ -143,14 +218,32 @@ export function HomePage() {
 
       {quickLinks.length > 0 ? (
         <div data-testid="home-quick-links" style={gridStyle}>
-          {quickLinks.map((service) => (
-            <Link key={service.key} to={service.route} data-testid="home-quick-link" style={cardStyle}>
-              <Heading as="h4" data-testid="home-quick-link-name" style={{ fontSize: 15 }}>
-                {service.displayName}
-              </Heading>
-              <Label data-testid="home-quick-link-category">{service.category}</Label>
-            </Link>
-          ))}
+          {quickLinks.map((service) => {
+            const resources = recentByService.get(service.key) ?? [];
+            return (
+              <div key={service.key} data-testid="home-quick-link-card" style={cardStyle}>
+                <Link to={service.route} data-testid="home-quick-link" style={quickLinkHeaderStyle}>
+                  <Heading as="h4" data-testid="home-quick-link-name" style={{ fontSize: 15 }}>
+                    {service.displayName}
+                  </Heading>
+                  <span data-testid="home-quick-link-category" style={categoryPillStyle}>
+                    {service.category}
+                  </span>
+                </Link>
+                {resources.length > 0 ? (
+                  <ul data-testid="home-quick-link-resources" style={cardResourceListStyle}>
+                    {resources.map((resource) => (
+                      <li key={resource.reference} data-testid="home-quick-link-resource">
+                        <Link to={resource.route} style={cardResourceLinkStyle}>
+                          {resource.resourceId}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
       ) : null}
 

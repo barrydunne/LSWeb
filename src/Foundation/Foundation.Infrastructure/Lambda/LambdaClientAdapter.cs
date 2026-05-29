@@ -240,6 +240,27 @@ internal sealed class LambdaClientAdapter : ILambdaClient
             },
             cancellationToken);
 
+    public Task<Result<IReadOnlyList<LambdaS3Trigger>>> ListS3TriggersAsync(string functionName, CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonLambdaClient, IReadOnlyList<LambdaS3Trigger>>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                string? policy;
+                try
+                {
+                    var response = await client.GetPolicyAsync(
+                        new GetPolicyRequest { FunctionName = functionName }, token);
+                    policy = response.Policy;
+                }
+                catch (Amazon.Lambda.Model.ResourceNotFoundException)
+                {
+                    return [];
+                }
+
+                return LambdaPolicyMapper.ParseS3Triggers(policy);
+            },
+            cancellationToken);
+
     public async Task<Result> SetEventSourceMappingStateAsync(string uuid, bool enabled, CancellationToken cancellationToken)
     {
         var result = await _gateway.ExecuteAsync<AmazonLambdaClient, bool>(

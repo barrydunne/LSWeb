@@ -1,13 +1,15 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import { LambdaLogsTab } from './LambdaLogsTab';
-import { getLambdaLogEvents } from '../../api/client';
+import { getLambdaLogEvents, resolveReference } from '../../api/client';
 import type { LambdaLogEventItem } from '../../api/client';
 
 vi.mock('../../api/client');
 
 const getLogEventsMock = vi.mocked(getLambdaLogEvents);
+const resolveReferenceMock = vi.mocked(resolveReference);
 
 const firstEvent: LambdaLogEventItem = {
   timestamp: '2026-01-02T03:04:05.0000000+00:00',
@@ -22,10 +24,18 @@ const secondEvent: LambdaLogEventItem = {
 };
 
 function renderTab() {
-  return render(<LambdaLogsTab functionName="process-orders" />);
+  return render(
+    <MemoryRouter>
+      <LambdaLogsTab functionName="process-orders" />
+    </MemoryRouter>,
+  );
 }
 
 describe('LambdaLogsTab', () => {
+  beforeEach(() => {
+    resolveReferenceMock.mockRejectedValue(new Error('unresolved'));
+  });
+
   afterEach(() => {
     vi.resetAllMocks();
   });
@@ -54,6 +64,31 @@ describe('LambdaLogsTab', () => {
     await waitFor(() => expect(screen.getByTestId('lambda-logs-empty')).toBeInTheDocument());
     expect(screen.getByTestId('lambda-logs-group')).toHaveTextContent('/aws/lambda/process-orders');
     expect(getLogEventsMock).toHaveBeenCalledWith('process-orders', undefined, expect.anything());
+  });
+
+  it('links the log group to the CloudWatch Logs view', async () => {
+    getLogEventsMock.mockResolvedValue({ logGroupName: '/aws/lambda/process-orders', events: [] });
+    resolveReferenceMock.mockResolvedValue({
+      serviceKey: 'cloudwatch-logs',
+      resourceId: '/aws/lambda/process-orders',
+      route: '/services/cloudwatch-logs/%2Faws%2Flambda%2Fprocess-orders',
+    });
+
+    renderTab();
+
+    await waitFor(() => expect(screen.getByTestId('lambda-logs-empty')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByTestId('resource-link')).toHaveAttribute(
+        'href',
+        '/services/cloudwatch-logs/%2Faws%2Flambda%2Fprocess-orders',
+      ),
+    );
+    expect(screen.getByTestId('resource-link')).toHaveTextContent('/aws/lambda/process-orders');
+    expect(resolveReferenceMock).toHaveBeenCalledWith(
+      '/aws/lambda/process-orders',
+      'cloudwatch-logs',
+      expect.anything(),
+    );
   });
 
   it('renders the log group and each log event when data is ready', async () => {

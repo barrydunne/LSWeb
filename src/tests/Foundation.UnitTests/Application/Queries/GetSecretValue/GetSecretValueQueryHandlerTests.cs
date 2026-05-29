@@ -18,11 +18,10 @@ public class GetSecretValueQueryHandlerTests
     private GetSecretValueQueryHandler CreateSut()
         => new(_client, _redaction, NullLogger<GetSecretValueQueryHandler>.Instance);
 
-    private void StubRedaction(bool canReveal)
+    private void StubRedaction()
     {
-        _redaction.CanReveal.Returns(canReveal);
         _redaction
-            .Resolve(Arg.Any<ConfigValue>(), Arg.Any<bool>())
+            .ResolveUserSecret(Arg.Any<ConfigValue>(), Arg.Any<bool>())
             .Returns(call =>
             {
                 var value = call.Arg<ConfigValue>();
@@ -38,7 +37,7 @@ public class GetSecretValueQueryHandlerTests
         _client
             .GetSecretValueAsync("db-password", Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Ok(new SecretValue("db-password", "arn:secret", "v1", "s3cr3t"))));
-        StubRedaction(canReveal: true);
+        StubRedaction();
         var sut = CreateSut();
 
         // Act
@@ -56,13 +55,13 @@ public class GetSecretValueQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenRevealRequestedAndAllowed_ReturnsRawValue()
+    public async Task Handle_WhenRevealRequested_ReturnsRawValue()
     {
         // Arrange
         _client
             .GetSecretValueAsync("db-password", Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Ok(new SecretValue("db-password", "arn:secret", "v1", "s3cr3t"))));
-        StubRedaction(canReveal: true);
+        StubRedaction();
         var sut = CreateSut();
 
         // Act
@@ -77,16 +76,14 @@ public class GetSecretValueQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenRevealRequestedButDisallowed_ReturnsMaskedValue()
+    public async Task Handle_AlwaysAllowsReveal_IndependentOfHostDiagnosticGate()
     {
         // Arrange
         _client
             .GetSecretValueAsync("db-password", Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Ok(new SecretValue("db-password", "arn:secret", null, "s3cr3t"))));
         _redaction.CanReveal.Returns(false);
-        _redaction
-            .Resolve(Arg.Any<ConfigValue>(), Arg.Any<bool>())
-            .Returns(ConfigValue.Mask);
+        StubRedaction();
         var sut = CreateSut();
 
         // Act
@@ -97,8 +94,9 @@ public class GetSecretValueQueryHandlerTests
         // Assert
         result.IsSuccess.Should().BeTrue();
         result.Value.VersionId.Should().BeNull();
-        result.Value.Value.Should().Be(ConfigValue.Mask);
-        result.Value.RevealAllowed.Should().BeFalse();
+        result.Value.Value.Should().Be("s3cr3t");
+        result.Value.RevealAllowed.Should().BeTrue();
+        _redaction.DidNotReceive().Resolve(Arg.Any<ConfigValue>(), Arg.Any<bool>());
     }
 
     [Fact]

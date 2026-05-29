@@ -645,7 +645,7 @@ public class S3ControllerTests
                     "aws:kms",
                     "key-1",
                     [new S3LifecycleRuleResult("expire", "Enabled", "logs/")],
-                    [new S3NotificationResult("Lambda", "arn:aws:lambda:us-east-1:000000000000:function:p", ["s3:ObjectCreated:*"])],
+                    [new S3NotificationResult("Lambda", "arn:aws:lambda:us-east-1:000000000000:function:p", ["s3:ObjectCreated:*"], "uploads/", ".json")],
                     "{\"Version\":\"2012-10-17\"}")));
         var sut = CreateSut();
 
@@ -666,6 +666,8 @@ public class S3ControllerTests
         notification.Type.Should().Be("Lambda");
         notification.TargetArn.Should().Be("arn:aws:lambda:us-east-1:000000000000:function:p");
         notification.Events.Should().Equal("s3:ObjectCreated:*");
+        notification.Prefix.Should().Be("uploads/");
+        notification.Suffix.Should().Be(".json");
     }
 
     [Fact]

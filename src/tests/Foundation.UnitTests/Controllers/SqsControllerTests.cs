@@ -10,6 +10,7 @@ using Foundation.Application.Commands.SendSqsMessage;
 using Foundation.Application.Commands.SetSqsQueueAttributes;
 using Foundation.Application.Queries.GetSqsQueueAttributes;
 using Foundation.Application.Queries.GetSqsQueueRedrive;
+using Foundation.Application.Queries.ListSqsConsumerLambdas;
 using Foundation.Application.Queries.ListSqsMessages;
 using Foundation.Application.Queries.ListSqsQueues;
 using Foundation.Application.Queries.ListSqsSubscriptions;
@@ -321,6 +322,51 @@ public class SqsControllerTests
     }
 
     [Fact]
+    public async Task ListConsumerLambdas_WhenQuerySucceeds_ReturnsOkWithLambdas()
+    {
+        // Arrange
+        IReadOnlyList<SqsConsumerLambda> lambdas =
+        [
+            new("order-processor", "arn:aws:lambda:eu-west-1:000000000000:function:order-processor", "Enabled"),
+        ];
+        _sender
+            .Send(Arg.Any<ListSqsConsumerLambdasQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<ListSqsConsumerLambdasQueryResult>>(
+                new ListSqsConsumerLambdasQueryResult(lambdas)));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.ListConsumerLambdas("orders", TestContext.Current.CancellationToken);
+
+        // Assert
+        var ok = result.Should().BeOfType<Ok<SqsConsumerLambdaListResponse>>().Subject;
+        var lambda = ok.Value!.Lambdas.Should().ContainSingle().Subject;
+        lambda.FunctionName.Should().Be("order-processor");
+        lambda.FunctionArn.Should().Be("arn:aws:lambda:eu-west-1:000000000000:function:order-processor");
+        lambda.State.Should().Be("Enabled");
+        await _sender.Received(1).Send(
+            Arg.Is<ListSqsConsumerLambdasQuery>(query => query.QueueName == "orders"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ListConsumerLambdas_WhenQueryFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<ListSqsConsumerLambdasQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<ListSqsConsumerLambdasQueryResult>>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.ListConsumerLambdas("orders", TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
     public async Task CreateQueue_WhenCommandSucceeds_ReturnsCreated()
     {
         // Arrange
@@ -422,7 +468,7 @@ public class SqsControllerTests
             .Returns(Task.FromResult<Result<GetSqsQueueAttributesQueryResult>>(
                 new GetSqsQueueAttributesQueryResult(
                     new SqsQueueAttributes(
-                        45, 86400, 10, 5, 262144, "arn:aws:sqs:eu-west-1:000000000000:orders", false))));
+                        45, 86400, 10, 5, 262144, "arn:aws:sqs:eu-west-1:000000000000:orders", false, 7, 3, 2))));
         var sut = CreateSut();
 
         // Act
@@ -437,6 +483,9 @@ public class SqsControllerTests
         ok.Value.MaximumMessageSizeBytes.Should().Be(262144);
         ok.Value.QueueArn.Should().Be("arn:aws:sqs:eu-west-1:000000000000:orders");
         ok.Value.FifoQueue.Should().BeFalse();
+        ok.Value.ApproximateMessageCount.Should().Be(7);
+        ok.Value.ApproximateInFlightCount.Should().Be(3);
+        ok.Value.ApproximateDelayedCount.Should().Be(2);
         await _sender.Received(1).Send(
             Arg.Is<GetSqsQueueAttributesQuery>(query => query.QueueName == "orders"),
             Arg.Any<CancellationToken>());

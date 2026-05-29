@@ -3,8 +3,8 @@ import type { CSSProperties } from 'react';
 import { ConfirmationHost } from '../../components/ConfirmationHost';
 import { RawJsonViewer } from '../../components/RawJsonViewer';
 import { ResourceLink } from '../../components/ResourceLink';
-import { deleteSqsMessage, getSqsQueueAttributes, getSqsQueueRedrive, getSqsQueueSubscriptions, pollSqsMessages, purgeSqsQueue, redriveSqsQueue, sendSqsMessage, updateSqsQueueAttributes } from '../../api/client';
-import type { SqsMessageItem, SqsPollMode, SqsQueueAttributesItem, SqsRedriveResult, SqsSubscriptionItem } from '../../api/client';
+import { deleteSqsMessage, getSqsQueueAttributes, getSqsQueueConsumerLambdas, getSqsQueueRedrive, getSqsQueueSubscriptions, pollSqsMessages, purgeSqsQueue, redriveSqsQueue, sendSqsMessage, updateSqsQueueAttributes } from '../../api/client';
+import type { SqsConsumerLambdaItem, SqsMessageItem, SqsPollMode, SqsQueueAttributesItem, SqsRedriveResult, SqsSubscriptionItem } from '../../api/client';
 import type { ServiceDetailViewProps } from '../serviceViewRegistry';
 
 const containerStyle: CSSProperties = {
@@ -20,6 +20,29 @@ const containerStyle: CSSProperties = {
 const messageStyle: CSSProperties = { fontSize: 14 };
 
 const headingStyle: CSSProperties = { fontSize: 16, fontWeight: 600 };
+
+const tabBarStyle: CSSProperties = {
+  display: 'flex',
+  gap: 8,
+  borderBottom: '1px solid #30363d',
+  paddingBottom: 8,
+};
+
+const tabButtonStyle: CSSProperties = {
+  fontSize: 13,
+  padding: '4px 10px',
+  borderRadius: 6,
+  border: '1px solid transparent',
+  background: 'transparent',
+  color: 'inherit',
+  cursor: 'pointer',
+};
+
+const activeTabButtonStyle: CSSProperties = {
+  ...tabButtonStyle,
+  border: '1px solid #30363d',
+  background: '#21262d',
+};
 
 const toolbarStyle: CSSProperties = {
   display: 'flex',
@@ -56,6 +79,16 @@ const buttonStyle: CSSProperties = {
   alignSelf: 'flex-start',
 };
 
+const toolbarButtonStyle: CSSProperties = {
+  fontSize: 13,
+  padding: '4px 10px',
+  borderRadius: 6,
+  border: '1px solid #30363d',
+  background: '#21262d',
+  color: 'inherit',
+  cursor: 'pointer',
+};
+
 const hintStyle: CSSProperties = { fontSize: 12, opacity: 0.7 };
 
 const sendSectionStyle: CSSProperties = {
@@ -89,6 +122,23 @@ const inputStyle: CSSProperties = {
   color: 'inherit',
 };
 
+const attributeRowStyle: CSSProperties = {
+  display: 'flex',
+  gap: 8,
+  alignItems: 'flex-end',
+  flexWrap: 'wrap',
+};
+
+const attributeRemoveButtonStyle: CSSProperties = {
+  fontSize: 13,
+  padding: '4px 10px',
+  borderRadius: 6,
+  border: '1px solid #30363d',
+  background: '#21262d',
+  color: 'inherit',
+  cursor: 'pointer',
+};
+
 const sendRowStyle: CSSProperties = {
   display: 'flex',
   gap: 12,
@@ -117,6 +167,32 @@ const messageIdStyle: CSSProperties = {
   fontFamily: 'monospace',
   fontSize: 12,
   wordBreak: 'break-all',
+};
+
+const messageToggleStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+  flex: 1,
+  minWidth: 0,
+  padding: 0,
+  border: 'none',
+  background: 'none',
+  color: 'inherit',
+  cursor: 'pointer',
+  textAlign: 'left',
+};
+
+const messageChevronStyle: CSSProperties = {
+  fontSize: 10,
+  opacity: 0.7,
+  flexShrink: 0,
+};
+
+const messageDetailStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 8,
 };
 
 const subscriptionsStyle: CSSProperties = {
@@ -159,6 +235,24 @@ const readOnlyValueStyle: CSSProperties = {
   wordBreak: 'break-all',
 };
 
+const messageCountsStyle: CSSProperties = {
+  display: 'flex',
+  gap: 24,
+  flexWrap: 'wrap',
+};
+
+const messageCountStyle: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 2,
+};
+
+const messageCountValueStyle: CSSProperties = {
+  fontSize: 20,
+  fontWeight: 600,
+  fontVariantNumeric: 'tabular-nums',
+};
+
 type PollState =
   | { kind: 'idle' }
   | { kind: 'loading' }
@@ -183,18 +277,25 @@ type RedriveState =
   | { kind: 'started' }
   | { kind: 'error' };
 
+type TabKey = 'overview' | 'send' | 'poll';
+
 const peekHint = 'Peek keeps messages visible to other consumers (visibility timeout 0).';
 const consumeHint = 'Consume hides messages for the default visibility timeout while you inspect them.';
 
 export function SqsDetailView({ resourceId }: ServiceDetailViewProps) {
   const queueName = resourceId;
   const isFifo = queueName.endsWith('.fifo');
+  const [tab, setTab] = useState<TabKey>('overview');
   const [mode, setMode] = useState<SqsPollMode>('peek');
+  const [maxMessages, setMaxMessages] = useState(10);
   const [state, setState] = useState<PollState>({ kind: 'idle' });
+  const [expandedMessages, setExpandedMessages] = useState<Set<string>>(new Set());
   const [subscriptions, setSubscriptions] = useState<SqsSubscriptionItem[]>([]);
+  const [lambdaTriggers, setLambdaTriggers] = useState<SqsConsumerLambdaItem[]>([]);
   const [sendBody, setSendBody] = useState('');
   const [messageGroupId, setMessageGroupId] = useState('');
   const [messageDeduplicationId, setMessageDeduplicationId] = useState('');
+  const [sendAttributes, setSendAttributes] = useState<{ key: string; value: string }[]>([]);
   const [sendState, setSendState] = useState<SendState>({ kind: 'idle' });
   const [attributes, setAttributes] = useState<SqsQueueAttributesItem | null>(null);
   const [visibilityTimeout, setVisibilityTimeout] = useState('');
@@ -211,6 +312,16 @@ export function SqsDetailView({ resourceId }: ServiceDetailViewProps) {
       .then((result) => setSubscriptions(result.subscriptions))
       .catch(() => {
         /* Subscriptions are best-effort metadata; ignore failures. */
+      });
+    return () => controller.abort();
+  }, [queueName]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    getSqsQueueConsumerLambdas(queueName, controller.signal)
+      .then((result) => setLambdaTriggers(result.lambdas))
+      .catch(() => {
+        /* Lambda triggers are best-effort metadata; ignore failures. */
       });
     return () => controller.abort();
   }, [queueName]);
@@ -243,10 +354,23 @@ export function SqsDetailView({ resourceId }: ServiceDetailViewProps) {
 
   const poll = useCallback(() => {
     setState({ kind: 'loading' });
-    pollSqsMessages(queueName, mode, 10)
+    setExpandedMessages(new Set());
+    pollSqsMessages(queueName, mode, maxMessages)
       .then((result) => setState({ kind: 'ready', messages: result.messages, mode }))
       .catch(() => setState({ kind: 'error' }));
-  }, [queueName, mode]);
+  }, [queueName, mode, maxMessages]);
+
+  const toggleMessage = useCallback((receiptHandle: string) => {
+    setExpandedMessages((current) => {
+      const next = new Set(current);
+      if (next.has(receiptHandle)) {
+        next.delete(receiptHandle);
+      } else {
+        next.add(receiptHandle);
+      }
+      return next;
+    });
+  }, []);
 
   const handleDelete = useCallback(
     (receiptHandle: string) => {
@@ -276,10 +400,35 @@ export function SqsDetailView({ resourceId }: ServiceDetailViewProps) {
       .catch(() => setState({ kind: 'error' }));
   }, [queueName]);
 
+  const addSendAttribute = useCallback(() => {
+    setSendAttributes((current) => [...current, { key: '', value: '' }]);
+  }, []);
+
+  const updateSendAttribute = useCallback(
+    (index: number, field: 'key' | 'value', value: string) => {
+      setSendAttributes((current) =>
+        current.map((attribute, position) =>
+          position === index ? { ...attribute, [field]: value } : attribute));
+    },
+    [],
+  );
+
+  const removeSendAttribute = useCallback((index: number) => {
+    setSendAttributes((current) => current.filter((_, position) => position !== index));
+  }, []);
+
   const handleSend = useCallback(() => {
     setSendState({ kind: 'sending' });
+    const messageAttributes = sendAttributes.reduce<Record<string, string>>((accumulator, attribute) => {
+      const key = attribute.key.trim();
+      if (key !== '') {
+        accumulator[key] = attribute.value;
+      }
+      return accumulator;
+    }, {});
     sendSqsMessage(queueName, {
       body: sendBody,
+      messageAttributes: Object.keys(messageAttributes).length > 0 ? messageAttributes : undefined,
       messageGroupId: isFifo && messageGroupId !== '' ? messageGroupId : undefined,
       messageDeduplicationId:
         isFifo && messageDeduplicationId !== '' ? messageDeduplicationId : undefined,
@@ -289,9 +438,10 @@ export function SqsDetailView({ resourceId }: ServiceDetailViewProps) {
         setSendBody('');
         setMessageGroupId('');
         setMessageDeduplicationId('');
+        setSendAttributes([]);
       })
       .catch(() => setSendState({ kind: 'error' }));
-  }, [queueName, sendBody, isFifo, messageGroupId, messageDeduplicationId]);
+  }, [queueName, sendBody, sendAttributes, isFifo, messageGroupId, messageDeduplicationId]);
 
   const handleSaveAttributes = useCallback(() => {
     setAttributesSaveState({ kind: 'saving' });
@@ -320,37 +470,85 @@ export function SqsDetailView({ resourceId }: ServiceDetailViewProps) {
         {queueName}
       </h2>
 
-      <div style={toolbarStyle}>
-        <div style={fieldRowStyle}>
-          <label htmlFor="sqs-poll-mode" style={labelStyle}>
-            Mode
-          </label>
-          <select
-            id="sqs-poll-mode"
-            data-testid="sqs-poll-mode"
-            style={selectStyle}
-            value={mode}
-            onChange={(event) => setMode(event.target.value as SqsPollMode)}
-          >
-            <option value="peek">Peek</option>
-            <option value="consume">Consume</option>
-          </select>
-        </div>
-        <button type="button" data-testid="sqs-poll-button" style={buttonStyle} onClick={poll}>
+      <div style={tabBarStyle}>
+        <button
+          type="button"
+          data-testid="sqs-detail-tab-overview"
+          style={tab === 'overview' ? activeTabButtonStyle : tabButtonStyle}
+          onClick={() => setTab('overview')}
+        >
+          Overview
+        </button>
+        <button
+          type="button"
+          data-testid="sqs-detail-tab-send"
+          style={tab === 'send' ? activeTabButtonStyle : tabButtonStyle}
+          onClick={() => setTab('send')}
+        >
+          Send
+        </button>
+        <button
+          type="button"
+          data-testid="sqs-detail-tab-poll"
+          style={tab === 'poll' ? activeTabButtonStyle : tabButtonStyle}
+          onClick={() => setTab('poll')}
+        >
           Poll messages
         </button>
-        <ConfirmationHost
-          actionLabel="Purge queue"
-          prompt={`Purge all messages from ${queueName}? This cannot be undone.`}
-          confirmLabel="Purge"
-          onConfirm={handlePurge}
-        />
-        <span data-testid="sqs-poll-hint" style={hintStyle}>
-          {mode === 'peek' ? peekHint : consumeHint}
-        </span>
       </div>
 
-      <section data-testid="sqs-send-form" style={sendSectionStyle}>
+      {tab === 'poll' ? (
+        <div style={toolbarStyle}>
+          <div style={fieldRowStyle}>
+            <label htmlFor="sqs-poll-mode" style={labelStyle}>
+              Mode
+            </label>
+            <select
+              id="sqs-poll-mode"
+              data-testid="sqs-poll-mode"
+              style={selectStyle}
+              value={mode}
+              onChange={(event) => setMode(event.target.value as SqsPollMode)}
+            >
+              <option value="peek">Peek</option>
+              <option value="consume">Consume</option>
+            </select>
+          </div>
+          <div style={fieldRowStyle}>
+            <label htmlFor="sqs-poll-max" style={labelStyle}>
+              Max messages
+            </label>
+            <select
+              id="sqs-poll-max"
+              data-testid="sqs-poll-max"
+              style={selectStyle}
+              value={maxMessages}
+              onChange={(event) => setMaxMessages(Number(event.target.value))}
+            >
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((count) => (
+                <option key={count} value={count}>
+                  {count}
+                </option>
+              ))}
+            </select>
+          </div>
+          <button type="button" data-testid="sqs-poll-button" style={toolbarButtonStyle} onClick={poll}>
+            Poll messages
+          </button>
+          <ConfirmationHost
+            actionLabel="Purge queue"
+            prompt={`Purge all messages from ${queueName}? This cannot be undone.`}
+            confirmLabel="Purge"
+            onConfirm={handlePurge}
+          />
+          <span data-testid="sqs-poll-hint" style={hintStyle}>
+            {mode === 'peek' ? peekHint : consumeHint}
+          </span>
+        </div>
+      ) : null}
+
+      {tab === 'send' ? (
+        <section data-testid="sqs-send-form" style={sendSectionStyle}>
         <h3 style={headingStyle}>Send a message</h3>
         <label htmlFor="sqs-send-body" style={labelStyle}>
           Body
@@ -390,6 +588,55 @@ export function SqsDetailView({ resourceId }: ServiceDetailViewProps) {
             </div>
           </div>
         ) : null}
+        <label style={labelStyle}>Message attributes</label>
+        {sendAttributes.length > 0 ? (
+          <div data-testid="sqs-send-attributes" style={fieldRowStyle}>
+            {sendAttributes.map((attribute, index) => (
+              <div key={index} data-testid="sqs-send-attribute-row" style={attributeRowStyle}>
+                <div style={fieldRowStyle}>
+                  <label htmlFor={`sqs-send-attribute-key-${index}`} style={labelStyle}>
+                    Name
+                  </label>
+                  <input
+                    id={`sqs-send-attribute-key-${index}`}
+                    data-testid="sqs-send-attribute-key"
+                    style={inputStyle}
+                    value={attribute.key}
+                    onChange={(event) => updateSendAttribute(index, 'key', event.target.value)}
+                  />
+                </div>
+                <div style={fieldRowStyle}>
+                  <label htmlFor={`sqs-send-attribute-value-${index}`} style={labelStyle}>
+                    Value
+                  </label>
+                  <input
+                    id={`sqs-send-attribute-value-${index}`}
+                    data-testid="sqs-send-attribute-value"
+                    style={inputStyle}
+                    value={attribute.value}
+                    onChange={(event) => updateSendAttribute(index, 'value', event.target.value)}
+                  />
+                </div>
+                <button
+                  type="button"
+                  data-testid="sqs-send-attribute-remove"
+                  style={attributeRemoveButtonStyle}
+                  onClick={() => removeSendAttribute(index)}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        ) : null}
+        <button
+          type="button"
+          data-testid="sqs-send-attribute-add"
+          style={buttonStyle}
+          onClick={addSendAttribute}
+        >
+          Add attribute
+        </button>
         <button
           type="button"
           data-testid="sqs-send-submit"
@@ -410,8 +657,9 @@ export function SqsDetailView({ resourceId }: ServiceDetailViewProps) {
           </span>
         ) : null}
       </section>
+      ) : null}
 
-      {subscriptions.length > 0 ? (
+      {tab === 'overview' && subscriptions.length > 0 ? (
         <section data-testid="sqs-subscriptions" style={subscriptionsStyle}>
           <h3 style={headingStyle}>SNS subscriptions</h3>
           <ul data-testid="sqs-subscription-list" style={subscriptionListStyle}>
@@ -424,7 +672,20 @@ export function SqsDetailView({ resourceId }: ServiceDetailViewProps) {
         </section>
       ) : null}
 
-      {redrive.deadLetterTarget !== null || redrive.sources.length > 0 ? (
+      {tab === 'overview' && lambdaTriggers.length > 0 ? (
+        <section data-testid="sqs-lambda-triggers" style={subscriptionsStyle}>
+          <h3 style={headingStyle}>Lambda triggers</h3>
+          <ul data-testid="sqs-lambda-trigger-list" style={subscriptionListStyle}>
+            {lambdaTriggers.map((lambda) => (
+              <li key={lambda.functionName} data-testid="sqs-lambda-trigger-item">
+                <ResourceLink reference={lambda.functionArn} service="lambda" label={lambda.functionName} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {tab === 'overview' && (redrive.deadLetterTarget !== null || redrive.sources.length > 0) ? (
         <section data-testid="sqs-redrive" style={subscriptionsStyle}>
           <h3 style={headingStyle}>Dead-letter queue</h3>
           {redrive.deadLetterTarget !== null ? (
@@ -471,9 +732,29 @@ export function SqsDetailView({ resourceId }: ServiceDetailViewProps) {
         </section>
       ) : null}
 
-      {attributes !== null ? (
+      {tab === 'overview' && attributes !== null ? (
         <section data-testid="sqs-attributes" style={attributesSectionStyle}>
           <h3 style={headingStyle}>Queue attributes</h3>
+          <div data-testid="sqs-message-counts" style={messageCountsStyle}>
+            <div style={messageCountStyle}>
+              <span style={labelStyle}>Available</span>
+              <span data-testid="sqs-count-available" style={messageCountValueStyle}>
+                {attributes.approximateMessageCount}
+              </span>
+            </div>
+            <div style={messageCountStyle}>
+              <span style={labelStyle}>In flight</span>
+              <span data-testid="sqs-count-inflight" style={messageCountValueStyle}>
+                {attributes.approximateInFlightCount}
+              </span>
+            </div>
+            <div style={messageCountStyle}>
+              <span style={labelStyle}>Delayed</span>
+              <span data-testid="sqs-count-delayed" style={messageCountValueStyle}>
+                {attributes.approximateDelayedCount}
+              </span>
+            </div>
+          </div>
           <div style={readOnlyRowStyle}>
             <span style={labelStyle}>ARN</span>
             <span data-testid="sqs-attr-arn" style={readOnlyValueStyle}>
@@ -568,44 +849,62 @@ export function SqsDetailView({ resourceId }: ServiceDetailViewProps) {
         </section>
       ) : null}
 
-      {state.kind === 'loading' ? (
+      {tab === 'poll' && state.kind === 'loading' ? (
         <p data-testid="sqs-detail-loading" style={messageStyle}>
           Polling queue&hellip;
         </p>
       ) : null}
 
-      {state.kind === 'error' ? (
+      {tab === 'poll' && state.kind === 'error' ? (
         <p data-testid="sqs-detail-error" style={messageStyle}>
           Unable to poll this queue.
         </p>
       ) : null}
 
-      {state.kind === 'ready' && state.messages.length === 0 ? (
+      {tab === 'poll' && state.kind === 'ready' && state.messages.length === 0 ? (
         <p data-testid="sqs-detail-empty" style={messageStyle}>
           No messages were returned. The queue may be empty.
         </p>
       ) : null}
 
-      {state.kind === 'ready' && state.messages.length > 0 ? (
+      {tab === 'poll' && state.kind === 'ready' && state.messages.length > 0 ? (
         <div data-testid="sqs-message-list" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {state.messages.map((message) => (
-            <div key={message.receiptHandle} data-testid="sqs-message-item" style={messageCardStyle}>
-              <div style={messageHeaderStyle}>
-                <span data-testid="sqs-message-id" style={messageIdStyle}>
-                  {message.messageId}
-                </span>
-                <ConfirmationHost
-                  actionLabel="Delete"
-                  prompt={`Delete message ${message.messageId}?`}
-                  confirmLabel="Delete"
-                  onConfirm={() => handleDelete(message.receiptHandle)}
-                />
+          {state.messages.map((message) => {
+            const expanded = expandedMessages.has(message.receiptHandle);
+            return (
+              <div key={message.receiptHandle} data-testid="sqs-message-item" style={messageCardStyle}>
+                <div style={messageHeaderStyle}>
+                  <button
+                    type="button"
+                    data-testid="sqs-message-toggle"
+                    style={messageToggleStyle}
+                    aria-expanded={expanded}
+                    onClick={() => toggleMessage(message.receiptHandle)}
+                  >
+                    <span aria-hidden="true" style={messageChevronStyle}>
+                      {expanded ? '▾' : '▸'}
+                    </span>
+                    <span data-testid="sqs-message-id" style={messageIdStyle}>
+                      {message.messageId}
+                    </span>
+                  </button>
+                  <ConfirmationHost
+                    actionLabel="Delete"
+                    prompt={`Delete message ${message.messageId}?`}
+                    confirmLabel="Delete"
+                    onConfirm={() => handleDelete(message.receiptHandle)}
+                  />
+                </div>
+                {expanded ? (
+                  <div data-testid="sqs-message-detail" style={messageDetailStyle}>
+                    <RawJsonViewer value={message.body} title="Body" />
+                    <RawJsonViewer value={message.attributes} title="System attributes" />
+                    <RawJsonViewer value={message.messageAttributes} title="Message attributes" />
+                  </div>
+                ) : null}
               </div>
-              <RawJsonViewer value={message.body} title="Body" />
-              <RawJsonViewer value={message.attributes} title="System attributes" />
-              <RawJsonViewer value={message.messageAttributes} title="Message attributes" />
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : null}
     </div>

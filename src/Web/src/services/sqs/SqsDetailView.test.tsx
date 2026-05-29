@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { SqsDetailView } from './SqsDetailView';
 import {
   deleteSqsMessage,
   getSqsQueueAttributes,
+  getSqsQueueConsumerLambdas,
   getSqsQueueRedrive,
   getSqsQueueSubscriptions,
   pollSqsMessages,
@@ -21,6 +22,7 @@ const pollSqsMessagesMock = vi.mocked(pollSqsMessages);
 const deleteSqsMessageMock = vi.mocked(deleteSqsMessage);
 const purgeSqsQueueMock = vi.mocked(purgeSqsQueue);
 const getSqsQueueSubscriptionsMock = vi.mocked(getSqsQueueSubscriptions);
+const getSqsQueueConsumerLambdasMock = vi.mocked(getSqsQueueConsumerLambdas);
 const resolveReferenceMock = vi.mocked(resolveReference);
 const sendSqsMessageMock = vi.mocked(sendSqsMessage);
 const getSqsQueueAttributesMock = vi.mocked(getSqsQueueAttributes);
@@ -36,6 +38,9 @@ const attributesResult: SqsQueueAttributesItem = {
   maximumMessageSizeBytes: 262144,
   queueArn: 'arn:aws:sqs:eu-west-1:000000000000:orders',
   fifoQueue: false,
+  approximateMessageCount: 7,
+  approximateInFlightCount: 3,
+  approximateDelayedCount: 2,
 };
 
 const pollResult: SqsMessageListResult = {
@@ -65,12 +70,21 @@ function renderFifoView() {
   return render(<SqsDetailView serviceKey="sqs" resourceId="orders.fifo" />);
 }
 
+function goToSendTab() {
+  fireEvent.click(screen.getByTestId('sqs-detail-tab-send'));
+}
+
+function goToPollTab() {
+  fireEvent.click(screen.getByTestId('sqs-detail-tab-poll'));
+}
+
 describe('SqsDetailView', () => {
   beforeEach(() => {
     pollSqsMessagesMock.mockResolvedValue(pollResult);
     deleteSqsMessageMock.mockResolvedValue();
     purgeSqsQueueMock.mockResolvedValue();
     getSqsQueueSubscriptionsMock.mockResolvedValue({ subscriptions: [] });
+    getSqsQueueConsumerLambdasMock.mockResolvedValue({ lambdas: [] });
     resolveReferenceMock.mockResolvedValue(null as never);
     sendSqsMessageMock.mockResolvedValue();
     getSqsQueueAttributesMock.mockResolvedValue(attributesResult);
@@ -80,26 +94,49 @@ describe('SqsDetailView', () => {
   });
 
   afterEach(() => {
-    vi.resetAllMocks();
+    vi.clearAllMocks();
   });
 
   it('renders the queue name and peek hint by default', () => {
     renderView();
 
     expect(screen.getByTestId('sqs-detail-title')).toHaveTextContent('orders');
+    goToPollTab();
     expect(screen.getByTestId('sqs-poll-hint')).toHaveTextContent('Peek keeps messages visible');
   });
 
   it('switches the hint when consume mode is selected', () => {
     renderView();
+    goToPollTab();
 
     fireEvent.change(screen.getByTestId('sqs-poll-mode'), { target: { value: 'consume' } });
 
     expect(screen.getByTestId('sqs-poll-hint')).toHaveTextContent('Consume hides messages');
   });
 
+  it('switches between the overview, send and poll tabs', async () => {
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('sqs-attributes')).toBeInTheDocument());
+    expect(screen.queryByTestId('sqs-send-form')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('sqs-poll-mode')).not.toBeInTheDocument();
+
+    goToSendTab();
+    expect(screen.getByTestId('sqs-send-form')).toBeInTheDocument();
+    expect(screen.queryByTestId('sqs-attributes')).not.toBeInTheDocument();
+
+    goToPollTab();
+    expect(screen.getByTestId('sqs-poll-mode')).toBeInTheDocument();
+    expect(screen.queryByTestId('sqs-send-form')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('sqs-detail-tab-overview'));
+    expect(screen.getByTestId('sqs-attributes')).toBeInTheDocument();
+    expect(screen.queryByTestId('sqs-poll-mode')).not.toBeInTheDocument();
+  });
+
   it('polls in peek mode and lists the returned messages', async () => {
     renderView();
+    goToPollTab();
 
     fireEvent.click(screen.getByTestId('sqs-poll-button'));
 
@@ -112,6 +149,7 @@ describe('SqsDetailView', () => {
 
   it('polls in consume mode when selected', async () => {
     renderView();
+    goToPollTab();
 
     fireEvent.change(screen.getByTestId('sqs-poll-mode'), { target: { value: 'consume' } });
     fireEvent.click(screen.getByTestId('sqs-poll-button'));
@@ -119,6 +157,66 @@ describe('SqsDetailView', () => {
     await waitFor(() => expect(screen.getByTestId('sqs-message-list')).toBeInTheDocument());
 
     expect(pollSqsMessagesMock).toHaveBeenCalledWith('orders', 'consume', 10);
+  });
+
+  it('polls with the selected maximum message count', async () => {
+    renderView();
+    goToPollTab();
+
+    fireEvent.change(screen.getByTestId('sqs-poll-max'), { target: { value: '3' } });
+    fireEvent.click(screen.getByTestId('sqs-poll-button'));
+
+    await waitFor(() => expect(screen.getByTestId('sqs-message-list')).toBeInTheDocument());
+
+    expect(pollSqsMessagesMock).toHaveBeenCalledWith('orders', 'peek', 3);
+  });
+
+  it('keeps message detail panels collapsed until a row is expanded', async () => {
+    renderView();
+    goToPollTab();
+    fireEvent.click(screen.getByTestId('sqs-poll-button'));
+
+    await waitFor(() => expect(screen.getByTestId('sqs-message-list')).toBeInTheDocument());
+
+    expect(screen.queryAllByTestId('sqs-message-detail')).toHaveLength(0);
+
+    fireEvent.click(screen.getAllByTestId('sqs-message-toggle')[0]);
+
+    const detail = screen.getByTestId('sqs-message-detail');
+    expect(detail).toBeInTheDocument();
+    expect(within(detail).getByText('Body')).toBeInTheDocument();
+    expect(screen.getAllByTestId('sqs-message-toggle')[0]).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  it('collapses an expanded message row when toggled again', async () => {
+    renderView();
+    goToPollTab();
+    fireEvent.click(screen.getByTestId('sqs-poll-button'));
+
+    await waitFor(() => expect(screen.getByTestId('sqs-message-list')).toBeInTheDocument());
+
+    const toggle = screen.getAllByTestId('sqs-message-toggle')[0];
+    fireEvent.click(toggle);
+    expect(screen.getByTestId('sqs-message-detail')).toBeInTheDocument();
+
+    fireEvent.click(toggle);
+    expect(screen.queryByTestId('sqs-message-detail')).not.toBeInTheDocument();
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('collapses all rows again after a new poll', async () => {
+    renderView();
+    goToPollTab();
+    fireEvent.click(screen.getByTestId('sqs-poll-button'));
+
+    await waitFor(() => expect(screen.getByTestId('sqs-message-list')).toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByTestId('sqs-message-toggle')[0]);
+    expect(screen.getByTestId('sqs-message-detail')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('sqs-poll-button'));
+
+    await waitFor(() => expect(screen.queryAllByTestId('sqs-message-detail')).toHaveLength(0));
   });
 
   it('shows a loading state while polling', async () => {
@@ -130,6 +228,7 @@ describe('SqsDetailView', () => {
     );
 
     renderView();
+    goToPollTab();
     fireEvent.click(screen.getByTestId('sqs-poll-button'));
 
     expect(screen.getByTestId('sqs-detail-loading')).toBeInTheDocument();
@@ -142,6 +241,7 @@ describe('SqsDetailView', () => {
     pollSqsMessagesMock.mockResolvedValue({ messages: [] });
 
     renderView();
+    goToPollTab();
     fireEvent.click(screen.getByTestId('sqs-poll-button'));
 
     await waitFor(() => expect(screen.getByTestId('sqs-detail-empty')).toBeInTheDocument());
@@ -151,6 +251,7 @@ describe('SqsDetailView', () => {
     pollSqsMessagesMock.mockRejectedValue(new Error('boom'));
 
     renderView();
+    goToPollTab();
     fireEvent.click(screen.getByTestId('sqs-poll-button'));
 
     await waitFor(() => expect(screen.getByTestId('sqs-detail-error')).toBeInTheDocument());
@@ -158,6 +259,7 @@ describe('SqsDetailView', () => {
 
   it('deletes a message and removes it from the list', async () => {
     renderView();
+    goToPollTab();
     fireEvent.click(screen.getByTestId('sqs-poll-button'));
 
     await waitFor(() => expect(screen.getAllByTestId('sqs-message-item')).toHaveLength(2));
@@ -175,6 +277,7 @@ describe('SqsDetailView', () => {
     deleteSqsMessageMock.mockRejectedValue(new Error('nope'));
 
     renderView();
+    goToPollTab();
     fireEvent.click(screen.getByTestId('sqs-poll-button'));
 
     await waitFor(() => expect(screen.getAllByTestId('sqs-message-item')).toHaveLength(2));
@@ -195,6 +298,7 @@ describe('SqsDetailView', () => {
     let resolveSecondPoll: (value: SqsMessageListResult) => void = () => {};
 
     renderView();
+    goToPollTab();
     fireEvent.click(screen.getByTestId('sqs-poll-button'));
     await waitFor(() => expect(screen.getAllByTestId('sqs-message-item')).toHaveLength(2));
 
@@ -223,6 +327,7 @@ describe('SqsDetailView', () => {
 
   it('purges the queue and clears the message list', async () => {
     renderView();
+    goToPollTab();
     fireEvent.click(screen.getByTestId('sqs-poll-button'));
 
     await waitFor(() => expect(screen.getAllByTestId('sqs-message-item')).toHaveLength(2));
@@ -239,6 +344,7 @@ describe('SqsDetailView', () => {
     purgeSqsQueueMock.mockRejectedValue(new Error('nope'));
 
     renderView();
+    goToPollTab();
     fireEvent.click(screen.getByTestId('sqs-poll-button'));
 
     await waitFor(() => expect(screen.getAllByTestId('sqs-message-item')).toHaveLength(2));
@@ -259,6 +365,7 @@ describe('SqsDetailView', () => {
     let resolveSecondPoll: (value: SqsMessageListResult) => void = () => {};
 
     renderView();
+    goToPollTab();
     fireEvent.click(screen.getByTestId('sqs-poll-button'));
     await waitFor(() => expect(screen.getAllByTestId('sqs-message-item')).toHaveLength(2));
 
@@ -305,10 +412,12 @@ describe('SqsDetailView', () => {
     const items = screen.getAllByTestId('sqs-subscription-item');
     expect(items).toHaveLength(1);
     expect(screen.getByTestId('resource-link')).toHaveTextContent('order-events');
-    expect(resolveReferenceMock).toHaveBeenCalledWith(
-      'arn:aws:sns:eu-west-1:000000000000:order-events',
-      'sns',
-      expect.anything(),
+    await waitFor(() =>
+      expect(resolveReferenceMock).toHaveBeenCalledWith(
+        'arn:aws:sns:eu-west-1:000000000000:order-events',
+        'sns',
+        expect.anything(),
+      ),
     );
   });
 
@@ -321,8 +430,51 @@ describe('SqsDetailView', () => {
     expect(screen.queryByTestId('sqs-subscriptions')).not.toBeInTheDocument();
   });
 
+  it('does not render the Lambda triggers section when there are none', async () => {
+    renderView();
+
+    await waitFor(() => expect(getSqsQueueConsumerLambdasMock).toHaveBeenCalledWith('orders', expect.anything()));
+    expect(screen.queryByTestId('sqs-lambda-triggers')).not.toBeInTheDocument();
+  });
+
+  it('renders consumer Lambdas as cross-resource links', async () => {
+    getSqsQueueConsumerLambdasMock.mockResolvedValue({
+      lambdas: [
+        {
+          functionName: 'order-processor',
+          functionArn: 'arn:aws:lambda:eu-west-1:000000000000:function:order-processor',
+          state: 'Enabled',
+        },
+      ],
+    });
+
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('sqs-lambda-triggers')).toBeInTheDocument());
+    const items = screen.getAllByTestId('sqs-lambda-trigger-item');
+    expect(items).toHaveLength(1);
+    expect(within(items[0]).getByTestId('resource-link')).toHaveTextContent('order-processor');
+    await waitFor(() =>
+      expect(resolveReferenceMock).toHaveBeenCalledWith(
+        'arn:aws:lambda:eu-west-1:000000000000:function:order-processor',
+        'lambda',
+        expect.anything(),
+      ),
+    );
+  });
+
+  it('ignores Lambda trigger lookup failures', async () => {
+    getSqsQueueConsumerLambdasMock.mockRejectedValue(new Error('boom'));
+
+    renderView();
+
+    await waitFor(() => expect(getSqsQueueConsumerLambdasMock).toHaveBeenCalled());
+    expect(screen.queryByTestId('sqs-lambda-triggers')).not.toBeInTheDocument();
+  });
+
   it('sends a message body for a standard queue', async () => {
     renderView();
+    goToSendTab();
 
     fireEvent.change(screen.getByTestId('sqs-send-body'), { target: { value: 'order created' } });
     fireEvent.click(screen.getByTestId('sqs-send-submit'));
@@ -336,14 +488,92 @@ describe('SqsDetailView', () => {
     expect(screen.getByTestId('sqs-send-body')).toHaveValue('');
   });
 
+  it('sends custom message attributes and clears them after a successful send', async () => {
+    renderView();
+    goToSendTab();
+
+    fireEvent.change(screen.getByTestId('sqs-send-body'), { target: { value: 'order created' } });
+    fireEvent.click(screen.getByTestId('sqs-send-attribute-add'));
+    fireEvent.click(screen.getByTestId('sqs-send-attribute-add'));
+
+    const keys = screen.getAllByTestId('sqs-send-attribute-key');
+    const values = screen.getAllByTestId('sqs-send-attribute-value');
+    fireEvent.change(keys[0], { target: { value: 'trace' } });
+    fireEvent.change(values[0], { target: { value: 'abc-123' } });
+    fireEvent.change(keys[1], { target: { value: 'source' } });
+    fireEvent.change(values[1], { target: { value: 'web' } });
+
+    fireEvent.click(screen.getByTestId('sqs-send-submit'));
+
+    await waitFor(() => expect(screen.getByTestId('sqs-send-status')).toBeInTheDocument());
+    expect(sendSqsMessageMock).toHaveBeenCalledWith('orders', {
+      body: 'order created',
+      messageAttributes: { trace: 'abc-123', source: 'web' },
+      messageGroupId: undefined,
+      messageDeduplicationId: undefined,
+    });
+    expect(screen.queryByTestId('sqs-send-attribute-row')).not.toBeInTheDocument();
+  });
+
+  it('omits attribute rows with a blank name and removed rows from the send', async () => {
+    renderView();
+    goToSendTab();
+
+    fireEvent.change(screen.getByTestId('sqs-send-body'), { target: { value: 'order created' } });
+    fireEvent.click(screen.getByTestId('sqs-send-attribute-add'));
+    fireEvent.click(screen.getByTestId('sqs-send-attribute-add'));
+    fireEvent.click(screen.getByTestId('sqs-send-attribute-add'));
+
+    const keys = screen.getAllByTestId('sqs-send-attribute-key');
+    const values = screen.getAllByTestId('sqs-send-attribute-value');
+    fireEvent.change(keys[0], { target: { value: 'keep' } });
+    fireEvent.change(values[0], { target: { value: 'yes' } });
+    fireEvent.change(keys[1], { target: { value: '  ' } });
+    fireEvent.change(values[1], { target: { value: 'blank-name' } });
+    fireEvent.change(keys[2], { target: { value: 'remove-me' } });
+    fireEvent.change(values[2], { target: { value: 'gone' } });
+
+    fireEvent.click(screen.getAllByTestId('sqs-send-attribute-remove')[2]);
+    fireEvent.click(screen.getByTestId('sqs-send-submit'));
+
+    await waitFor(() => expect(screen.getByTestId('sqs-send-status')).toBeInTheDocument());
+    expect(sendSqsMessageMock).toHaveBeenCalledWith('orders', {
+      body: 'order created',
+      messageAttributes: { keep: 'yes' },
+      messageGroupId: undefined,
+      messageDeduplicationId: undefined,
+    });
+  });
+
+  it('sends without a message attributes payload when only blank-name rows exist', async () => {
+    renderView();
+    goToSendTab();
+
+    fireEvent.change(screen.getByTestId('sqs-send-body'), { target: { value: 'order created' } });
+    fireEvent.click(screen.getByTestId('sqs-send-attribute-add'));
+    fireEvent.change(screen.getByTestId('sqs-send-attribute-value'), { target: { value: 'orphan' } });
+
+    fireEvent.click(screen.getByTestId('sqs-send-submit'));
+
+    await waitFor(() => expect(screen.getByTestId('sqs-send-status')).toBeInTheDocument());
+    expect(sendSqsMessageMock).toHaveBeenCalledWith('orders', {
+      body: 'order created',
+      messageAttributes: undefined,
+      messageGroupId: undefined,
+      messageDeduplicationId: undefined,
+    });
+  });
+
   it('does not render the FIFO id fields for a standard queue', () => {
     renderView();
+    goToSendTab();
 
     expect(screen.queryByTestId('sqs-send-group-id')).not.toBeInTheDocument();
   });
 
   it('requires a group id before a FIFO send is enabled', async () => {
     renderFifoView();
+    goToSendTab();
 
     fireEvent.change(screen.getByTestId('sqs-send-body'), { target: { value: 'fifo body' } });
     expect(screen.getByTestId('sqs-send-submit')).toBeDisabled();
@@ -364,6 +594,7 @@ describe('SqsDetailView', () => {
     sendSqsMessageMock.mockRejectedValue(new Error('nope'));
 
     renderView();
+    goToSendTab();
 
     fireEvent.change(screen.getByTestId('sqs-send-body'), { target: { value: 'will fail' } });
     fireEvent.click(screen.getByTestId('sqs-send-submit'));
@@ -381,6 +612,9 @@ describe('SqsDetailView', () => {
     expect(screen.getByTestId('sqs-attr-max-size')).toHaveTextContent('262144');
     expect(screen.getByTestId('sqs-attr-visibility-timeout')).toHaveValue(30);
     expect(screen.getByTestId('sqs-attr-retention')).toHaveValue(345600);
+    expect(screen.getByTestId('sqs-count-available')).toHaveTextContent('7');
+    expect(screen.getByTestId('sqs-count-inflight')).toHaveTextContent('3');
+    expect(screen.getByTestId('sqs-count-delayed')).toHaveTextContent('2');
   });
 
   it('marks the queue as FIFO when the attribute is set', async () => {

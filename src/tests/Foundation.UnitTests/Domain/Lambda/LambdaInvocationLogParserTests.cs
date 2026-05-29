@@ -144,4 +144,21 @@ public class LambdaInvocationLogParserTests
         result.Metrics.MaxDurationMs.Should().Be(30.00);
         result.RecentInvocations.Select(_ => _.RequestId).Should().ContainInOrder("second", "first");
     }
+
+    [Fact]
+    public void Parse_WhenDurationEndsTheMessage_ParsesValueToEndOfString()
+    {
+        // Arrange
+        IReadOnlyList<LambdaLogEvent> events =
+        [
+            new("2026-01-01T00:00:01.0000000+00:00", "REPORT RequestId: tail Duration: 8.75", "stream-a"),
+        ];
+
+        // Act
+        var result = LambdaInvocationLogParser.Parse(events);
+
+        // Assert
+        result.Metrics.Should().Be(new LambdaInvocationMetrics(1, 0, 8.75, 8.75));
+        result.RecentInvocations.Should().ContainSingle().Which.DurationMs.Should().Be(8.75);
+    }
 }

@@ -5,7 +5,7 @@ import {
   getLambdaEventSourceMappings,
   setLambdaEventSourceMappingState,
 } from '../../api/client';
-import type { LambdaEventSourceMappingItem } from '../../api/client';
+import type { LambdaEventSourceMappingItem, LambdaS3TriggerItem } from '../../api/client';
 import { ResourceLink } from '../../components/ResourceLink';
 
 const containerStyle: CSSProperties = {
@@ -69,6 +69,20 @@ const disabledBadgeStyle: CSSProperties = {
   color: '#8b949e',
 };
 
+const typeBadgeStyle: CSSProperties = {
+  fontSize: 11,
+  padding: '1px 8px',
+  borderRadius: 10,
+  border: '1px solid #1f6feb',
+  color: '#58a6ff',
+};
+
+const sourceGroupStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 8,
+};
+
 type LoadState = 'loading' | 'ready' | 'error';
 type ActionState = 'idle' | 'error';
 
@@ -76,9 +90,24 @@ function isEnabled(state: string): boolean {
   return state.toLowerCase() === 'enabled';
 }
 
+const eventSourceTypeLabels = new Map<string, string>([
+  ['sqs', 'SQS'],
+  ['dynamodb', 'DynamoDB'],
+  ['kinesis', 'Kinesis'],
+  ['kafka', 'Kafka'],
+  ['mq', 'Amazon MQ'],
+  ['s3', 'S3'],
+]);
+
+function eventSourceTypeLabel(arn: string): string {
+  const service = arn.split(':')[2].toLowerCase();
+  return eventSourceTypeLabels.get(service) ?? service.toUpperCase();
+}
+
 export function LambdaEventSourcesTab({ functionName }: { functionName: string }) {
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [mappings, setMappings] = useState<LambdaEventSourceMappingItem[]>([]);
+  const [s3Triggers, setS3Triggers] = useState<LambdaS3TriggerItem[]>([]);
   const [actionState, setActionState] = useState<ActionState>('idle');
 
   const load = useCallback(
@@ -87,6 +116,7 @@ export function LambdaEventSourcesTab({ functionName }: { functionName: string }
       return getLambdaEventSourceMappings(functionName, signal)
         .then((data) => {
           setMappings(data.mappings);
+          setS3Triggers(data.s3Triggers);
           setLoadState('ready');
         })
         .catch(() => setLoadState('error'));
@@ -124,7 +154,7 @@ export function LambdaEventSourcesTab({ functionName }: { functionName: string }
     );
   }
 
-  if (mappings.length === 0) {
+  if (mappings.length === 0 && s3Triggers.length === 0) {
     return (
       <p data-testid="lambda-event-sources-empty" style={messageStyle}>
         No event source mappings are configured for this function.
@@ -148,7 +178,15 @@ export function LambdaEventSourcesTab({ functionName }: { functionName: string }
             style={mappingStyle}
           >
             <div style={rowStyle}>
-              <ResourceLink reference={mapping.eventSourceArn} />
+              <div style={sourceGroupStyle}>
+                <span
+                  data-testid={`lambda-event-source-type-${mapping.uuid}`}
+                  style={typeBadgeStyle}
+                >
+                  {eventSourceTypeLabel(mapping.eventSourceArn)}
+                </span>
+                <ResourceLink reference={mapping.eventSourceArn} />
+              </div>
               <div style={rowStyle}>
                 <span
                   data-testid={`lambda-event-source-state-${mapping.uuid}`}
@@ -187,6 +225,31 @@ export function LambdaEventSourcesTab({ functionName }: { functionName: string }
           </div>
         );
       })}
+      {s3Triggers.map((trigger) => (
+        <div
+          key={trigger.bucketArn}
+          data-testid={`lambda-s3-trigger-${trigger.bucketArn}`}
+          style={mappingStyle}
+        >
+          <div style={rowStyle}>
+            <div style={sourceGroupStyle}>
+              <span
+                data-testid={`lambda-s3-trigger-type-${trigger.bucketArn}`}
+                style={typeBadgeStyle}
+              >
+                {eventSourceTypeLabel(trigger.bucketArn)}
+              </span>
+              <ResourceLink reference={trigger.bucketArn} />
+            </div>
+          </div>
+          <div style={metaRowStyle}>
+            <div>
+              <Text style={labelStyle}>Trigger</Text>
+              <Text style={valueStyle}> S3 bucket notification</Text>
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

@@ -45,6 +45,7 @@ import {
   purgeSqsQueue,
   sendSqsMessage,
   getSqsQueueSubscriptions,
+  getSqsQueueConsumerLambdas,
   getSqsQueueAttributes,
   getSqsQueueRedrive,
   redriveSqsQueue,
@@ -1169,6 +1170,7 @@ describe('getLambdaEventSourceMappings', () => {
           lastModified: '2026-01-02T03:04:05.0000000Z',
         },
       ],
+      s3Triggers: [{ bucketArn: 'arn:aws:s3:::orders-bucket' }],
     };
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
@@ -1820,6 +1822,46 @@ describe('getSqsQueueSubscriptions', () => {
   });
 });
 
+describe('getSqsQueueConsumerLambdas', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed consumer Lambdas when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        lambdas: [
+          {
+            functionName: 'order-processor',
+            functionArn: 'arn:aws:lambda:eu-west-1:000000000000:function:order-processor',
+            state: 'Enabled',
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const controller = new AbortController();
+    const result = await getSqsQueueConsumerLambdas('my queue', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/sqs/queues/my%20queue/lambda-triggers',
+      { signal: controller.signal },
+    );
+    expect(result.lambdas).toHaveLength(1);
+    expect(result.lambdas[0]?.functionName).toBe('order-processor');
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(getSqsQueueConsumerLambdas('orders')).rejects.toThrow(
+      'SQS consumer Lambdas request failed with status 500',
+    );
+  });
+});
+
 describe('getSqsQueueAttributes', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -1836,6 +1878,9 @@ describe('getSqsQueueAttributes', () => {
         maximumMessageSizeBytes: 262144,
         queueArn: 'arn:aws:sqs:eu-west-1:000000000000:orders',
         fifoQueue: false,
+        approximateMessageCount: 7,
+        approximateInFlightCount: 3,
+        approximateDelayedCount: 2,
       }),
     });
     vi.stubGlobal('fetch', fetchMock);
@@ -1850,6 +1895,9 @@ describe('getSqsQueueAttributes', () => {
     expect(result.visibilityTimeoutSeconds).toBe(45);
     expect(result.queueArn).toBe('arn:aws:sqs:eu-west-1:000000000000:orders');
     expect(result.fifoQueue).toBe(false);
+    expect(result.approximateMessageCount).toBe(7);
+    expect(result.approximateInFlightCount).toBe(3);
+    expect(result.approximateDelayedCount).toBe(2);
   });
 
   it('throws when the response is not ok', async () => {

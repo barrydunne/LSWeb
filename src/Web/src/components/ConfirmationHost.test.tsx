@@ -49,4 +49,27 @@ describe('ConfirmationHost', () => {
     expect(screen.queryByTestId('confirm-accept')).not.toBeInTheDocument();
     expect(screen.getByTestId('confirm-trigger')).toBeInTheDocument();
   });
+
+  it('dismisses the dialog when the backdrop is clicked', async () => {
+    const user = userEvent.setup();
+    const onConfirm = renderHost();
+
+    await user.click(screen.getByTestId('confirm-trigger'));
+    await user.click(screen.getByTestId('confirm-overlay'));
+
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('confirm-accept')).not.toBeInTheDocument();
+    expect(screen.getByTestId('confirm-trigger')).toBeInTheDocument();
+  });
+
+  it('keeps the dialog open when its surface is clicked', async () => {
+    const user = userEvent.setup();
+    const onConfirm = renderHost();
+
+    await user.click(screen.getByTestId('confirm-trigger'));
+    await user.click(screen.getByTestId('confirm-dialog'));
+
+    expect(onConfirm).not.toHaveBeenCalled();
+    expect(screen.getByTestId('confirm-accept')).toBeInTheDocument();
+  });
 });

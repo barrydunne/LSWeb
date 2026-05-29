@@ -62,6 +62,33 @@ public class GetLambdaEnvironmentQueryHandlerTests
     }
 
     [Fact]
+    public async Task Handle_WhenVariablesHaveMixedCase_OrdersCaseInsensitively()
+    {
+        // Arrange
+        IReadOnlyDictionary<string, string> raw = new Dictionary<string, string>
+        {
+            ["Banana"] = "2",
+            ["apple"] = "1",
+        };
+        _client
+            .GetEnvironmentAsync("orders", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Ok(raw)));
+        _redaction
+            .Resolve(Arg.Any<ConfigValue>(), Arg.Any<bool>())
+            .Returns(call => call.Arg<ConfigValue>().Value);
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.Handle(
+            new GetLambdaEnvironmentQuery("orders", false),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Variables.Select(_ => _.Name).Should().Equal("apple", "Banana");
+    }
+
+    [Fact]
     public async Task Handle_WhenClientFails_PropagatesError()
     {
         // Arrange

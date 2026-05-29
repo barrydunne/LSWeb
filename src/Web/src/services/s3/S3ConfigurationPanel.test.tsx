@@ -23,6 +23,8 @@ const fullConfiguration: S3BucketConfigurationResult = {
       type: 'Lambda',
       targetArn: 'arn:aws:lambda:us-east-1:000000000000:function:process',
       events: ['s3:ObjectCreated:*'],
+      prefix: 'uploads/',
+      suffix: '.json',
     },
   ],
   policy: '{"Version":"2012-10-17"}',
@@ -92,6 +94,8 @@ describe('S3ConfigurationPanel', () => {
     expect(lifecycleRows[1]).toHaveTextContent('(all objects)');
 
     expect(screen.getByTestId('s3-config-notification-row')).toHaveTextContent('s3:ObjectCreated:*');
+    expect(screen.getByTestId('s3-config-notification-prefix')).toHaveTextContent('Prefix: uploads/');
+    expect(screen.getByTestId('s3-config-notification-suffix')).toHaveTextContent('Suffix: .json');
     expect(screen.getByTestId('s3-config-policy-document')).toHaveTextContent(
       '{"Version":"2012-10-17"}',
     );
@@ -139,5 +143,73 @@ describe('S3ConfigurationPanel', () => {
 
     expect(screen.getByTestId('s3-config-encryption-algorithm')).toHaveTextContent('AES256');
     expect(screen.queryByTestId('s3-config-encryption-key')).not.toBeInTheDocument();
+  });
+
+  it('shows only the prefix when a notification has no suffix filter', async () => {
+    getConfigurationMock.mockResolvedValue({
+      ...emptyConfiguration,
+      notifications: [
+        {
+          type: 'Lambda',
+          targetArn: 'arn:aws:lambda:us-east-1:000000000000:function:process',
+          events: ['s3:ObjectCreated:*'],
+          prefix: 'uploads/',
+          suffix: '',
+        },
+      ],
+    });
+
+    renderPanel();
+
+    await waitFor(() => expect(screen.getByTestId('s3-config-view')).toBeInTheDocument());
+
+    expect(screen.getByTestId('s3-config-notification-prefix')).toHaveTextContent('Prefix: uploads/');
+    expect(screen.queryByTestId('s3-config-notification-suffix')).not.toBeInTheDocument();
+  });
+
+  it('shows only the suffix when a notification has no prefix filter', async () => {
+    getConfigurationMock.mockResolvedValue({
+      ...emptyConfiguration,
+      notifications: [
+        {
+          type: 'Lambda',
+          targetArn: 'arn:aws:lambda:us-east-1:000000000000:function:process',
+          events: ['s3:ObjectCreated:*'],
+          prefix: '',
+          suffix: '.json',
+        },
+      ],
+    });
+
+    renderPanel();
+
+    await waitFor(() => expect(screen.getByTestId('s3-config-view')).toBeInTheDocument());
+
+    expect(screen.queryByTestId('s3-config-notification-prefix')).not.toBeInTheDocument();
+    expect(screen.getByTestId('s3-config-notification-suffix')).toHaveTextContent('Suffix: .json');
+  });
+
+  it('shows no filter when a notification has neither a prefix nor a suffix', async () => {
+    getConfigurationMock.mockResolvedValue({
+      ...emptyConfiguration,
+      notifications: [
+        {
+          type: 'Lambda',
+          targetArn: 'arn:aws:lambda:us-east-1:000000000000:function:process',
+          events: ['s3:ObjectCreated:*'],
+          prefix: '',
+          suffix: '',
+        },
+      ],
+    });
+
+    renderPanel();
+
+    await waitFor(() => expect(screen.getByTestId('s3-config-view')).toBeInTheDocument());
+
+    const filterCell = screen.getByTestId('s3-config-notification-filter');
+    expect(filterCell).toHaveTextContent('(no filter)');
+    expect(screen.queryByTestId('s3-config-notification-prefix')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('s3-config-notification-suffix')).not.toBeInTheDocument();
   });
 });

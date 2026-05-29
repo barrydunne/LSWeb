@@ -21,7 +21,7 @@ public class GetSqsQueueAttributesQueryHandlerTests
     {
         // Arrange
         var attributes = new SqsQueueAttributes(
-            30, 345600, 0, 0, 262144, "arn:aws:sqs:eu-west-1:000000000000:orders", false);
+            30, 345600, 0, 0, 262144, "arn:aws:sqs:eu-west-1:000000000000:orders", false, 7, 3, 2);
         _client
             .GetQueueAttributesAsync("orders", Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Ok(attributes)));
@@ -35,6 +35,9 @@ public class GetSqsQueueAttributesQueryHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.Value.Attributes.VisibilityTimeoutSeconds.Should().Be(30);
         result.Value.Attributes.QueueArn.Should().Be("arn:aws:sqs:eu-west-1:000000000000:orders");
+        result.Value.Attributes.ApproximateMessageCount.Should().Be(7);
+        result.Value.Attributes.ApproximateInFlightCount.Should().Be(3);
+        result.Value.Attributes.ApproximateDelayedCount.Should().Be(2);
     }
 
     [Fact]

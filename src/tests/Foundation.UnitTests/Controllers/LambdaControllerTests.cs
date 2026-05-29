@@ -640,10 +640,14 @@ public class LambdaControllerTests
         [
             new("uuid-1", "arn:source", "arn:fn", "Enabled", 10, "2026-01-02T03:04:05Z"),
         ];
+        IReadOnlyList<LambdaS3Trigger> triggers =
+        [
+            new("arn:aws:s3:::orders-bucket"),
+        ];
         _sender
             .Send(Arg.Any<ListLambdaEventSourceMappingsQuery>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<Result<ListLambdaEventSourceMappingsQueryResult>>(
-                new ListLambdaEventSourceMappingsQueryResult(mappings)));
+                new ListLambdaEventSourceMappingsQueryResult(mappings, triggers)));
         var sut = CreateSut();
 
         // Act
@@ -658,6 +662,7 @@ public class LambdaControllerTests
         mapping.State.Should().Be("Enabled");
         mapping.BatchSize.Should().Be(10);
         mapping.LastModified.Should().Be("2026-01-02T03:04:05Z");
+        ok.Value!.S3Triggers.Should().ContainSingle().Which.BucketArn.Should().Be("arn:aws:s3:::orders-bucket");
         await _sender.Received(1).Send(
             Arg.Is<ListLambdaEventSourceMappingsQuery>(query => query.FunctionName == "orders"),
             Arg.Any<CancellationToken>());

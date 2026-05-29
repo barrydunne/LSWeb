@@ -155,7 +155,10 @@ public sealed record S3LifecycleRuleResponse(string Id, string Status, string Pr
 /// <param name="Type">The target resource type: <c>Lambda</c>, <c>Queue</c> or <c>Topic</c>.</param>
 /// <param name="TargetArn">The ARN of the target Lambda function, SQS queue or SNS topic.</param>
 /// <param name="Events">The S3 event names that trigger the notification.</param>
-public sealed record S3NotificationResponse(string Type, string TargetArn, IReadOnlyList<string> Events);
+/// <param name="Prefix">The object key prefix the notification is filtered to; empty when no prefix filter is configured.</param>
+/// <param name="Suffix">The object key suffix the notification is filtered to; empty when no suffix filter is configured.</param>
+public sealed record S3NotificationResponse(
+    string Type, string TargetArn, IReadOnlyList<string> Events, string Prefix, string Suffix);
 
 /// <summary>
 /// A best-effort storage summary for a single S3 bucket.

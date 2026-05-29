@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider } from '@primer/react';
 import { Toast } from './Toast';
@@ -23,6 +23,10 @@ const base: Notification = {
 };
 
 describe('Toast', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('shows an in-progress status', () => {
     renderToast({ ...base, state: 'InProgress' });
 
@@ -51,5 +55,28 @@ describe('Toast', () => {
     await userEvent.click(screen.getByTestId('toast-dismiss'));
 
     expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it('auto-dismisses a terminal toast after the timeout', () => {
+    vi.useFakeTimers();
+    const onDismiss = renderToast({ ...base, state: 'Succeeded' });
+
+    expect(onDismiss).not.toHaveBeenCalled();
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not auto-dismiss an in-progress toast', () => {
+    vi.useFakeTimers();
+    const onDismiss = renderToast({ ...base, state: 'InProgress' });
+
+    act(() => {
+      vi.advanceTimersByTime(60000);
+    });
+
+    expect(onDismiss).not.toHaveBeenCalled();
   });
 });

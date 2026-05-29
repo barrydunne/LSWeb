@@ -32,27 +32,49 @@ describe('Breadcrumbs', () => {
     renderBreadcrumbs('/services/sqs/orders');
 
     const items = screen.getAllByTestId('breadcrumb-item');
-    expect(items).toHaveLength(4);
+    expect(items).toHaveLength(3);
     expect(items[0]).toHaveAttribute('href', '/');
-    expect(items[1]).toHaveAttribute('href', '/services');
-    expect(items[2]).toHaveAttribute('href', '/services/sqs');
-    expect(items[3]).toHaveTextContent('orders');
-    expect(items[3]).toHaveAttribute('aria-current', 'page');
-    expect(items[3]).not.toHaveAttribute('href');
+    expect(items[1]).toHaveAttribute('href', '/services/sqs');
+    expect(items[1]).toHaveTextContent('sqs');
+    expect(items[2]).toHaveTextContent('orders');
+    expect(items[2]).toHaveAttribute('aria-current', 'page');
+    expect(items[2]).not.toHaveAttribute('href');
+  });
+
+  it('omits the non-navigable services prefix from the trail', () => {
+    renderBreadcrumbs('/services/lambda/my-fn');
+
+    const items = screen.getAllByTestId('breadcrumb-item');
+    expect(items).toHaveLength(3);
+    expect(screen.queryByText('services')).not.toBeInTheDocument();
+    expect(items[0]).toHaveTextContent('Home');
+    expect(items[1]).toHaveTextContent('lambda');
+    expect(items[1]).toHaveAttribute('href', '/services/lambda');
+    expect(items[2]).toHaveTextContent('my-fn');
+    expect(items[2]).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('keeps a leading non-service segment such as dashboard', () => {
+    renderBreadcrumbs('/dashboard');
+
+    const items = screen.getAllByTestId('breadcrumb-item');
+    expect(items).toHaveLength(2);
+    expect(items[1]).toHaveTextContent('dashboard');
+    expect(items[1]).toHaveAttribute('aria-current', 'page');
   });
 
   it('decodes percent-encoded path segments', () => {
     renderBreadcrumbs('/services/sqs/my%20queue');
 
     const items = screen.getAllByTestId('breadcrumb-item');
-    expect(items[3]).toHaveTextContent('my queue');
+    expect(items[2]).toHaveTextContent('my queue');
   });
 
   it('falls back to the current location when no pathname is supplied', () => {
-    renderBreadcrumbs(undefined, '/services');
+    renderBreadcrumbs(undefined, '/services/sqs');
 
     const items = screen.getAllByTestId('breadcrumb-item');
     expect(items).toHaveLength(2);
-    expect(items[1]).toHaveTextContent('services');
+    expect(items[1]).toHaveTextContent('sqs');
   });
 });

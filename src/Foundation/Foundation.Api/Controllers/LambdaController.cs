@@ -331,6 +331,9 @@ public partial class LambdaController : ControllerBase
                         mapping.State,
                         mapping.BatchSize,
                         mapping.LastModified))
+                    .ToList(),
+                mappings.S3Triggers
+                    .Select(trigger => new LambdaS3TriggerResponse(trigger.BucketArn))
                     .ToList())),
             error => error.AsHttpResult());
     }

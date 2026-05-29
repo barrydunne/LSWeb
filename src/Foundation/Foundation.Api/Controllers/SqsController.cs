@@ -9,6 +9,7 @@ using Foundation.Application.Commands.SendSqsMessage;
 using Foundation.Application.Commands.SetSqsQueueAttributes;
 using Foundation.Application.Queries.GetSqsQueueAttributes;
 using Foundation.Application.Queries.GetSqsQueueRedrive;
+using Foundation.Application.Queries.ListSqsConsumerLambdas;
 using Foundation.Application.Queries.ListSqsMessages;
 using Foundation.Application.Queries.ListSqsQueues;
 using Foundation.Application.Queries.ListSqsSubscriptions;
@@ -233,6 +234,31 @@ public partial class SqsController : ControllerBase
     }
 
     /// <summary>
+    /// Lists the Lambda functions that consume a queue, detected from each function's event source
+    /// mappings, so the relationship can be shown as cross-resource links.
+    /// </summary>
+    /// <param name="queueName">The name of the queue to inspect.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 200 result carrying the consuming Lambda functions.</returns>
+    [HttpGet("queues/{queueName}/lambda-triggers")]
+    [ProducesResponseType(typeof(SqsConsumerLambdaListResponse), StatusCodes.Status200OK)]
+    public async Task<IResult> ListConsumerLambdas(string queueName, CancellationToken cancellationToken)
+    {
+        LogHandlingConsumerLambdas(queueName);
+        var result = await _sender.Send(new ListSqsConsumerLambdasQuery(queueName), cancellationToken);
+        LogConsumerLambdasHandled(result.IsSuccess);
+        return result.Match(
+            lambdas => Results.Ok(new SqsConsumerLambdaListResponse(
+                lambdas.Lambdas
+                    .Select(lambda => new SqsConsumerLambdaResponse(
+                        lambda.FunctionName,
+                        lambda.FunctionArn,
+                        lambda.State))
+                    .ToList())),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
     /// Reads the configurable and informational attributes of a queue.
     /// </summary>
     /// <param name="queueName">The name of the queue to inspect.</param>
@@ -253,7 +279,10 @@ public partial class SqsController : ControllerBase
                 attributes.Attributes.ReceiveMessageWaitTimeSeconds,
                 attributes.Attributes.MaximumMessageSizeBytes,
                 attributes.Attributes.QueueArn,
-                attributes.Attributes.FifoQueue)),
+                attributes.Attributes.FifoQueue,
+                attributes.Attributes.ApproximateMessageCount,
+                attributes.Attributes.ApproximateInFlightCount,
+                attributes.Attributes.ApproximateDelayedCount)),
             error => error.AsHttpResult());
     }
 
@@ -377,6 +406,12 @@ public partial class SqsController : ControllerBase
 
     [LoggerMessage(LogLevel.Trace, "SQS subscription list request handled. Success: {Success}")]
     private partial void LogSubscriptionsHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling SQS consumer Lambda list request for {QueueName}.")]
+    private partial void LogHandlingConsumerLambdas(string queueName);
+
+    [LoggerMessage(LogLevel.Trace, "SQS consumer Lambda list request handled. Success: {Success}")]
+    private partial void LogConsumerLambdasHandled(bool success);
 
     [LoggerMessage(LogLevel.Trace, "Handling SQS get attributes request for {QueueName}.")]
     private partial void LogHandlingGetAttributes(string queueName);

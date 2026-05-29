@@ -57,6 +57,20 @@ public sealed record SqsSubscriptionListResponse(IReadOnlyList<SqsSubscriptionRe
 public sealed record SqsSubscriptionResponse(string TopicArn, string TopicName);
 
 /// <summary>
+/// The Lambda functions that consume a queue, detected from each function's event source mappings.
+/// </summary>
+/// <param name="Lambdas">The consuming functions, ordered by function name.</param>
+public sealed record SqsConsumerLambdaListResponse(IReadOnlyList<SqsConsumerLambdaResponse> Lambdas);
+
+/// <summary>
+/// A single Lambda function that consumes a queue, used to link a queue to the function it triggers.
+/// </summary>
+/// <param name="FunctionName">The bare name of the function that the queue triggers.</param>
+/// <param name="FunctionArn">The ARN of the function the event source mapping targets.</param>
+/// <param name="State">The event source mapping state reported by AWS, for example <c>Enabled</c> or <c>Disabled</c>.</param>
+public sealed record SqsConsumerLambdaResponse(string FunctionName, string FunctionArn, string State);
+
+/// <summary>
 /// A request to create a new SQS queue.
 /// </summary>
 /// <param name="QueueName">The name of the queue to create. FIFO queue names must end with <c>.fifo</c>.</param>
@@ -86,6 +100,9 @@ public sealed record SqsSendMessageRequest(
 /// <param name="MaximumMessageSizeBytes">The maximum message size, in bytes, the queue accepts.</param>
 /// <param name="QueueArn">The Amazon Resource Name of the queue; informational only.</param>
 /// <param name="FifoQueue">Whether the queue is a FIFO queue; informational only.</param>
+/// <param name="ApproximateMessageCount">The approximate number of visible messages available for retrieval; eventually consistent.</param>
+/// <param name="ApproximateInFlightCount">The approximate number of in-flight messages (received but not yet deleted); eventually consistent.</param>
+/// <param name="ApproximateDelayedCount">The approximate number of messages delayed and not yet available for retrieval; eventually consistent.</param>
 public sealed record SqsQueueAttributesResponse(
     int VisibilityTimeoutSeconds,
     int MessageRetentionPeriodSeconds,
@@ -93,7 +110,10 @@ public sealed record SqsQueueAttributesResponse(
     int ReceiveMessageWaitTimeSeconds,
     int MaximumMessageSizeBytes,
     string QueueArn,
-    bool FifoQueue);
+    bool FifoQueue,
+    long ApproximateMessageCount,
+    long ApproximateInFlightCount,
+    long ApproximateDelayedCount);
 
 /// <summary>
 /// A request to update the editable attributes of an SQS queue.

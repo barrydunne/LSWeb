@@ -371,13 +371,16 @@ internal sealed class S3ClientAdapter : IS3Client
         var notifications = new List<Foundation.Domain.S3.S3NotificationConfiguration>();
         foreach (var lambda in response.LambdaFunctionConfigurations ?? [])
             notifications.Add(new Foundation.Domain.S3.S3NotificationConfiguration(
-                "Lambda", lambda.FunctionArn ?? string.Empty, EventNames(lambda.Events)));
+                "Lambda", lambda.FunctionArn ?? string.Empty, EventNames(lambda.Events),
+                FilterValue(lambda.Filter, "prefix"), FilterValue(lambda.Filter, "suffix")));
         foreach (var queue in response.QueueConfigurations ?? [])
             notifications.Add(new Foundation.Domain.S3.S3NotificationConfiguration(
-                "Queue", queue.Queue ?? string.Empty, EventNames(queue.Events)));
+                "Queue", queue.Queue ?? string.Empty, EventNames(queue.Events),
+                FilterValue(queue.Filter, "prefix"), FilterValue(queue.Filter, "suffix")));
         foreach (var topic in response.TopicConfigurations ?? [])
             notifications.Add(new Foundation.Domain.S3.S3NotificationConfiguration(
-                "Topic", topic.Topic ?? string.Empty, EventNames(topic.Events)));
+                "Topic", topic.Topic ?? string.Empty, EventNames(topic.Events),
+                FilterValue(topic.Filter, "prefix"), FilterValue(topic.Filter, "suffix")));
 
         return notifications;
     }
@@ -406,6 +409,12 @@ internal sealed class S3ClientAdapter : IS3Client
         => (events ?? [])
             .Select(eventType => eventType.Value)
             .ToList();
+
+    private static string FilterValue(Filter? filter, string ruleName)
+        => (filter?.S3KeyFilter?.FilterRules ?? [])
+            .Where(rule => string.Equals(rule.Name, ruleName, StringComparison.OrdinalIgnoreCase))
+            .Select(rule => rule.Value ?? string.Empty)
+            .FirstOrDefault() ?? string.Empty;
 
     public Task<Result<Foundation.Domain.S3.S3BucketStorageSummary>> GetBucketStorageSummaryAsync(
         string bucketName, CancellationToken cancellationToken)

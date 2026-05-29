@@ -172,11 +172,21 @@ public sealed record LambdaTestEventSaveRequest(
     string? Payload);
 
 /// <summary>
-/// The event source mappings configured for a Lambda function.
+/// The event source mappings and S3 triggers configured for a Lambda function.
 /// </summary>
 /// <param name="Mappings">The event source mappings, ordered by their source ARN.</param>
+/// <param name="S3Triggers">The S3 buckets configured to trigger the function, ordered by their bucket ARN.</param>
 public sealed record LambdaEventSourceMappingListResponse(
-    IReadOnlyList<LambdaEventSourceMappingResponse> Mappings);
+    IReadOnlyList<LambdaEventSourceMappingResponse> Mappings,
+    IReadOnlyList<LambdaS3TriggerResponse> S3Triggers);
+
+/// <summary>
+/// An S3 bucket configured to trigger a Lambda function, surfaced from the function's
+/// resource-based policy.
+/// </summary>
+/// <param name="BucketArn">The Amazon Resource Name of the source bucket.</param>
+public sealed record LambdaS3TriggerResponse(
+    string BucketArn);
 
 /// <summary>
 /// A single event source mapping linking an event source to the Lambda function it triggers.

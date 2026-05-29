@@ -173,6 +173,7 @@ export function S3ConfigurationPanel({ bucketName }: { bucketName: string }) {
                 <th style={cellStyle}>Type</th>
                 <th style={cellStyle}>Target</th>
                 <th style={cellStyle}>Events</th>
+                <th style={cellStyle}>Filter</th>
               </tr>
             </thead>
             <tbody>
@@ -186,6 +187,25 @@ export function S3ConfigurationPanel({ bucketName }: { bucketName: string }) {
                     />
                   </td>
                   <td style={cellStyle}>{notification.events.join(', ')}</td>
+                  <td style={cellStyle} data-testid="s3-config-notification-filter">
+                    {notification.prefix.length === 0 && notification.suffix.length === 0 ? (
+                      <span style={emptyStyle}>(no filter)</span>
+                    ) : (
+                      <span>
+                        {notification.prefix.length > 0 ? (
+                          <span data-testid="s3-config-notification-prefix">
+                            Prefix: {notification.prefix}
+                          </span>
+                        ) : null}
+                        {notification.prefix.length > 0 && notification.suffix.length > 0 ? ', ' : null}
+                        {notification.suffix.length > 0 ? (
+                          <span data-testid="s3-config-notification-suffix">
+                            Suffix: {notification.suffix}
+                          </span>
+                        ) : null}
+                      </span>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>

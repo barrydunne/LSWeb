@@ -24,9 +24,17 @@ public class ListLambdaEventSourceMappingsQueryHandlerTests
             new("uuid-z", "arn:zeta", "arn:fn", "Enabled", 10, "2026-01-02T03:04:05Z"),
             new("uuid-a", "arn:alpha", "arn:fn", "Disabled", 5, "2026-01-01T00:00:00Z"),
         ];
+        IReadOnlyList<LambdaS3Trigger> triggers =
+        [
+            new("arn:aws:s3:::zeta-bucket"),
+            new("arn:aws:s3:::alpha-bucket"),
+        ];
         _client
             .ListEventSourceMappingsAsync("orders", Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Ok(stored)));
+        _client
+            .ListS3TriggersAsync("orders", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Ok(triggers)));
         var sut = CreateSut();
 
         // Act
@@ -43,6 +51,8 @@ public class ListLambdaEventSourceMappingsQueryHandlerTests
         first.State.Should().Be("Disabled");
         first.BatchSize.Should().Be(5);
         first.LastModified.Should().Be("2026-01-01T00:00:00Z");
+        result.Value.S3Triggers.Select(_ => _.BucketArn)
+            .Should().ContainInOrder("arn:aws:s3:::alpha-bucket", "arn:aws:s3:::zeta-bucket");
     }
 
     [Fact]
@@ -61,5 +71,27 @@ public class ListLambdaEventSourceMappingsQueryHandlerTests
         // Assert
         result.IsSuccess.Should().BeFalse();
         result.Error!.Value.Message.Should().Be("list boom");
+    }
+
+    [Fact]
+    public async Task Handle_WhenS3TriggerClientFails_ReturnsError()
+    {
+        // Arrange
+        IReadOnlyList<LambdaEventSourceMapping> stored = [];
+        _client
+            .ListEventSourceMappingsAsync("orders", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Ok(stored)));
+        _client
+            .ListS3TriggersAsync("orders", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<IReadOnlyList<LambdaS3Trigger>>>(new Error("policy boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.Handle(
+            new ListLambdaEventSourceMappingsQuery("orders"), TestContext.Current.CancellationToken);
+
+        // Assert
+        result.IsSuccess.Should().BeFalse();
+        result.Error!.Value.Message.Should().Be("policy boom");
     }
 }

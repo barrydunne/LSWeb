@@ -278,6 +278,8 @@ public class LambdaControllerTests
         {
             var payload = await response.Content.ReadFromJsonAsync<LambdaEventSourceMappingListResponse>(TestContext.Current.CancellationToken);
             payload.Should().NotBeNull();
+            payload!.Mappings.Should().NotBeNull();
+            payload.S3Triggers.Should().NotBeNull();
         }
         else
         {
@@ -389,7 +391,8 @@ public class LambdaControllerTests
     private sealed record LambdaTestEventSaveRequest(string Name, string? Payload);
 
     private sealed record LambdaEventSourceMappingListResponse(
-        IReadOnlyList<LambdaEventSourceMappingResponse> Mappings);
+        IReadOnlyList<LambdaEventSourceMappingResponse> Mappings,
+        IReadOnlyList<LambdaS3TriggerResponse> S3Triggers);
 
     private sealed record LambdaEventSourceMappingResponse(
         string Uuid,
@@ -398,6 +401,8 @@ public class LambdaControllerTests
         string State,
         int BatchSize,
         string LastModified);
+
+    private sealed record LambdaS3TriggerResponse(string BucketArn);
 
     private sealed record LambdaEventSourceMappingStateRequest(bool Enabled);
 

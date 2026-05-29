@@ -17,6 +17,9 @@ internal static class SqsQueueAttributesMapper
     private const string MaximumMessageSize = "MaximumMessageSize";
     private const string QueueArn = "QueueArn";
     private const string FifoQueue = "FifoQueue";
+    private const string ApproximateNumberOfMessages = "ApproximateNumberOfMessages";
+    private const string ApproximateNumberOfMessagesNotVisible = "ApproximateNumberOfMessagesNotVisible";
+    private const string ApproximateNumberOfMessagesDelayed = "ApproximateNumberOfMessagesDelayed";
 
     /// <summary>
     /// Map an SQS attribute bag to the domain attributes record.
@@ -31,12 +34,22 @@ internal static class SqsQueueAttributesMapper
             ReadInt(attributes, ReceiveMessageWaitTimeSeconds),
             ReadInt(attributes, MaximumMessageSize),
             ReadString(attributes, QueueArn),
-            ReadBool(attributes, FifoQueue));
+            ReadBool(attributes, FifoQueue),
+            ReadLong(attributes, ApproximateNumberOfMessages),
+            ReadLong(attributes, ApproximateNumberOfMessagesNotVisible),
+            ReadLong(attributes, ApproximateNumberOfMessagesDelayed));
 
     private static int ReadInt(IReadOnlyDictionary<string, string>? attributes, string key)
         => attributes is not null
             && attributes.TryGetValue(key, out var value)
             && int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
+                ? parsed
+                : 0;
+
+    private static long ReadLong(IReadOnlyDictionary<string, string>? attributes, string key)
+        => attributes is not null
+            && attributes.TryGetValue(key, out var value)
+            && long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed)
                 ? parsed
                 : 0;
 

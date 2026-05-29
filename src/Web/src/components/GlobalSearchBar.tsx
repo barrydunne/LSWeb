@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Text } from '@primer/react';
+import { useLocation } from 'react-router-dom';
 import {
   getSearch,
   getSearchState,
@@ -56,6 +57,7 @@ export function GlobalSearchBar() {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<ResultsState>({ kind: 'idle' });
   const [indexState, setIndexState] = useState<SearchStateResult | null>(null);
+  const location = useLocation();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -85,6 +87,11 @@ export function GlobalSearchBar() {
       controller.abort();
     };
   }, [query]);
+
+  useEffect(() => {
+    setQuery('');
+    setResults({ kind: 'idle' });
+  }, [location.key]);
 
   return (
     <div data-testid="global-search" style={containerStyle}>

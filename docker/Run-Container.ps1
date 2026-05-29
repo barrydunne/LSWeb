@@ -11,6 +11,11 @@
     variable. In network mode (default) it joins an existing Docker network and
     targets the LocalStack service hostname; with -NetworkName '' it runs on the
     default bridge and reaches the host's LocalStack via host.docker.internal.
+
+    Pass -UserDataPath to bind-mount a host directory into the container for
+    persisted user data (saved Lambda test payloads, favourites, recently-viewed).
+    The container stays stateless for AWS data; only this explicit user data is
+    written to the mounted directory.
 .PARAMETER ContainerName
     Name for the container. Any existing container with this name is removed first.
 .PARAMETER NetworkName
@@ -24,6 +29,12 @@
     Optional override for the LocalStack/AWS endpoint. When omitted it defaults
     to the LocalStack service hostname in network mode, or host.docker.internal
     in host-gateway mode.
+.PARAMETER UserDataPath
+    Optional host directory to bind-mount for persisted user data (for example
+    saved Lambda test payloads). When supplied, the directory is created if it
+    does not exist and the container's LSW_USER_DATA_DIR points at the mount, so
+    user data survives container restarts. When omitted the container keeps user
+    data in memory only (cleared on restart).
 #>
 [CmdletBinding()]
 param(
@@ -31,7 +42,8 @@ param(
     [string]$NetworkName = 'localstack-net',
     [string]$Tag = 'localstackweb:latest',
     [int]$HostPort = 5080,
-    [string]$AwsEndpointUrl
+    [string]$AwsEndpointUrl,
+    [string]$UserDataPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -40,6 +52,19 @@ $useNetwork = -not [string]::IsNullOrWhiteSpace($NetworkName)
 
 if (-not $PSBoundParameters.ContainsKey('AwsEndpointUrl')) {
     $AwsEndpointUrl = if ($useNetwork) { 'http://localstack:4566' } else { 'http://host.docker.internal:4566' }
+}
+
+# Resolve the optional user-data bind mount. The application persists user data (saved Lambda test
+# payloads, favourites, recently-viewed) to LSW_USER_DATA_DIR when set; mapping it to a host
+# directory makes that data survive container restarts while AWS data stays stateless.
+$mountUserData = -not [string]::IsNullOrWhiteSpace($UserDataPath)
+$containerUserDataDir = '/data'
+
+if ($mountUserData) {
+    if (-not (Test-Path -LiteralPath $UserDataPath)) {
+        New-Item -ItemType Directory -Path $UserDataPath -Force | Out-Null
+    }
+    $UserDataPath = (Resolve-Path -LiteralPath $UserDataPath).Path
 }
 
 # Verify the requested network exists (never create it).
@@ -68,10 +93,20 @@ else {
     $dockerArgs += @('--add-host', 'host.docker.internal:host-gateway')
 }
 
+if ($mountUserData) {
+    $dockerArgs += @(
+        '--volume', "${UserDataPath}:$containerUserDataDir",
+        '--env', "LSW_USER_DATA_DIR=$containerUserDataDir"
+    )
+}
+
 $dockerArgs += $Tag
 
 $networkLabel = if ($useNetwork) { $NetworkName } else { 'host-gateway' }
 Write-Host "Running '$Tag' as '$ContainerName' on http://localhost:$HostPort (network: $networkLabel, AWS endpoint: $AwsEndpointUrl)..." -ForegroundColor Cyan
+if ($mountUserData) {
+    Write-Host "Persisting user data to '$UserDataPath' (mounted at $containerUserDataDir)." -ForegroundColor Cyan
+}
 docker @dockerArgs
 
 if ($LASTEXITCODE -ne 0) {

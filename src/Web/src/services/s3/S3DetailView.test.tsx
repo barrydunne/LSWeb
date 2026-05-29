@@ -348,6 +348,21 @@ describe('S3DetailView', () => {
     await waitFor(() => expect(deleteS3ObjectMock).toHaveBeenCalledWith('data', 'readme.txt'));
   });
 
+  it('anchors the row action buttons in a single right-aligned row', async () => {
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('s3-detail-table')).toBeInTheDocument());
+
+    const row = screen.getByTestId('s3-detail-object-row');
+    const previewButton = within(row).getByTestId('s3-detail-preview-button');
+    const deleteTrigger = within(row).getByTestId('confirm-trigger');
+
+    const actionsRow = previewButton.parentElement as HTMLElement;
+    expect(actionsRow.style.display).toBe('flex');
+    expect(actionsRow.style.justifyContent).toBe('flex-end');
+    expect(actionsRow).toContainElement(deleteTrigger);
+  });
+
   it('shows a loading state while the preview is fetched', async () => {
     getS3ObjectPreviewMock.mockReturnValue(new Promise(() => {}));
 

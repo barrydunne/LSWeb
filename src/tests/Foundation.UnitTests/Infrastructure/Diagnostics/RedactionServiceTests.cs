@@ -91,4 +91,47 @@ public class RedactionServiceTests
         // Assert
         result.Should().Be("super-secret");
     }
+
+    [Fact]
+    public void ResolveUserSecret_WhenValueNotSensitive_ReturnsRawValue()
+    {
+        // Arrange
+        var sut = CreateSut(allowReveal: false);
+        var value = new ConfigValue("plain", "value", ConfigSource.Default, IsSensitive: false);
+
+        // Act
+        var result = sut.ResolveUserSecret(value, reveal: false);
+
+        // Assert
+        result.Should().Be("value");
+    }
+
+    [Fact]
+    public void ResolveUserSecret_WhenSensitiveAndRevealNotRequested_ReturnsMaskedValue()
+    {
+        // Arrange
+        var sut = CreateSut(allowReveal: true);
+        var value = new ConfigValue("db-password", "super-secret", ConfigSource.Default, IsSensitive: true);
+
+        // Act
+        var result = sut.ResolveUserSecret(value, reveal: false);
+
+        // Assert
+        result.Should().Be(value.Display);
+        result.Should().NotContain("super-secret");
+    }
+
+    [Fact]
+    public void ResolveUserSecret_WhenSensitiveAndRevealRequested_ReturnsRawValueEvenWhenHostGateClosed()
+    {
+        // Arrange
+        var sut = CreateSut(allowReveal: false);
+        var value = new ConfigValue("db-password", "super-secret", ConfigSource.Default, IsSensitive: true);
+
+        // Act
+        var result = sut.ResolveUserSecret(value, reveal: true);
+
+        // Assert
+        result.Should().Be("super-secret");
+    }
 }

@@ -90,4 +90,66 @@ public class SnsControllerTests
             payload!.Subscriptions.Should().NotBeNull();
         }
     }
+
+    [Fact]
+    public async Task PublishMessage_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
+    {
+        // Arrange
+        var client = _fixture.CreateClient();
+        var request = new SnsPublishMessageRequest(
+            "arn:aws:sns:eu-west-1:000000000000:integration-publish-topic",
+            "Integration",
+            "hello",
+            new Dictionary<string, string> { ["source"] = "integration" });
+
+        // Act
+        var response = await client.PostAsJsonAsync(
+            "/api/services/sns/topics/messages", request, TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().NotBe(HttpStatusCode.NotFound);
+        response.StatusCode.Should().NotBe(HttpStatusCode.MethodNotAllowed);
+    }
+
+    [Fact]
+    public async Task GetFilterPolicy_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
+    {
+        // Arrange
+        var client = _fixture.CreateClient();
+
+        // Act
+        var response = await client.GetAsync(
+            "/api/services/sns/subscriptions/filter-policy?arn=arn:aws:sns:eu-west-1:000000000000:integration-topic:8c1f",
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().NotBe(HttpStatusCode.NotFound);
+        response.StatusCode.Should().NotBe(HttpStatusCode.MethodNotAllowed);
+
+        if (response.StatusCode == HttpStatusCode.OK)
+        {
+            var payload = await response.Content.ReadFromJsonAsync<SnsSubscriptionFilterPolicyResponse>(
+                TestContext.Current.CancellationToken);
+            payload.Should().NotBeNull();
+            payload!.FilterPolicy.Should().NotBeNull();
+        }
+    }
+
+    [Fact]
+    public async Task SetFilterPolicy_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
+    {
+        // Arrange
+        var client = _fixture.CreateClient();
+        var request = new SnsSubscriptionFilterPolicyRequest(
+            "arn:aws:sns:eu-west-1:000000000000:integration-topic:8c1f",
+            "{\"source\":[\"integration\"]}");
+
+        // Act
+        var response = await client.PutAsJsonAsync(
+            "/api/services/sns/subscriptions/filter-policy", request, TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().NotBe(HttpStatusCode.NotFound);
+        response.StatusCode.Should().NotBe(HttpStatusCode.MethodNotAllowed);
+    }
 }

@@ -18,6 +18,8 @@ internal sealed class SnsClientAdapter : ISnsClient
 {
     private const string ServiceKey = "sns";
 
+    private const string FilterPolicyAttribute = "FilterPolicy";
+
     private readonly IAwsGateway _gateway;
 
     public SnsClientAdapter(IAwsGateway gateway)
@@ -106,6 +108,74 @@ internal sealed class SnsClientAdapter : ISnsClient
                 return subscriptions;
             },
             cancellationToken);
+
+    public async Task<Result> PublishAsync(
+        string topicArn,
+        string? subject,
+        string message,
+        IReadOnlyDictionary<string, string> messageAttributes,
+        CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonSimpleNotificationServiceClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var request = new PublishRequest { TopicArn = topicArn, Message = message };
+
+                if (!string.IsNullOrEmpty(subject))
+                    request.Subject = subject;
+
+                if (messageAttributes.Count > 0)
+                    request.MessageAttributes = messageAttributes.ToDictionary(
+                        pair => pair.Key,
+                        pair => new MessageAttributeValue { DataType = "String", StringValue = pair.Value });
+
+                await client.PublishAsync(request, token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    public Task<Result<string>> GetSubscriptionFilterPolicyAsync(
+        string subscriptionArn, CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonSimpleNotificationServiceClient, string>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var response = await client.GetSubscriptionAttributesAsync(
+                    new GetSubscriptionAttributesRequest { SubscriptionArn = subscriptionArn },
+                    token);
+
+                return response.Attributes is not null
+                    && response.Attributes.TryGetValue(FilterPolicyAttribute, out var filterPolicy)
+                    ? filterPolicy
+                    : string.Empty;
+            },
+            cancellationToken);
+
+    public async Task<Result> SetSubscriptionFilterPolicyAsync(
+        string subscriptionArn, string filterPolicy, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonSimpleNotificationServiceClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                await client.SetSubscriptionAttributesAsync(
+                    new SetSubscriptionAttributesRequest
+                    {
+                        SubscriptionArn = subscriptionArn,
+                        AttributeName = FilterPolicyAttribute,
+                        AttributeValue = filterPolicy,
+                    },
+                    token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
 
     private static SnsSubscription ToSubscription(Subscription subscription)
         => new(

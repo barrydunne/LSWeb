@@ -2022,3 +2022,64 @@ export async function getSnsSubscriptions(
   }
   return (await response.json()) as SnsSubscriptionListResult;
 }
+
+export interface SnsPublishMessageInput {
+  subject?: string;
+  message: string;
+  messageAttributes?: Record<string, string>;
+}
+
+export async function publishSnsMessage(
+  topicArn: string,
+  input: SnsPublishMessageInput,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/sns/topics/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      topicArn,
+      subject: input.subject,
+      message: input.message,
+      messageAttributes: input.messageAttributes,
+    }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`SNS publish request failed with status ${response.status}`);
+  }
+}
+
+export interface SnsSubscriptionFilterPolicyResult {
+  filterPolicy: string;
+}
+
+export async function getSnsSubscriptionFilterPolicy(
+  subscriptionArn: string,
+  signal?: AbortSignal,
+): Promise<SnsSubscriptionFilterPolicyResult> {
+  const response = await fetch(
+    `/api/services/sns/subscriptions/filter-policy?arn=${encodeURIComponent(subscriptionArn)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`SNS filter policy request failed with status ${response.status}`);
+  }
+  return (await response.json()) as SnsSubscriptionFilterPolicyResult;
+}
+
+export async function setSnsSubscriptionFilterPolicy(
+  subscriptionArn: string,
+  filterPolicy: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/sns/subscriptions/filter-policy', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ subscriptionArn, filterPolicy }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`SNS filter policy update request failed with status ${response.status}`);
+  }
+}

@@ -95,6 +95,9 @@ import {
   createSnsTopic,
   deleteSnsTopic,
   getSnsSubscriptions,
+  publishSnsMessage,
+  getSnsSubscriptionFilterPolicy,
+  setSnsSubscriptionFilterPolicy,
 } from './client';
 import type {
   DynamoDbQueryRequest,
@@ -3494,5 +3497,120 @@ describe('getSnsSubscriptions', () => {
     await expect(
       getSnsSubscriptions('arn:aws:sns:eu-west-1:000000000000:orders-topic'),
     ).rejects.toThrow('SNS subscriptions request failed with status 503');
+  });
+});
+
+describe('publishSnsMessage', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the topic arn, subject, message, and attributes to the messages endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const controller = new AbortController();
+    await publishSnsMessage(
+      'arn:aws:sns:eu-west-1:000000000000:orders-topic',
+      {
+        subject: 'Heads up',
+        message: 'hello world',
+        messageAttributes: { source: 'web' },
+      },
+      controller.signal,
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/sns/topics/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        topicArn: 'arn:aws:sns:eu-west-1:000000000000:orders-topic',
+        subject: 'Heads up',
+        message: 'hello world',
+        messageAttributes: { source: 'web' },
+      }),
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      publishSnsMessage('arn:aws:sns:eu-west-1:000000000000:orders-topic', { message: 'hi' }),
+    ).rejects.toThrow('SNS publish request failed with status 400');
+  });
+});
+
+describe('getSnsSubscriptionFilterPolicy', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed filter policy when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ filterPolicy: '{"store":["example_corp"]}' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const controller = new AbortController();
+    const result = await getSnsSubscriptionFilterPolicy(
+      'arn:aws:sns:eu-west-1:000000000000:orders-topic:8c1f',
+      controller.signal,
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/sns/subscriptions/filter-policy?arn=arn%3Aaws%3Asns%3Aeu-west-1%3A000000000000%3Aorders-topic%3A8c1f',
+      { signal: controller.signal },
+    );
+    expect(result.filterPolicy).toBe('{"store":["example_corp"]}');
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(
+      getSnsSubscriptionFilterPolicy('arn:aws:sns:eu-west-1:000000000000:orders-topic:8c1f'),
+    ).rejects.toThrow('SNS filter policy request failed with status 503');
+  });
+});
+
+describe('setSnsSubscriptionFilterPolicy', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the subscription arn and filter policy to the filter-policy endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const controller = new AbortController();
+    await setSnsSubscriptionFilterPolicy(
+      'arn:aws:sns:eu-west-1:000000000000:orders-topic:8c1f',
+      '{"store":["example_corp"]}',
+      controller.signal,
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/sns/subscriptions/filter-policy', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        subscriptionArn: 'arn:aws:sns:eu-west-1:000000000000:orders-topic:8c1f',
+        filterPolicy: '{"store":["example_corp"]}',
+      }),
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      setSnsSubscriptionFilterPolicy(
+        'arn:aws:sns:eu-west-1:000000000000:orders-topic:8c1f',
+        '{}',
+      ),
+    ).rejects.toThrow('SNS filter policy update request failed with status 400');
   });
 });

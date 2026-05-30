@@ -41,3 +41,31 @@ public sealed record SnsSubscriptionSummaryResponse(
     string Protocol,
     string Endpoint,
     string Owner);
+
+/// <summary>
+/// A request to publish a message to an SNS topic.
+/// </summary>
+/// <param name="TopicArn">The Amazon Resource Name of the topic to publish to.</param>
+/// <param name="Subject">The optional subject; ignored when null or empty.</param>
+/// <param name="Message">The message body.</param>
+/// <param name="MessageAttributes">Custom string message attributes to attach to the message.</param>
+public sealed record SnsPublishMessageRequest(
+    string TopicArn,
+    string? Subject,
+    string Message,
+    IReadOnlyDictionary<string, string>? MessageAttributes);
+
+/// <summary>
+/// The filter policy attached to an SNS subscription.
+/// </summary>
+/// <param name="FilterPolicy">The filter policy as a JSON document, or an empty string when no policy is set.</param>
+public sealed record SnsSubscriptionFilterPolicyResponse(string FilterPolicy);
+
+/// <summary>
+/// A request to set or clear the filter policy attached to an SNS subscription.
+/// </summary>
+/// <param name="SubscriptionArn">The Amazon Resource Name of the subscription to update.</param>
+/// <param name="FilterPolicy">The filter policy as a JSON document; an empty string clears the policy.</param>
+public sealed record SnsSubscriptionFilterPolicyRequest(
+    string SubscriptionArn,
+    string FilterPolicy);

@@ -42,4 +42,39 @@ public interface ISnsClient
     /// <returns>The subscriptions, or an error when the backend cannot be reached.</returns>
     Task<Result<IReadOnlyList<SnsSubscription>>> ListSubscriptionsByTopicAsync(
         string topicArn, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Publish a message to an SNS topic, optionally with a subject and custom string attributes.
+    /// </summary>
+    /// <param name="topicArn">The Amazon Resource Name of the topic to publish to.</param>
+    /// <param name="subject">The optional subject; ignored when null or empty.</param>
+    /// <param name="message">The message body.</param>
+    /// <param name="messageAttributes">Custom string message attributes to attach to the message.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A successful result, or an error when the backend rejects the request.</returns>
+    Task<Result> PublishAsync(
+        string topicArn,
+        string? subject,
+        string message,
+        IReadOnlyDictionary<string, string> messageAttributes,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Get the filter policy attached to an SNS subscription.
+    /// </summary>
+    /// <param name="subscriptionArn">The Amazon Resource Name of the subscription to inspect.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The filter policy as a JSON document, an empty string when no policy is set, or an error when the backend cannot be reached.</returns>
+    Task<Result<string>> GetSubscriptionFilterPolicyAsync(
+        string subscriptionArn, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Set or clear the filter policy attached to an SNS subscription.
+    /// </summary>
+    /// <param name="subscriptionArn">The Amazon Resource Name of the subscription to update.</param>
+    /// <param name="filterPolicy">The filter policy as a JSON document; an empty string clears the policy.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A successful result, or an error when the backend rejects the request.</returns>
+    Task<Result> SetSubscriptionFilterPolicyAsync(
+        string subscriptionArn, string filterPolicy, CancellationToken cancellationToken);
 }

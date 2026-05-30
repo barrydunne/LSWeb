@@ -3,6 +3,9 @@ using Foundation.Api.Controllers;
 using Foundation.Api.Models;
 using Foundation.Application.Commands.CreateSnsTopic;
 using Foundation.Application.Commands.DeleteSnsTopic;
+using Foundation.Application.Commands.PublishSnsMessage;
+using Foundation.Application.Commands.SetSnsSubscriptionFilterPolicy;
+using Foundation.Application.Queries.GetSnsSubscriptionFilterPolicy;
 using Foundation.Application.Queries.ListSnsSubscriptions;
 using Foundation.Application.Queries.ListSnsTopics;
 using Foundation.Domain.Sns;
@@ -186,6 +189,167 @@ public class SnsControllerTests
         // Act
         var result = await sut.ListSubscriptions(
             "arn:aws:sns:eu-west-1:000000000000:orders-topic", TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task PublishMessage_WhenCommandSucceeds_ReturnsAcceptedAndForwardsArguments()
+    {
+        // Arrange
+        PublishSnsMessageCommand? captured = null;
+        _sender
+            .Send(Arg.Do<PublishSnsMessageCommand>(command => captured = command), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.PublishMessage(
+            new SnsPublishMessageRequest(
+                "arn:aws:sns:eu-west-1:000000000000:orders-topic",
+                "Subject",
+                "hello",
+                new Dictionary<string, string> { ["source"] = "test" }),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        var accepted = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        accepted.StatusCode.Should().Be(StatusCodes.Status202Accepted);
+        captured.Should().NotBeNull();
+        captured!.TopicArn.Should().Be("arn:aws:sns:eu-west-1:000000000000:orders-topic");
+        captured.Subject.Should().Be("Subject");
+        captured.Message.Should().Be("hello");
+        captured.MessageAttributes["source"].Should().Be("test");
+    }
+
+    [Fact]
+    public async Task PublishMessage_WhenAttributesNull_DefaultsToEmptyDictionary()
+    {
+        // Arrange
+        PublishSnsMessageCommand? captured = null;
+        _sender
+            .Send(Arg.Do<PublishSnsMessageCommand>(command => captured = command), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.PublishMessage(
+            new SnsPublishMessageRequest(
+                "arn:aws:sns:eu-west-1:000000000000:orders-topic", null, "hello", null),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        var accepted = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        accepted.StatusCode.Should().Be(StatusCodes.Status202Accepted);
+        captured.Should().NotBeNull();
+        captured!.Subject.Should().BeNull();
+        captured.MessageAttributes.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task PublishMessage_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<PublishSnsMessageCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.PublishMessage(
+            new SnsPublishMessageRequest(
+                "arn:aws:sns:eu-west-1:000000000000:orders-topic", null, "hello", null),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task GetFilterPolicy_WhenQuerySucceeds_ReturnsOkWithPolicyAndForwardsArn()
+    {
+        // Arrange
+        GetSnsSubscriptionFilterPolicyQuery? captured = null;
+        _sender
+            .Send(
+                Arg.Do<GetSnsSubscriptionFilterPolicyQuery>(query => captured = query),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<GetSnsSubscriptionFilterPolicyQueryResult>>(
+                new GetSnsSubscriptionFilterPolicyQueryResult("{\"store\":[\"x\"]}")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.GetFilterPolicy(
+            "arn:aws:sns:eu-west-1:000000000000:orders-topic:8c1f", TestContext.Current.CancellationToken);
+
+        // Assert
+        var ok = result.Should().BeOfType<Ok<SnsSubscriptionFilterPolicyResponse>>().Subject;
+        ok.Value!.FilterPolicy.Should().Be("{\"store\":[\"x\"]}");
+        captured.Should().NotBeNull();
+        captured!.SubscriptionArn.Should().Be("arn:aws:sns:eu-west-1:000000000000:orders-topic:8c1f");
+    }
+
+    [Fact]
+    public async Task GetFilterPolicy_WhenQueryFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<GetSnsSubscriptionFilterPolicyQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<GetSnsSubscriptionFilterPolicyQueryResult>>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.GetFilterPolicy(
+            "arn:aws:sns:eu-west-1:000000000000:orders-topic:8c1f", TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task SetFilterPolicy_WhenCommandSucceeds_ReturnsNoContentAndForwardsArguments()
+    {
+        // Arrange
+        SetSnsSubscriptionFilterPolicyCommand? captured = null;
+        _sender
+            .Send(
+                Arg.Do<SetSnsSubscriptionFilterPolicyCommand>(command => captured = command),
+                Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.SetFilterPolicy(
+            new SnsSubscriptionFilterPolicyRequest(
+                "arn:aws:sns:eu-west-1:000000000000:orders-topic:8c1f", "{\"store\":[\"x\"]}"),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        var noContent = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        noContent.StatusCode.Should().Be(StatusCodes.Status204NoContent);
+        captured.Should().NotBeNull();
+        captured!.SubscriptionArn.Should().Be("arn:aws:sns:eu-west-1:000000000000:orders-topic:8c1f");
+        captured.FilterPolicy.Should().Be("{\"store\":[\"x\"]}");
+    }
+
+    [Fact]
+    public async Task SetFilterPolicy_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<SetSnsSubscriptionFilterPolicyCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.SetFilterPolicy(
+            new SnsSubscriptionFilterPolicyRequest(
+                "arn:aws:sns:eu-west-1:000000000000:orders-topic:8c1f", "{}"),
+            TestContext.Current.CancellationToken);
 
         // Assert
         var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;

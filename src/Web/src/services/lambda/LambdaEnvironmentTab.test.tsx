@@ -82,7 +82,7 @@ describe('LambdaEnvironmentTab', () => {
     expect(screen.queryByTestId('lambda-environment-reveal')).not.toBeInTheDocument();
   });
 
-  it('refetches with the reveal flag toggled', async () => {
+  it('reveals and hides every sensitive value with the global control', async () => {
     const user = userEvent.setup();
     getLambdaEnvironmentMock.mockResolvedValueOnce(environment).mockResolvedValueOnce({
       variables: [
@@ -101,21 +101,38 @@ describe('LambdaEnvironmentTab', () => {
     await user.click(screen.getByTestId('lambda-environment-reveal'));
 
     await waitFor(() =>
-      expect(screen.getByTestId('lambda-environment-value-2')).toHaveValue('super-secret'),
+      expect(screen.getByTestId('lambda-environment-value-0')).toHaveValue('super-secret'),
     );
-    expect(getLambdaEnvironmentMock).toHaveBeenLastCalledWith('process-orders', true, undefined);
+    expect(getLambdaEnvironmentMock).toHaveBeenLastCalledWith('process-orders', true);
     expect(screen.getByTestId('lambda-environment-reveal')).toHaveTextContent('Hide values');
+
+    await user.click(screen.getByTestId('lambda-environment-reveal'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('lambda-environment-value-0')).toHaveValue('********'),
+    );
+    expect(screen.getByTestId('lambda-environment-reveal')).toHaveTextContent('Reveal values');
   });
 
-  it('reveals values when the sensitive badge is clicked', async () => {
+  it('reveals only the clicked row when its sensitive badge is clicked', async () => {
     const user = userEvent.setup();
-    getLambdaEnvironmentMock.mockResolvedValueOnce(environment).mockResolvedValueOnce({
-      variables: [
-        { name: 'API_KEY', value: 'super-secret', isSensitive: true },
-        { name: 'REGION', value: 'eu-west-1', isSensitive: false },
-      ],
-      revealAllowed: true,
-    });
+    getLambdaEnvironmentMock
+      .mockResolvedValueOnce({
+        variables: [
+          { name: 'API_KEY', value: '********', isSensitive: true },
+          { name: 'DB_PASSWORD', value: '********', isSensitive: true },
+          { name: 'REGION', value: 'eu-west-1', isSensitive: false },
+        ],
+        revealAllowed: true,
+      })
+      .mockResolvedValueOnce({
+        variables: [
+          { name: 'API_KEY', value: 'super-secret', isSensitive: true },
+          { name: 'DB_PASSWORD', value: 'hunter2', isSensitive: true },
+          { name: 'REGION', value: 'eu-west-1', isSensitive: false },
+        ],
+        revealAllowed: true,
+      });
 
     renderTab();
 
@@ -126,9 +143,30 @@ describe('LambdaEnvironmentTab', () => {
     await user.click(screen.getByTestId('lambda-environment-sensitive-0'));
 
     await waitFor(() =>
-      expect(screen.getByTestId('lambda-environment-value-2')).toHaveValue('super-secret'),
+      expect(screen.getByTestId('lambda-environment-value-0')).toHaveValue('super-secret'),
     );
-    expect(getLambdaEnvironmentMock).toHaveBeenLastCalledWith('process-orders', true, undefined);
+    // The other sensitive row stays masked.
+    expect(screen.getByTestId('lambda-environment-value-1')).toHaveValue('********');
+    expect(getLambdaEnvironmentMock).toHaveBeenLastCalledWith('process-orders', true);
+    expect(screen.getByTestId('lambda-environment-sensitive-0')).toHaveTextContent('Sensitive \u00b7 hide');
+    expect(screen.getByTestId('lambda-environment-sensitive-1')).toHaveTextContent('Sensitive \u00b7 reveal');
+
+    // Clicking again hides only that row, without another fetch.
+    getLambdaEnvironmentMock.mockClear();
+    await user.click(screen.getByTestId('lambda-environment-sensitive-0'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('lambda-environment-value-0')).toHaveValue('********'),
+    );
+    expect(getLambdaEnvironmentMock).not.toHaveBeenCalled();
+
+    // Revealing a different row reuses the cached real values (no extra fetch).
+    await user.click(screen.getByTestId('lambda-environment-sensitive-1'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('lambda-environment-value-1')).toHaveValue('hunter2'),
+    );
+    expect(getLambdaEnvironmentMock).not.toHaveBeenCalled();
   });
 
   it('renders the sensitive badge as a static indicator when revealing is not allowed', async () => {

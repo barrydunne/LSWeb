@@ -38,12 +38,12 @@ internal sealed partial class GetLambdaEnvironmentQueryHandler : IQueryHandler<G
             .Select(pair =>
             {
                 var isSensitive = LambdaEnvironmentClassifier.IsSensitive(pair.Key);
-                var value = _redaction.Resolve(new ConfigValue(pair.Key, pair.Value, ConfigSource.EnvironmentVariable, isSensitive), request.Reveal);
+                var value = _redaction.ResolveUserSecret(new ConfigValue(pair.Key, pair.Value, ConfigSource.EnvironmentVariable, isSensitive), request.Reveal);
                 return new LambdaEnvironmentVariable(pair.Key, value, isSensitive);
             })
             .ToList();
 
-        return new GetLambdaEnvironmentQueryResult(variables, _redaction.CanReveal);
+        return new GetLambdaEnvironmentQueryResult(variables, RevealAllowed: true);
     }
 
     [LoggerMessage(LogLevel.Trace, "Getting Lambda environment for {FunctionName}. Reveal: {Reveal}")]

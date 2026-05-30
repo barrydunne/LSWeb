@@ -1,18 +1,25 @@
 using AspNet.KickStarter.CQRS.Abstractions.Queries;
 using AspNet.KickStarter.FunctionalResult;
 using Foundation.Application.Lambda;
+using Foundation.Application.S3;
+using Foundation.Domain.Lambda;
 using Microsoft.Extensions.Logging;
 
 namespace Foundation.Application.Queries.ListLambdaEventSourceMappings;
 
 internal sealed partial class ListLambdaEventSourceMappingsQueryHandler : IQueryHandler<ListLambdaEventSourceMappingsQuery, ListLambdaEventSourceMappingsQueryResult>
 {
+    private const string FunctionArnMarker = ":function:";
+
     private readonly ILambdaClient _client;
+    private readonly IS3Client _s3Client;
     private readonly ILogger _logger;
 
-    public ListLambdaEventSourceMappingsQueryHandler(ILambdaClient client, ILogger<ListLambdaEventSourceMappingsQueryHandler> logger)
+    public ListLambdaEventSourceMappingsQueryHandler(
+        ILambdaClient client, IS3Client s3Client, ILogger<ListLambdaEventSourceMappingsQueryHandler> logger)
     {
         _client = client;
+        _s3Client = s3Client;
         _logger = logger;
     }
 
@@ -27,11 +34,19 @@ internal sealed partial class ListLambdaEventSourceMappingsQueryHandler : IQuery
             return failure;
         }
 
-        var triggers = await _client.ListS3TriggersAsync(request.FunctionName, cancellationToken);
-        if (!triggers.IsSuccess)
+        var policyTriggers = await _client.ListS3TriggersAsync(request.FunctionName, cancellationToken);
+        if (!policyTriggers.IsSuccess)
         {
             LogHandled(false);
-            Result<ListLambdaEventSourceMappingsQueryResult> failure = triggers.Error!.Value;
+            Result<ListLambdaEventSourceMappingsQueryResult> failure = policyTriggers.Error!.Value;
+            return failure;
+        }
+
+        var bucketTriggers = await DiscoverBucketTriggersAsync(request.FunctionName, cancellationToken);
+        if (!bucketTriggers.IsSuccess)
+        {
+            LogHandled(false);
+            Result<ListLambdaEventSourceMappingsQueryResult> failure = bucketTriggers.Error!.Value;
             return failure;
         }
 
@@ -40,11 +55,64 @@ internal sealed partial class ListLambdaEventSourceMappingsQueryHandler : IQuery
         var orderedMappings = mappings.Value
             .OrderBy(_ => _.EventSourceArn, StringComparer.Ordinal)
             .ToList();
-        var orderedTriggers = triggers.Value
-            .OrderBy(_ => _.BucketArn, StringComparer.Ordinal)
-            .ToList();
+        var orderedTriggers = MergeTriggers(policyTriggers.Value, bucketTriggers.Value);
 
         return new ListLambdaEventSourceMappingsQueryResult(orderedMappings, orderedTriggers);
+    }
+
+    private async Task<Result<IReadOnlyList<LambdaS3Trigger>>> DiscoverBucketTriggersAsync(
+        string functionName, CancellationToken cancellationToken)
+    {
+        var buckets = await _s3Client.ListBucketsAsync(cancellationToken);
+        if (!buckets.IsSuccess)
+            return buckets.Error!.Value;
+
+        var triggers = new List<LambdaS3Trigger>();
+        foreach (var bucket in buckets.Value)
+        {
+            var configuration = await _s3Client.GetBucketConfigurationAsync(bucket.Name, cancellationToken);
+            if (!configuration.IsSuccess)
+                return configuration.Error!.Value;
+
+            var triggersFunction = configuration.Value.Notifications.Any(notification =>
+                string.Equals(notification.Type, "Lambda", StringComparison.OrdinalIgnoreCase)
+                && FunctionArnTargetsFunction(notification.TargetArn, functionName));
+            if (triggersFunction)
+                triggers.Add(new LambdaS3Trigger($"arn:aws:s3:::{bucket.Name}"));
+        }
+
+        return triggers;
+    }
+
+    private static List<LambdaS3Trigger> MergeTriggers(
+        IReadOnlyList<LambdaS3Trigger> policyTriggers, IReadOnlyList<LambdaS3Trigger> bucketTriggers)
+    {
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        return policyTriggers
+            .Concat(bucketTriggers)
+            .Where(trigger => seen.Add(trigger.BucketArn))
+            .OrderBy(trigger => trigger.BucketArn, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    private static bool FunctionArnTargetsFunction(string targetArn, string functionName)
+    {
+        if (string.IsNullOrEmpty(targetArn))
+            return false;
+
+        if (string.Equals(targetArn, functionName, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        var index = targetArn.IndexOf(FunctionArnMarker, StringComparison.OrdinalIgnoreCase);
+        if (index < 0)
+            return false;
+
+        var name = targetArn[(index + FunctionArnMarker.Length)..];
+        var qualifier = name.IndexOf(':');
+        if (qualifier >= 0)
+            name = name[..qualifier];
+
+        return string.Equals(name, functionName, StringComparison.OrdinalIgnoreCase);
     }
 
     [LoggerMessage(LogLevel.Trace, "Listing Lambda event source mappings for {FunctionName}.")]

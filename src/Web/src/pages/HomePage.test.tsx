@@ -5,7 +5,6 @@ import { MemoryRouter } from 'react-router-dom';
 import { HomePage } from './HomePage';
 import {
   getCatalogue,
-  getFavourites,
   getRecentlyViewed,
   resolveReference,
   type CatalogueServiceItem,
@@ -15,7 +14,6 @@ vi.mock('../api/client');
 
 const getCatalogueMock = vi.mocked(getCatalogue);
 const getRecentlyViewedMock = vi.mocked(getRecentlyViewed);
-const getFavouritesMock = vi.mocked(getFavourites);
 const resolveReferenceMock = vi.mocked(resolveReference);
 
 function service(overrides: Partial<CatalogueServiceItem> & { key: string }): CatalogueServiceItem {
@@ -44,7 +42,6 @@ describe('HomePage', () => {
   beforeEach(() => {
     getCatalogueMock.mockResolvedValue({ services: [] });
     getRecentlyViewedMock.mockResolvedValue({ references: [] });
-    getFavouritesMock.mockResolvedValue({ references: [] });
     resolveReferenceMock.mockResolvedValue({ serviceKey: 'sqs', resourceId: 'orders', route: '/services/sqs/orders' });
   });
 
@@ -182,35 +179,11 @@ describe('HomePage', () => {
     expect(screen.queryByTestId('home-recent-item')).not.toBeInTheDocument();
   });
 
-  it('lists favourites when the store returns references', async () => {
-    getFavouritesMock.mockResolvedValue({ references: ['s3://reports'] });
-
-    renderHome();
-
-    await waitFor(() => expect(screen.getByTestId('home-favourites-list')).toBeInTheDocument());
-
-    expect(screen.getAllByTestId('home-favourite-item')).toHaveLength(1);
-    expect(screen.queryByTestId('home-favourites-empty')).not.toBeInTheDocument();
-    await waitFor(() => expect(resolveReferenceMock).toHaveBeenCalled());
-    await waitFor(() => expect(screen.getAllByRole('link').length).toBeGreaterThan(0));
-  });
-
-  it('shows the favourites placeholder when there are no favourites', async () => {
-    getFavouritesMock.mockResolvedValue({ references: [] });
-
-    renderHome();
-
-    await waitFor(() => expect(screen.getByTestId('home-favourites-empty')).toBeInTheDocument());
-    expect(screen.queryByTestId('home-favourite-item')).not.toBeInTheDocument();
-  });
-
-  it('falls back to empty sections when the preference requests fail', async () => {
+  it('falls back to an empty recent section when the preference request fails', async () => {
     getRecentlyViewedMock.mockRejectedValue(new Error('boom'));
-    getFavouritesMock.mockRejectedValue(new Error('boom'));
 
     renderHome();
 
     await waitFor(() => expect(screen.getByTestId('home-recent-empty')).toBeInTheDocument());
-    expect(screen.getByTestId('home-favourites-empty')).toBeInTheDocument();
   });
 });

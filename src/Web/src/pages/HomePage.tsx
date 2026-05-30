@@ -4,7 +4,6 @@ import { Heading, Text } from '@primer/react';
 import { Link } from 'react-router-dom';
 import {
   getCatalogue,
-  getFavourites,
   getRecentlyViewed,
   resolveReference,
   type CatalogueServiceItem,
@@ -106,7 +105,6 @@ export function HomePage() {
   const [state, setState] = useState<HomeState>({ kind: 'loading' });
   const [query, setQuery] = useState('');
   const [recent, setRecent] = useState<string[]>([]);
-  const [favourites, setFavourites] = useState<string[]>([]);
   const [recentByService, setRecentByService] = useState<Map<string, RecentResource[]>>(new Map());
 
   useEffect(() => {
@@ -117,9 +115,6 @@ export function HomePage() {
     getRecentlyViewed(controller.signal)
       .then((result) => setRecent(result.references))
       .catch(() => setRecent([]));
-    getFavourites(controller.signal)
-      .then((result) => setFavourites(result.references))
-      .catch(() => setFavourites([]));
     return () => controller.abort();
   }, []);
 
@@ -261,23 +256,6 @@ export function HomePage() {
       ) : (
         <Text data-testid="home-recent-empty" style={{ fontSize: 14, opacity: 0.8 }}>
           Your recently viewed resources will appear here.
-        </Text>
-      )}
-
-      <Heading as="h3" data-testid="home-favourites-heading" style={{ fontSize: 16 }}>
-        Favourites
-      </Heading>
-      {favourites.length > 0 ? (
-        <ul data-testid="home-favourites-list" style={referenceListStyle}>
-          {favourites.map((reference) => (
-            <li key={reference} data-testid="home-favourite-item" style={referenceItemStyle}>
-              <ResourceLink reference={reference} />
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <Text data-testid="home-favourites-empty" style={{ fontSize: 14, opacity: 0.8 }}>
-          Pin a resource to keep it close at hand.
         </Text>
       )}
     </section>

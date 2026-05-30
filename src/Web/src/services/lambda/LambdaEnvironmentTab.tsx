@@ -64,7 +64,9 @@ interface EditableRow {
   id: number;
   name: string;
   value: string;
+  maskedValue: string;
   isSensitive: boolean;
+  revealed: boolean;
 }
 
 type LoadState = 'loading' | 'ready' | 'error';
@@ -74,14 +76,15 @@ export function LambdaEnvironmentTab({ functionName }: { functionName: string })
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [result, setResult] = useState<LambdaEnvironmentResult | null>(null);
   const [rows, setRows] = useState<EditableRow[]>([]);
-  const [reveal, setReveal] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>('idle');
   const nextId = useRef(0);
+  const realValues = useRef<Record<string, string> | null>(null);
 
   const load = useCallback(
-    (revealValue: boolean, signal?: AbortSignal) => {
+    (signal?: AbortSignal) => {
       setLoadState('loading');
-      return getLambdaEnvironment(functionName, revealValue, signal)
+      realValues.current = null;
+      return getLambdaEnvironment(functionName, false, signal)
         .then((data) => {
           setResult(data);
           setRows(
@@ -89,7 +92,9 @@ export function LambdaEnvironmentTab({ functionName }: { functionName: string })
               id: nextId.current++,
               name: variable.name,
               value: variable.value,
+              maskedValue: variable.value,
               isSensitive: variable.isSensitive,
+              revealed: false,
             })),
           );
           setLoadState('ready');
@@ -101,16 +106,59 @@ export function LambdaEnvironmentTab({ functionName }: { functionName: string })
 
   useEffect(() => {
     const controller = new AbortController();
-    setReveal(false);
     setSaveState('idle');
-    void load(false, controller.signal);
+    void load(controller.signal);
     return () => controller.abort();
   }, [load]);
 
-  const handleToggleReveal = () => {
-    const next = !reveal;
-    setReveal(next);
-    void load(next);
+  // Fetch (and cache) the real values once. The backend only returns unmasked
+  // values when reveal=true, so we keep them in a ref and reveal individual
+  // rows from this map without re-fetching or unmasking every other row.
+  const ensureRealValues = useCallback(async () => {
+    if (realValues.current) {
+      return realValues.current;
+    }
+    const data = await getLambdaEnvironment(functionName, true);
+    const map: Record<string, string> = {};
+    for (const variable of data.variables) {
+      map[variable.name] = variable.value;
+    }
+    realValues.current = map;
+    return map;
+  }, [functionName]);
+
+  const handleToggleRow = async (id: number, revealed: boolean) => {
+    if (revealed) {
+      setRows((current) =>
+        current.map((row) =>
+          row.id === id ? { ...row, revealed: false, value: row.maskedValue } : row,
+        ),
+      );
+      return;
+    }
+    const map = await ensureRealValues();
+    setRows((current) =>
+      current.map((row) =>
+        row.id === id ? { ...row, revealed: true, value: map[row.name] } : row,
+      ),
+    );
+  };
+
+  const handleToggleAll = async (revealAll: boolean) => {
+    if (!revealAll) {
+      setRows((current) =>
+        current.map((row) =>
+          row.isSensitive ? { ...row, revealed: false, value: row.maskedValue } : row,
+        ),
+      );
+      return;
+    }
+    const map = await ensureRealValues();
+    setRows((current) =>
+      current.map((row) =>
+        row.isSensitive ? { ...row, revealed: true, value: map[row.name] } : row,
+      ),
+    );
   };
 
   const handleNameChange = (id: number, name: string) =>
@@ -122,7 +170,7 @@ export function LambdaEnvironmentTab({ functionName }: { functionName: string })
   const handleAddRow = () =>
     setRows((current) => [
       ...current,
-      { id: nextId.current++, name: '', value: '', isSensitive: false },
+      { id: nextId.current++, name: '', value: '', maskedValue: '', isSensitive: false, revealed: false },
     ]);
 
   const handleRemoveRow = (id: number) =>
@@ -136,7 +184,7 @@ export function LambdaEnvironmentTab({ functionName }: { functionName: string })
     )
       .then(() => {
         setSaveState('saved');
-        return load(reveal);
+        return load();
       })
       .catch(() => setSaveState('error'));
   };
@@ -159,19 +207,21 @@ export function LambdaEnvironmentTab({ functionName }: { functionName: string })
 
   const sensitiveKeys = rows.filter((row) => row.isSensitive).map((row) => row.name);
   const rawValue = Object.fromEntries(rows.map((row) => [row.name, row.value]));
+  const sensitiveRows = rows.filter((row) => row.isSensitive);
+  const allRevealed = sensitiveRows.length > 0 && sensitiveRows.every((row) => row.revealed);
 
   return (
     <div data-testid="lambda-environment-tab" style={containerStyle}>
       <div style={headerStyle}>
         <Text style={{ fontSize: 13, opacity: 0.7 }}>Environment variables</Text>
-        {result?.revealAllowed ? (
+        {result?.revealAllowed && sensitiveRows.length > 0 ? (
           <button
             type="button"
             data-testid="lambda-environment-reveal"
             style={buttonStyle}
-            onClick={handleToggleReveal}
+            onClick={() => void handleToggleAll(!allRevealed)}
           >
-            {reveal ? 'Hide values' : 'Reveal values'}
+            {allRevealed ? 'Hide values' : 'Reveal values'}
           </button>
         ) : null}
       </div>
@@ -200,11 +250,11 @@ export function LambdaEnvironmentTab({ functionName }: { functionName: string })
                 type="button"
                 data-testid={`lambda-environment-sensitive-${row.id}`}
                 style={sensitiveButtonStyle}
-                onClick={handleToggleReveal}
-                title={reveal ? 'Hide value' : 'Reveal value'}
-                aria-pressed={reveal}
+                onClick={() => void handleToggleRow(row.id, row.revealed)}
+                title={row.revealed ? 'Hide value' : 'Reveal value'}
+                aria-pressed={row.revealed}
               >
-                {reveal ? 'Sensitive \u00b7 hide' : 'Sensitive \u00b7 reveal'}
+                {row.revealed ? 'Sensitive \u00b7 hide' : 'Sensitive \u00b7 reveal'}
               </button>
             ) : (
               <span data-testid={`lambda-environment-sensitive-${row.id}`} style={badgeStyle}>

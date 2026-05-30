@@ -58,6 +58,41 @@ public class ReferenceResolverTests
     }
 
     [Theory]
+    [InlineData("sqs://orders", "sqs", "orders", "/services/sqs/orders")]
+    [InlineData("lambda://pineapple-weather-sync", "lambda", "pineapple-weather-sync", "/services/lambda/pineapple-weather-sync")]
+    [InlineData("logs://my-group", "cloudwatch-logs", "my-group", "/services/cloudwatch-logs/my-group")]
+    [InlineData("s3://bucket/path/to/key.json", "s3", "bucket/path/to/key.json", "/services/s3/bucket%2Fpath%2Fto%2Fkey.json")]
+    public void Resolve_WhenSchemeReference_ReturnsReference(
+        string reference,
+        string expectedKey,
+        string expectedResourceId,
+        string expectedRoute)
+    {
+        var result = _sut.Resolve(reference);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Should().Be(new ResourceReference(expectedKey, expectedResourceId, expectedRoute));
+    }
+
+    [Fact]
+    public void Resolve_WhenSchemeReferenceHasUnsupportedService_ReturnsError()
+    {
+        var result = _sut.Resolve("ec2://i-123");
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error!.Value.Message.Should().Be("Unsupported service 'ec2'.");
+    }
+
+    [Fact]
+    public void Resolve_WhenSchemeReferenceHasEmptyResourceId_ReturnsError()
+    {
+        var result = _sut.Resolve("sqs://");
+
+        result.IsSuccess.Should().BeFalse();
+        result.Error!.Value.Message.Should().Be("A service is required to resolve a non-ARN reference.");
+    }
+
+    [Theory]
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   ")]

@@ -46,6 +46,11 @@ internal sealed class ReferenceResolver : IReferenceResolver
         {
             return new Error($"'{reference}' is not a valid ARN.");
         }
+        else if (TryParseSchemeReference(reference, out var schemeAlias, out var schemeResourceId))
+        {
+            alias = schemeAlias;
+            resourceId = schemeResourceId;
+        }
         else if (string.IsNullOrWhiteSpace(service))
         {
             return new Error("A service is required to resolve a non-ARN reference.");
@@ -61,5 +66,29 @@ internal sealed class ReferenceResolver : IReferenceResolver
 
         var route = $"/services/{serviceKey}/{Uri.EscapeDataString(resourceId)}";
         return new ResourceReference(serviceKey, resourceId, route);
+    }
+
+    /// <summary>
+    /// Parses a <c>scheme://resourceId</c> reference (for example <c>sqs://orders</c>), the form the
+    /// UI records for recently-viewed resources. Splits on the first <c>://</c> so resource ids that
+    /// themselves contain slashes survive intact.
+    /// </summary>
+    private static bool TryParseSchemeReference(string reference, out string alias, out string resourceId)
+    {
+        var separatorIndex = reference.IndexOf("://", StringComparison.Ordinal);
+        if (separatorIndex > 0)
+        {
+            var candidateResourceId = reference[(separatorIndex + 3)..];
+            if (!string.IsNullOrWhiteSpace(candidateResourceId))
+            {
+                alias = reference[..separatorIndex];
+                resourceId = candidateResourceId;
+                return true;
+            }
+        }
+
+        alias = string.Empty;
+        resourceId = string.Empty;
+        return false;
     }
 }

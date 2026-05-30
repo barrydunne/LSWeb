@@ -29,9 +29,8 @@ public class GetLambdaEnvironmentQueryHandlerTests
         _client
             .GetEnvironmentAsync("orders", Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Ok(raw)));
-        _redaction.CanReveal.Returns(true);
         _redaction
-            .Resolve(Arg.Any<ConfigValue>(), Arg.Any<bool>())
+            .ResolveUserSecret(Arg.Any<ConfigValue>(), Arg.Any<bool>())
             .Returns(call =>
             {
                 var value = call.Arg<ConfigValue>();
@@ -74,7 +73,7 @@ public class GetLambdaEnvironmentQueryHandlerTests
             .GetEnvironmentAsync("orders", Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Ok(raw)));
         _redaction
-            .Resolve(Arg.Any<ConfigValue>(), Arg.Any<bool>())
+            .ResolveUserSecret(Arg.Any<ConfigValue>(), Arg.Any<bool>())
             .Returns(call => call.Arg<ConfigValue>().Value);
         var sut = CreateSut();
 
@@ -86,6 +85,40 @@ public class GetLambdaEnvironmentQueryHandlerTests
         // Assert
         result.IsSuccess.Should().BeTrue();
         result.Value.Variables.Select(_ => _.Name).Should().Equal("apple", "Banana");
+    }
+
+    [Fact]
+    public async Task Handle_WhenRevealRequested_ReturnsRawValuesEvenWhenHostDiagnosticRevealDisabled()
+    {
+        // Arrange
+        IReadOnlyDictionary<string, string> raw = new Dictionary<string, string>
+        {
+            ["API_KEY"] = "super-secret",
+        };
+        _client
+            .GetEnvironmentAsync("orders", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Ok(raw)));
+        _redaction.CanReveal.Returns(false);
+        _redaction
+            .ResolveUserSecret(Arg.Any<ConfigValue>(), Arg.Any<bool>())
+            .Returns(call =>
+            {
+                var value = call.Arg<ConfigValue>();
+                var reveal = call.Arg<bool>();
+                return value.IsSensitive && !reveal ? ConfigValue.Mask : value.Value;
+            });
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.Handle(
+            new GetLambdaEnvironmentQuery("orders", true),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value.RevealAllowed.Should().BeTrue();
+        result.Value.Variables.Should().ContainSingle();
+        result.Value.Variables[0].Value.Should().Be("super-secret");
     }
 
     [Fact]

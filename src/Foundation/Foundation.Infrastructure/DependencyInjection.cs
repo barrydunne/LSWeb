@@ -7,6 +7,7 @@ using Foundation.Application.Connectivity;
 using Foundation.Application.Diagnostics;
 using Foundation.Application.DynamoDb;
 using Foundation.Application.Health;
+using Foundation.Application.Iam;
 using Foundation.Application.Lambda;
 using Foundation.Application.Navigation;
 using Foundation.Application.Preferences;
@@ -27,6 +28,7 @@ using Foundation.Infrastructure.Diagnostics;
 using Foundation.Infrastructure.DynamoDb;
 using Foundation.Infrastructure.Errors;
 using Foundation.Infrastructure.Health;
+using Foundation.Infrastructure.Iam;
 using Foundation.Infrastructure.Lambda;
 using Foundation.Infrastructure.Navigation;
 using Foundation.Infrastructure.Preferences;
@@ -103,6 +105,8 @@ public static class DependencyInjection
             .AddSingleton<IResourceSource, SsmResourceSource>()
             .AddSingleton<ISnsClient, SnsClientAdapter>()
             .AddSingleton<IResourceSource, SnsResourceSource>()
+            .AddSingleton<IIamClient, IamClientAdapter>()
+            .AddSingleton<IResourceSource, IamResourceSource>()
             .AddSingleton<IReferenceResolver, ReferenceResolver>()
             .AddSingleton<IBackendHealthProbe, BackendHealthProbe>()
             .AddSingleton<HealthStatusStore>()

@@ -19,6 +19,7 @@ internal sealed class ReferenceResolver : IReferenceResolver
             ["lambda"] = "lambda",
             ["s3"] = "s3",
             ["dynamodb"] = "dynamodb",
+            ["iam"] = "iam",
             ["logs"] = "cloudwatch-logs",
             ["cloudwatch-logs"] = "cloudwatch-logs",
             ["secretsmanager"] = "secrets-manager",
@@ -28,6 +29,14 @@ internal sealed class ReferenceResolver : IReferenceResolver
             ["states"] = "step-functions",
             ["step-functions"] = "step-functions",
         };
+
+    /// <summary>
+    /// Services whose resource ids carry a type prefix (for example <c>role/Name</c> or
+    /// <c>user/Name</c>). The prefix is preserved in the route so the detail view can dispatch by
+    /// resource type rather than receiving a bare name.
+    /// </summary>
+    private static readonly HashSet<string> _typePrefixedAliases =
+        new(StringComparer.OrdinalIgnoreCase) { "iam" };
 
     public Result<ResourceReference> Resolve(string reference, string? service = null)
     {
@@ -40,7 +49,7 @@ internal sealed class ReferenceResolver : IReferenceResolver
         if (ArnParts.TryParse(reference, out var arn))
         {
             alias = arn.Service;
-            resourceId = arn.ResourceId;
+            resourceId = _typePrefixedAliases.Contains(alias) ? arn.Resource : arn.ResourceId;
         }
         else if (reference.StartsWith("arn:", StringComparison.OrdinalIgnoreCase))
         {

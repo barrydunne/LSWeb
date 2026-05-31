@@ -2083,3 +2083,1149 @@ export async function setSnsSubscriptionFilterPolicy(
     throw new Error(`SNS filter policy update request failed with status ${response.status}`);
   }
 }
+
+export interface IamUserSummary {
+  userName: string;
+  arn: string;
+  userId: string;
+  path: string;
+  createDate: string | null;
+}
+
+export interface IamUserListResult {
+  users: IamUserSummary[];
+}
+
+export async function getIamUsers(signal?: AbortSignal): Promise<IamUserListResult> {
+  const response = await fetch('/api/services/iam/users', { signal });
+  if (!response.ok) {
+    throw new Error(`IAM users request failed with status ${response.status}`);
+  }
+  return (await response.json()) as IamUserListResult;
+}
+
+export interface IamAttachedPolicy {
+  policyName: string;
+  policyArn: string;
+}
+
+export interface IamTag {
+  key: string;
+  value: string;
+}
+
+export interface IamAccessKey {
+  accessKeyId: string;
+  status: string;
+  createDate: string | null;
+  lastUsedDate: string | null;
+  lastUsedService: string | null;
+  lastUsedRegion: string | null;
+}
+
+export interface IamUserDetail {
+  userName: string;
+  arn: string;
+  userId: string;
+  path: string;
+  createDate: string | null;
+  groups: string[];
+  attachedPolicies: IamAttachedPolicy[];
+  inlinePolicyNames: string[];
+  accessKeys: IamAccessKey[];
+  tags: IamTag[];
+  permissionsBoundaryArn: string | null;
+}
+
+export async function getIamUser(userName: string, signal?: AbortSignal): Promise<IamUserDetail> {
+  const response = await fetch(
+    `/api/services/iam/users/${encodeURIComponent(userName)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM user request failed with status ${response.status}`);
+  }
+  return (await response.json()) as IamUserDetail;
+}
+
+export interface IamUserCreateRequest {
+  userName: string;
+  path: string | null;
+}
+
+export async function createIamUser(
+  request: IamUserCreateRequest,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/iam/users', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`IAM user create request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteIamUser(userName: string, signal?: AbortSignal): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/users/${encodeURIComponent(userName)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM user delete request failed with status ${response.status}`);
+  }
+}
+
+export async function addIamUserToGroup(
+  userName: string,
+  groupName: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/users/${encodeURIComponent(userName)}/groups`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groupName }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM add-user-to-group request failed with status ${response.status}`);
+  }
+}
+
+export async function removeIamUserFromGroup(
+  userName: string,
+  groupName: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/users/${encodeURIComponent(userName)}/groups/${encodeURIComponent(groupName)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM remove-user-from-group request failed with status ${response.status}`);
+  }
+}
+
+export async function attachIamUserPolicy(
+  userName: string,
+  policyArn: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/users/${encodeURIComponent(userName)}/attached-policies`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ policyArn }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM attach-user-policy request failed with status ${response.status}`);
+  }
+}
+
+export async function detachIamUserPolicy(
+  userName: string,
+  policyArn: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/users/${encodeURIComponent(userName)}/attached-policies?policyArn=${encodeURIComponent(policyArn)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM detach-user-policy request failed with status ${response.status}`);
+  }
+}
+
+export async function putIamUserInlinePolicy(
+  userName: string,
+  policyName: string,
+  policyDocument: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/users/${encodeURIComponent(userName)}/inline-policies/${encodeURIComponent(policyName)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ policyDocument }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM put-user-inline-policy request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteIamUserInlinePolicy(
+  userName: string,
+  policyName: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/users/${encodeURIComponent(userName)}/inline-policies/${encodeURIComponent(policyName)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM delete-user-inline-policy request failed with status ${response.status}`);
+  }
+}
+
+export interface IamAccessKeySecret {
+  accessKeyId: string;
+  secretAccessKey: string;
+  status: string;
+  createDate: string | null;
+}
+
+export async function createIamAccessKey(
+  userName: string,
+  signal?: AbortSignal,
+): Promise<IamAccessKeySecret> {
+  const response = await fetch(
+    `/api/services/iam/users/${encodeURIComponent(userName)}/access-keys`,
+    {
+      method: 'POST',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM create-access-key request failed with status ${response.status}`);
+  }
+  return (await response.json()) as IamAccessKeySecret;
+}
+
+export async function updateIamAccessKeyStatus(
+  userName: string,
+  accessKeyId: string,
+  status: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/users/${encodeURIComponent(userName)}/access-keys/${encodeURIComponent(accessKeyId)}/status`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM update-access-key-status request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteIamAccessKey(
+  userName: string,
+  accessKeyId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/users/${encodeURIComponent(userName)}/access-keys/${encodeURIComponent(accessKeyId)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM delete-access-key request failed with status ${response.status}`);
+  }
+}
+
+export interface IamGroupSummary {
+  groupName: string;
+  arn: string;
+  groupId: string;
+  path: string;
+  createDate: string | null;
+}
+
+export interface IamGroupListResult {
+  groups: IamGroupSummary[];
+}
+
+export async function getIamGroups(signal?: AbortSignal): Promise<IamGroupListResult> {
+  const response = await fetch('/api/services/iam/groups', { signal });
+  if (!response.ok) {
+    throw new Error(`IAM groups request failed with status ${response.status}`);
+  }
+  return (await response.json()) as IamGroupListResult;
+}
+
+export interface IamInlinePolicy {
+  policyName: string;
+  policyDocument: string;
+}
+
+export interface IamGroupDetail {
+  groupName: string;
+  arn: string;
+  groupId: string;
+  path: string;
+  createDate: string | null;
+  members: string[];
+  attachedPolicies: IamAttachedPolicy[];
+  inlinePolicies: IamInlinePolicy[];
+}
+
+export async function getIamGroup(groupName: string, signal?: AbortSignal): Promise<IamGroupDetail> {
+  const response = await fetch(
+    `/api/services/iam/groups/${encodeURIComponent(groupName)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM group request failed with status ${response.status}`);
+  }
+  return (await response.json()) as IamGroupDetail;
+}
+
+export interface IamGroupCreateRequest {
+  groupName: string;
+  path: string | null;
+}
+
+export async function createIamGroup(
+  request: IamGroupCreateRequest,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/iam/groups', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`IAM group create request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteIamGroup(groupName: string, signal?: AbortSignal): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/groups/${encodeURIComponent(groupName)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM group delete request failed with status ${response.status}`);
+  }
+}
+
+export async function addIamGroupMember(
+  groupName: string,
+  userName: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/groups/${encodeURIComponent(groupName)}/members`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userName }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM add-group-member request failed with status ${response.status}`);
+  }
+}
+
+export async function removeIamGroupMember(
+  groupName: string,
+  userName: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/groups/${encodeURIComponent(groupName)}/members/${encodeURIComponent(userName)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM remove-group-member request failed with status ${response.status}`);
+  }
+}
+
+export async function attachIamGroupPolicy(
+  groupName: string,
+  policyArn: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/groups/${encodeURIComponent(groupName)}/attached-policies`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ policyArn }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM attach-group-policy request failed with status ${response.status}`);
+  }
+}
+
+export async function detachIamGroupPolicy(
+  groupName: string,
+  policyArn: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/groups/${encodeURIComponent(groupName)}/attached-policies?policyArn=${encodeURIComponent(policyArn)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM detach-group-policy request failed with status ${response.status}`);
+  }
+}
+
+export async function putIamGroupInlinePolicy(
+  groupName: string,
+  policyName: string,
+  policyDocument: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/groups/${encodeURIComponent(groupName)}/inline-policies/${encodeURIComponent(policyName)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ policyDocument }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM put-group-inline-policy request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteIamGroupInlinePolicy(
+  groupName: string,
+  policyName: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/groups/${encodeURIComponent(groupName)}/inline-policies/${encodeURIComponent(policyName)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM delete-group-inline-policy request failed with status ${response.status}`);
+  }
+}
+
+export interface IamRoleSummary {
+  roleName: string;
+  arn: string;
+  roleId: string;
+  path: string;
+  createDate: string | null;
+  description: string | null;
+}
+
+export interface IamRoleListResult {
+  roles: IamRoleSummary[];
+}
+
+export async function getIamRoles(signal?: AbortSignal): Promise<IamRoleListResult> {
+  const response = await fetch('/api/services/iam/roles', { signal });
+  if (!response.ok) {
+    throw new Error(`IAM roles request failed with status ${response.status}`);
+  }
+  return (await response.json()) as IamRoleListResult;
+}
+
+export interface IamRoleDetail {
+  roleName: string;
+  arn: string;
+  roleId: string;
+  path: string;
+  createDate: string | null;
+  description: string | null;
+  maxSessionDuration: number | null;
+  assumeRolePolicyDocument: string;
+  attachedPolicies: IamAttachedPolicy[];
+  inlinePolicies: IamInlinePolicy[];
+  tags: IamTag[];
+  permissionsBoundaryArn: string | null;
+}
+
+export async function getIamRole(roleName: string, signal?: AbortSignal): Promise<IamRoleDetail> {
+  const response = await fetch(
+    `/api/services/iam/roles/${encodeURIComponent(roleName)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM role request failed with status ${response.status}`);
+  }
+  return (await response.json()) as IamRoleDetail;
+}
+
+export interface IamRoleConsumer {
+  consumerType: string;
+  resourceName: string;
+  serviceKey: string;
+}
+
+export interface IamRoleConsumersResult {
+  consumers: IamRoleConsumer[];
+}
+
+export async function getIamRoleUsedBy(
+  roleName: string,
+  signal?: AbortSignal,
+): Promise<IamRoleConsumersResult> {
+  const response = await fetch(
+    `/api/services/iam/roles/${encodeURIComponent(roleName)}/used-by`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM role used-by request failed with status ${response.status}`);
+  }
+  return (await response.json()) as IamRoleConsumersResult;
+}
+
+export interface IamRoleCreateRequest {
+  roleName: string;
+  assumeRolePolicyDocument: string;
+  path: string | null;
+  description: string | null;
+  maxSessionDuration: number | null;
+}
+
+export async function createIamRole(
+  request: IamRoleCreateRequest,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/iam/roles', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`IAM role create request failed with status ${response.status}`);
+  }
+}
+
+export interface IamRoleUpdateRequest {
+  description: string | null;
+  maxSessionDuration: number | null;
+  trustPolicyDocument: string | null;
+}
+
+export async function updateIamRole(
+  roleName: string,
+  request: IamRoleUpdateRequest,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/roles/${encodeURIComponent(roleName)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM role update request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteIamRole(roleName: string, signal?: AbortSignal): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/roles/${encodeURIComponent(roleName)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM role delete request failed with status ${response.status}`);
+  }
+}
+
+export async function attachIamRolePolicy(
+  roleName: string,
+  policyArn: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/roles/${encodeURIComponent(roleName)}/attached-policies`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ policyArn }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM attach-role-policy request failed with status ${response.status}`);
+  }
+}
+
+export async function detachIamRolePolicy(
+  roleName: string,
+  policyArn: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/roles/${encodeURIComponent(roleName)}/attached-policies?policyArn=${encodeURIComponent(policyArn)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM detach-role-policy request failed with status ${response.status}`);
+  }
+}
+
+export async function putIamRoleInlinePolicy(
+  roleName: string,
+  policyName: string,
+  policyDocument: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/roles/${encodeURIComponent(roleName)}/inline-policies/${encodeURIComponent(policyName)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ policyDocument }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM put-role-inline-policy request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteIamRoleInlinePolicy(
+  roleName: string,
+  policyName: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/roles/${encodeURIComponent(roleName)}/inline-policies/${encodeURIComponent(policyName)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM delete-role-inline-policy request failed with status ${response.status}`);
+  }
+}
+
+export interface IamPolicySummary {
+  policyName: string;
+  arn: string;
+  policyId: string;
+  path: string;
+  defaultVersionId: string;
+  attachmentCount: number;
+  isAttachable: boolean;
+  description: string | null;
+  createDate: string | null;
+  updateDate: string | null;
+}
+
+export interface IamPolicyListResult {
+  policies: IamPolicySummary[];
+}
+
+export type IamPolicyScope = 'local' | 'aws';
+
+export async function getIamPolicies(
+  scope: IamPolicyScope,
+  signal?: AbortSignal,
+): Promise<IamPolicyListResult> {
+  const response = await fetch(`/api/services/iam/policies?scope=${scope}`, { signal });
+  if (!response.ok) {
+    throw new Error(`IAM policies request failed with status ${response.status}`);
+  }
+  return (await response.json()) as IamPolicyListResult;
+}
+
+export interface IamPolicyVersion {
+  versionId: string;
+  isDefaultVersion: boolean;
+  createDate: string | null;
+}
+
+export interface IamPolicyDetail {
+  policyName: string;
+  arn: string;
+  policyId: string;
+  path: string;
+  defaultVersionId: string;
+  attachmentCount: number;
+  isAttachable: boolean;
+  description: string | null;
+  createDate: string | null;
+  updateDate: string | null;
+  defaultVersionDocument: string;
+  versions: IamPolicyVersion[];
+  tags: IamTag[];
+}
+
+export async function getIamPolicy(
+  policyArn: string,
+  signal?: AbortSignal,
+): Promise<IamPolicyDetail> {
+  const response = await fetch(
+    `/api/services/iam/policies/detail?policyArn=${encodeURIComponent(policyArn)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM policy request failed with status ${response.status}`);
+  }
+  return (await response.json()) as IamPolicyDetail;
+}
+
+export interface IamPolicyCreateRequest {
+  policyName: string;
+  policyDocument: string;
+  description: string | null;
+  path: string | null;
+}
+
+export async function createIamPolicy(
+  request: IamPolicyCreateRequest,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/iam/policies', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`IAM policy create request failed with status ${response.status}`);
+  }
+}
+
+export async function createIamPolicyVersion(
+  policyArn: string,
+  policyDocument: string,
+  setAsDefault: boolean,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/iam/policies/versions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ policyArn, policyDocument, setAsDefault }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`IAM policy version create request failed with status ${response.status}`);
+  }
+}
+
+export async function setIamPolicyDefaultVersion(
+  policyArn: string,
+  versionId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/iam/policies/default-version', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ policyArn, versionId }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`IAM policy default-version request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteIamPolicyVersion(
+  policyArn: string,
+  versionId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/policies/versions?policyArn=${encodeURIComponent(policyArn)}&versionId=${encodeURIComponent(versionId)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM policy version delete request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteIamPolicy(policyArn: string, signal?: AbortSignal): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/policies?policyArn=${encodeURIComponent(policyArn)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM policy delete request failed with status ${response.status}`);
+  }
+}
+
+/**
+ * Build a query string of repeated `key=` parameters for the IAM untag endpoints.
+ */
+function buildTagKeyQuery(keys: readonly string[]): string {
+  return keys.map((key) => `key=${encodeURIComponent(key)}`).join('&');
+}
+
+export async function tagIamUser(
+  userName: string,
+  tags: readonly IamTag[],
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/users/${encodeURIComponent(userName)}/tags`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM user tag request failed with status ${response.status}`);
+  }
+}
+
+export async function untagIamUser(
+  userName: string,
+  keys: readonly string[],
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/users/${encodeURIComponent(userName)}/tags?${buildTagKeyQuery(keys)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM user untag request failed with status ${response.status}`);
+  }
+}
+
+export async function putIamUserPermissionsBoundary(
+  userName: string,
+  permissionsBoundaryArn: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/users/${encodeURIComponent(userName)}/permissions-boundary`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ permissionsBoundaryArn }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM user permissions-boundary request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteIamUserPermissionsBoundary(
+  userName: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/users/${encodeURIComponent(userName)}/permissions-boundary`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(
+      `IAM user permissions-boundary delete request failed with status ${response.status}`,
+    );
+  }
+}
+
+export async function tagIamRole(
+  roleName: string,
+  tags: readonly IamTag[],
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/roles/${encodeURIComponent(roleName)}/tags`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM role tag request failed with status ${response.status}`);
+  }
+}
+
+export async function untagIamRole(
+  roleName: string,
+  keys: readonly string[],
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/roles/${encodeURIComponent(roleName)}/tags?${buildTagKeyQuery(keys)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM role untag request failed with status ${response.status}`);
+  }
+}
+
+export async function putIamRolePermissionsBoundary(
+  roleName: string,
+  permissionsBoundaryArn: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/roles/${encodeURIComponent(roleName)}/permissions-boundary`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ permissionsBoundaryArn }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM role permissions-boundary request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteIamRolePermissionsBoundary(
+  roleName: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/roles/${encodeURIComponent(roleName)}/permissions-boundary`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(
+      `IAM role permissions-boundary delete request failed with status ${response.status}`,
+    );
+  }
+}
+
+export async function tagIamPolicy(
+  policyArn: string,
+  tags: readonly IamTag[],
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/policies/tags?policyArn=${encodeURIComponent(policyArn)}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM policy tag request failed with status ${response.status}`);
+  }
+}
+
+export async function untagIamPolicy(
+  policyArn: string,
+  keys: readonly string[],
+  signal?: AbortSignal,
+): Promise<void> {
+  const query = [`policyArn=${encodeURIComponent(policyArn)}`, buildTagKeyQuery(keys)].join('&');
+  const response = await fetch(`/api/services/iam/policies/tags?${query}`, {
+    method: 'DELETE',
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`IAM policy untag request failed with status ${response.status}`);
+  }
+}
+
+/**
+ * Error raised when an IAM account-level operation is not supported by the current backend
+ * (for example LocalStack Community edition returning HTTP 501).
+ */
+export class IamNotSupportedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'IamNotSupportedError';
+  }
+}
+
+export interface IamAccountSummary {
+  entries: Record<string, number>;
+}
+
+export async function getIamAccountSummary(signal?: AbortSignal): Promise<IamAccountSummary> {
+  const response = await fetch('/api/services/iam/account/summary', { signal });
+  if (response.status === 501) {
+    throw new IamNotSupportedError('IAM account summary is not supported by the current backend.');
+  }
+  if (!response.ok) {
+    throw new Error(`IAM account summary request failed with status ${response.status}`);
+  }
+  return (await response.json()) as IamAccountSummary;
+}
+
+export interface IamPasswordPolicy {
+  minimumPasswordLength: number;
+  requireSymbols: boolean;
+  requireNumbers: boolean;
+  requireUppercaseCharacters: boolean;
+  requireLowercaseCharacters: boolean;
+  allowUsersToChangePassword: boolean;
+  expirePasswords: boolean;
+  maxPasswordAge: number | null;
+  passwordReusePrevention: number | null;
+  hardExpiry: boolean;
+}
+
+/**
+ * Gets the account password policy. Returns `null` when no policy is set (HTTP 404).
+ */
+export async function getIamAccountPasswordPolicy(
+  signal?: AbortSignal,
+): Promise<IamPasswordPolicy | null> {
+  const response = await fetch('/api/services/iam/account/password-policy', { signal });
+  if (response.status === 404) {
+    return null;
+  }
+  if (response.status === 501) {
+    throw new IamNotSupportedError(
+      'IAM account password policy is not supported by the current backend.',
+    );
+  }
+  if (!response.ok) {
+    throw new Error(`IAM account password policy request failed with status ${response.status}`);
+  }
+  return (await response.json()) as IamPasswordPolicy;
+}
+
+export interface IamPasswordPolicyUpdateRequest {
+  minimumPasswordLength: number;
+  requireSymbols: boolean;
+  requireNumbers: boolean;
+  requireUppercaseCharacters: boolean;
+  requireLowercaseCharacters: boolean;
+  allowUsersToChangePassword: boolean;
+  maxPasswordAge: number | null;
+  passwordReusePrevention: number | null;
+  hardExpiry: boolean;
+}
+
+export async function updateIamAccountPasswordPolicy(
+  request: IamPasswordPolicyUpdateRequest,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/iam/account/password-policy', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(
+      `IAM account password policy update request failed with status ${response.status}`,
+    );
+  }
+}
+
+export async function deleteIamAccountPasswordPolicy(signal?: AbortSignal): Promise<void> {
+  const response = await fetch('/api/services/iam/account/password-policy', {
+    method: 'DELETE',
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(
+      `IAM account password policy delete request failed with status ${response.status}`,
+    );
+  }
+}
+
+export interface IamAccountAliasList {
+  aliases: string[];
+}
+
+export async function getIamAccountAliases(signal?: AbortSignal): Promise<IamAccountAliasList> {
+  const response = await fetch('/api/services/iam/account/aliases', { signal });
+  if (response.status === 501) {
+    throw new IamNotSupportedError('IAM account aliases are not supported by the current backend.');
+  }
+  if (!response.ok) {
+    throw new Error(`IAM account aliases request failed with status ${response.status}`);
+  }
+  return (await response.json()) as IamAccountAliasList;
+}
+
+export async function createIamAccountAlias(
+  accountAlias: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/iam/account/aliases', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accountAlias }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`IAM account alias create request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteIamAccountAlias(
+  accountAlias: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/iam/account/aliases/${encodeURIComponent(accountAlias)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`IAM account alias delete request failed with status ${response.status}`);
+  }
+}

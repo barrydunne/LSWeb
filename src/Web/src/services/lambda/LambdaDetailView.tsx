@@ -5,6 +5,7 @@ import { deleteLambdaFunction, getLambdaFunction } from '../../api/client';
 import type { LambdaFunctionResult } from '../../api/client';
 import type { ServiceDetailViewProps } from '../serviceViewRegistry';
 import { ConfirmationHost } from '../../components/ConfirmationHost';
+import { ResourceLink } from '../../components/ResourceLink';
 import { LambdaEnvironmentTab } from './LambdaEnvironmentTab';
 import { LambdaTestTab } from './LambdaTestTab';
 import { LambdaEventSourcesTab } from './LambdaEventSourcesTab';
@@ -192,7 +193,11 @@ export function LambdaDetailView({ resourceId }: ServiceDetailViewProps) {
         fields.map((field) => (
           <div key={field.key} data-testid={`lambda-detail-${field.key}`} style={rowStyle}>
             <Text style={labelStyle}>{field.label}</Text>
-            <Text style={valueStyle}>{field.value}</Text>
+            {field.key === 'role' ? (
+              <ResourceLink reference={fn.role} service="iam" />
+            ) : (
+              <Text style={valueStyle}>{field.value}</Text>
+            )}
           </div>
         ))}
       {tab === 'overview' && (

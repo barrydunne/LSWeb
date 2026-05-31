@@ -48,6 +48,7 @@ public class ServiceCatalogueTests
         [
             "cloudwatch-logs",
             "dynamodb",
+            "iam",
             "lambda",
             "s3",
             "secrets-manager",

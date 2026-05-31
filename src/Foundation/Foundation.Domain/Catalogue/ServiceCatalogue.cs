@@ -12,6 +12,7 @@ public static class ServiceCatalogue
     [
         new("cloudwatch-logs", "CloudWatch Logs", ServiceCategory.Monitoring, "log", "/services/cloudwatch-logs"),
         new("dynamodb", "DynamoDB", ServiceCategory.Database, "database", "/services/dynamodb"),
+        new("iam", "IAM", ServiceCategory.Security, "shield", "/services/iam"),
         new("lambda", "Lambda", ServiceCategory.Compute, "zap", "/services/lambda"),
         new("s3", "S3", ServiceCategory.Storage, "archive", "/services/s3"),
         new("secrets-manager", "Secrets Manager", ServiceCategory.Security, "key", "/services/secrets-manager"),

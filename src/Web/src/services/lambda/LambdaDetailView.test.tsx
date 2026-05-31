@@ -99,6 +99,45 @@ describe('LambdaDetailView', () => {
     expect(screen.getByTestId('lambda-detail-role')).toHaveTextContent('lambda-orders');
   });
 
+  it('renders the execution role as a link when the reference resolves', async () => {
+    resolveReferenceMock.mockResolvedValue({
+      serviceKey: 'iam',
+      resourceId: 'lambda-orders',
+      route: '/services/iam/role/arn:aws:iam::000000000000:role/lambda-orders',
+    });
+
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('lambda-detail-view')).toBeInTheDocument());
+    await waitFor(() =>
+      expect(resolveReferenceMock).toHaveBeenCalledWith(
+        functionResult.role,
+        'iam',
+        expect.anything(),
+      ),
+    );
+
+    const link = await screen.findByTestId('resource-link');
+    expect(link.tagName).toBe('A');
+    expect(link).toHaveAttribute(
+      'href',
+      '/services/iam/role/arn:aws:iam::000000000000:role/lambda-orders',
+    );
+    expect(link).toHaveTextContent('lambda-orders');
+  });
+
+  it('falls back to the raw role ARN when the reference cannot be resolved', async () => {
+    resolveReferenceMock.mockRejectedValue(new Error('unresolved'));
+
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('lambda-detail-view')).toBeInTheDocument());
+
+    const fallback = await screen.findByTestId('resource-link');
+    expect(fallback.tagName).toBe('SPAN');
+    expect(fallback).toHaveTextContent(functionResult.role);
+  });
+
   it('switches between the overview and environment tabs', async () => {
     const user = userEvent.setup();
     renderView();

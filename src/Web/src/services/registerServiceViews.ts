@@ -17,6 +17,8 @@ const SsmParameterStoreListView = lazy(() => import('./ssm-parameter-store/SsmPa
 const SsmParameterStoreDetailView = lazy(() => import('./ssm-parameter-store/SsmParameterStoreDetailView'));
 const SnsListView = lazy(() => import('./sns/SnsListView'));
 const SnsDetailView = lazy(() => import('./sns/SnsDetailView'));
+const IamListView = lazy(() => import('./iam/IamListView'));
+const IamDetailView = lazy(() => import('./iam/IamDetailView'));
 
 let registered = false;
 
@@ -43,6 +45,7 @@ export function registerServiceViews(): void {
     detail: SsmParameterStoreDetailView,
   });
   registerServiceView('sns', { list: SnsListView, detail: SnsDetailView });
+  registerServiceView('iam', { list: IamListView, detail: IamDetailView });
 }
 
 registerServiceViews();

@@ -85,6 +85,26 @@ describe('SearchResultsPage', () => {
     expect(resolveReferenceMock).toHaveBeenCalledWith('orders', 'sqs', expect.any(AbortSignal));
   });
 
+  it('renders an IAM match grouped under iam and navigates to its type-prefixed route', async () => {
+    renderPage({
+      query: 'lambda',
+      state: null,
+      matches: [
+        match({ serviceKey: 'iam', resourceId: 'role/LambdaExec', displayName: 'LambdaExec' }),
+      ],
+    });
+
+    expect(screen.getByTestId('search-results-group-name')).toHaveTextContent('iam');
+    await waitFor(() =>
+      expect(screen.getByTestId('resource-link')).toHaveAttribute(
+        'href',
+        '/services/iam/role/LambdaExec',
+      ),
+    );
+    expect(screen.getByTestId('resource-link')).toHaveTextContent('LambdaExec');
+    expect(resolveReferenceMock).toHaveBeenCalledWith('role/LambdaExec', 'iam', expect.any(AbortSignal));
+  });
+
   it('shows an empty message naming the query when there are no matches', () => {
     renderPage({ query: 'zzz', state: null, matches: [] });
 

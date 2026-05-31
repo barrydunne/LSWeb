@@ -31,6 +31,10 @@ describe('registerServiceViews', () => {
     const sns = getServiceView('sns');
     expect(sns?.list).toBeDefined();
     expect(sns?.detail).toBeDefined();
+
+    const iam = getServiceView('iam');
+    expect(iam?.list).toBeDefined();
+    expect(iam?.detail).toBeDefined();
   });
 
   it('is idempotent and does not re-register after the first call', () => {

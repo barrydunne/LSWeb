@@ -18,6 +18,7 @@ internal sealed partial class BackendHealthProbe : IBackendHealthProbe
     {
         ["logs"] = "cloudwatch-logs",
         ["dynamodb"] = "dynamodb",
+        ["iam"] = "iam",
         ["lambda"] = "lambda",
         ["s3"] = "s3",
         ["secretsmanager"] = "secrets-manager",

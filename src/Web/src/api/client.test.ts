@@ -98,6 +98,11 @@ import {
   publishSnsMessage,
   getSnsSubscriptionFilterPolicy,
   setSnsSubscriptionFilterPolicy,
+  getStateMachines,
+  getStateMachine,
+  getExecutions,
+  startExecution,
+  getExecutionHistory,
 } from './client';
 import type {
   DynamoDbQueryRequest,
@@ -106,6 +111,7 @@ import type {
   SecretValueUpdateRequest,
   ParameterCreateRequest,
   SnsTopicCreateRequest,
+  StartExecutionRequest,
 } from './client';
 
 describe('getLiveness', () => {
@@ -3612,5 +3618,219 @@ describe('setSnsSubscriptionFilterPolicy', () => {
         '{}',
       ),
     ).rejects.toThrow('SNS filter policy update request failed with status 400');
+  });
+});
+
+describe('getStateMachines', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed state machines when the request succeeds', async () => {
+    const payload = {
+      stateMachines: [
+        {
+          name: 'orders-workflow',
+          stateMachineArn:
+            'arn:aws:states:eu-west-1:000000000000:stateMachine:orders-workflow',
+          type: 'STANDARD',
+          creationDate: '2024-01-01T00:00:00+00:00',
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getStateMachines(controller.signal);
+
+    expect(result.stateMachines).toHaveLength(1);
+    expect(result.stateMachines[0].name).toBe('orders-workflow');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/step-functions/state-machines', {
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getStateMachines()).rejects.toThrow(
+      'Step Functions state machines request failed with status 503',
+    );
+  });
+});
+
+describe('getStateMachine', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed state machine when the request succeeds', async () => {
+    const payload = {
+      name: 'orders-workflow',
+      stateMachineArn: 'arn:aws:states:eu-west-1:000000000000:stateMachine:orders-workflow',
+      type: 'STANDARD',
+      status: 'ACTIVE',
+      roleArn: 'arn:aws:iam::000000000000:role/service-role/states',
+      definition: '{"StartAt":"Done"}',
+      creationDate: '2024-01-01T00:00:00+00:00',
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getStateMachine(
+      'arn:aws:states:eu-west-1:000000000000:stateMachine:orders-workflow',
+      controller.signal,
+    );
+
+    expect(result.name).toBe('orders-workflow');
+    expect(result.status).toBe('ACTIVE');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/step-functions/state-machine?arn=arn%3Aaws%3Astates%3Aeu-west-1%3A000000000000%3AstateMachine%3Aorders-workflow',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(
+      getStateMachine('arn:aws:states:eu-west-1:000000000000:stateMachine:missing'),
+    ).rejects.toThrow('Step Functions state machine request failed with status 404');
+  });
+});
+
+describe('getExecutions', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed executions when the request succeeds', async () => {
+    const payload = {
+      executions: [
+        {
+          executionArn:
+            'arn:aws:states:eu-west-1:000000000000:execution:orders-workflow:run-1',
+          name: 'run-1',
+          stateMachineArn:
+            'arn:aws:states:eu-west-1:000000000000:stateMachine:orders-workflow',
+          status: 'SUCCEEDED',
+          startDate: '2024-01-01T00:00:00+00:00',
+          stopDate: '2024-01-01T00:01:00+00:00',
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getExecutions(
+      'arn:aws:states:eu-west-1:000000000000:stateMachine:orders-workflow',
+      controller.signal,
+    );
+
+    expect(result.executions).toHaveLength(1);
+    expect(result.executions[0].name).toBe('run-1');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/step-functions/executions?arn=arn%3Aaws%3Astates%3Aeu-west-1%3A000000000000%3AstateMachine%3Aorders-workflow',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(
+      getExecutions('arn:aws:states:eu-west-1:000000000000:stateMachine:orders-workflow'),
+    ).rejects.toThrow('Step Functions executions request failed with status 503');
+  });
+});
+
+describe('startExecution', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const request: StartExecutionRequest = {
+    stateMachineArn: 'arn:aws:states:eu-west-1:000000000000:stateMachine:orders-workflow',
+    name: 'run-1',
+    input: '{"key":"value"}',
+  };
+
+  it('posts the request and returns the parsed result when it succeeds', async () => {
+    const payload = {
+      executionArn:
+        'arn:aws:states:eu-west-1:000000000000:execution:orders-workflow:run-1',
+      startDate: '2024-01-01T00:00:00+00:00',
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await startExecution(request, controller.signal);
+
+    expect(result.executionArn).toBe(payload.executionArn);
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/step-functions/executions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(startExecution(request)).rejects.toThrow(
+      'Step Functions start execution request failed with status 400',
+    );
+  });
+});
+
+describe('getExecutionHistory', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed events when the request succeeds', async () => {
+    const payload = {
+      events: [
+        {
+          id: 1,
+          previousEventId: null,
+          type: 'ExecutionStarted',
+          timestamp: '2024-01-01T00:00:00+00:00',
+          name: null,
+          input: '{"key":"value"}',
+          output: null,
+          error: null,
+          cause: null,
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getExecutionHistory(
+      'arn:aws:states:eu-west-1:000000000000:execution:orders-workflow:run-1',
+      controller.signal,
+    );
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].type).toBe('ExecutionStarted');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/step-functions/execution-history?arn=arn%3Aaws%3Astates%3Aeu-west-1%3A000000000000%3Aexecution%3Aorders-workflow%3Arun-1',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(
+      getExecutionHistory('arn:aws:states:eu-west-1:000000000000:execution:orders-workflow:run-1'),
+    ).rejects.toThrow('Step Functions execution history request failed with status 503');
   });
 });

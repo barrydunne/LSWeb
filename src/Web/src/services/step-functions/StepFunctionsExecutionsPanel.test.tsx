@@ -1,0 +1,196 @@
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { StepFunctionsExecutionsPanel } from './StepFunctionsExecutionsPanel';
+import { getExecutions, getExecutionHistory, startExecution } from '../../api/client';
+import type { ExecutionListResult, StartExecutionResult } from '../../api/client';
+
+vi.mock('../../api/client');
+
+const getExecutionsMock = vi.mocked(getExecutions);
+const getExecutionHistoryMock = vi.mocked(getExecutionHistory);
+const startExecutionMock = vi.mocked(startExecution);
+
+const stateMachineArn = 'arn:aws:states:eu-west-1:000000000000:stateMachine:orders-workflow';
+
+const listResult: ExecutionListResult = {
+  executions: [
+    {
+      executionArn:
+        'arn:aws:states:eu-west-1:000000000000:execution:orders-workflow:run-1',
+      name: 'run-1',
+      stateMachineArn,
+      status: 'SUCCEEDED',
+      startDate: '2024-01-01T00:00:00+00:00',
+      stopDate: '2024-01-01T00:01:00+00:00',
+    },
+    {
+      executionArn:
+        'arn:aws:states:eu-west-1:000000000000:execution:orders-workflow:run-2',
+      name: 'run-2',
+      stateMachineArn,
+      status: 'RUNNING',
+      startDate: '2024-01-02T00:00:00+00:00',
+      stopDate: null,
+    },
+  ],
+};
+
+const startResult: StartExecutionResult = {
+  executionArn: 'arn:aws:states:eu-west-1:000000000000:execution:orders-workflow:run-3',
+  startDate: '2024-01-03T00:00:00+00:00',
+};
+
+function renderPanel() {
+  return render(<StepFunctionsExecutionsPanel stateMachineArn={stateMachineArn} />);
+}
+
+describe('StepFunctionsExecutionsPanel', () => {
+  beforeEach(() => {
+    getExecutionsMock.mockResolvedValue(listResult);
+    startExecutionMock.mockResolvedValue(startResult);
+    getExecutionHistoryMock.mockResolvedValue({ events: [] });
+  });
+
+  afterEach(() => {
+    vi.resetAllMocks();
+  });
+
+  it('shows a loading state before executions arrive', () => {
+    getExecutionsMock.mockReturnValue(new Promise(() => {}));
+
+    renderPanel();
+
+    expect(screen.getByTestId('step-functions-executions-loading')).toBeInTheDocument();
+  });
+
+  it('shows an error state when the request fails', async () => {
+    getExecutionsMock.mockRejectedValue(new Error('boom'));
+
+    renderPanel();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('step-functions-executions-error')).toBeInTheDocument(),
+    );
+  });
+
+  it('shows an empty state when there are no executions', async () => {
+    getExecutionsMock.mockResolvedValue({ executions: [] });
+
+    renderPanel();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('step-functions-executions-empty')).toBeInTheDocument(),
+    );
+  });
+
+  it('renders executions with status and stop date fallback', async () => {
+    renderPanel();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('step-functions-executions-table')).toBeInTheDocument(),
+    );
+
+    const rows = screen.getAllByTestId('step-functions-execution-row');
+    expect(rows).toHaveLength(2);
+    const statuses = screen.getAllByTestId('step-functions-execution-status');
+    expect(statuses[0]).toHaveTextContent('SUCCEEDED');
+    expect(statuses[1]).toHaveTextContent('RUNNING');
+    expect(rows[0]).toHaveTextContent('2024-01-01T00:01:00+00:00');
+    expect(rows[1]).toHaveTextContent('—');
+    expect(getExecutionsMock).toHaveBeenCalledWith(stateMachineArn, expect.any(AbortSignal));
+  });
+
+  it('starts an execution with the trimmed name and input then refreshes', async () => {
+    renderPanel();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('step-functions-executions-table')).toBeInTheDocument(),
+    );
+
+    fireEvent.change(screen.getByTestId('step-functions-execution-name'), {
+      target: { value: '  run-3  ' },
+    });
+    fireEvent.change(screen.getByTestId('step-functions-execution-input'), {
+      target: { value: '  {"key":"value"}  ' },
+    });
+    fireEvent.click(screen.getByTestId('step-functions-execution-start'));
+
+    await waitFor(() =>
+      expect(startExecutionMock).toHaveBeenCalledWith({
+        stateMachineArn,
+        name: 'run-3',
+        input: '{"key":"value"}',
+      }),
+    );
+    await waitFor(() => expect(getExecutionsMock).toHaveBeenCalledTimes(2));
+  });
+
+  it('sends null name and input when the fields are blank', async () => {
+    renderPanel();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('step-functions-executions-table')).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByTestId('step-functions-execution-start'));
+
+    await waitFor(() =>
+      expect(startExecutionMock).toHaveBeenCalledWith({
+        stateMachineArn,
+        name: null,
+        input: null,
+      }),
+    );
+    await waitFor(() => expect(getExecutionsMock).toHaveBeenCalledTimes(2));
+  });
+
+  it('shows an error message when starting fails', async () => {
+    startExecutionMock.mockRejectedValue(new Error('boom'));
+
+    renderPanel();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('step-functions-executions-table')).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByTestId('step-functions-execution-start'));
+
+    await waitFor(() =>
+      expect(
+        screen.getByTestId('step-functions-execution-start-error'),
+      ).toBeInTheDocument(),
+    );
+  });
+
+  it('toggles the history panel for the selected execution', async () => {
+    renderPanel();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('step-functions-executions-table')).toBeInTheDocument(),
+    );
+
+    const toggles = screen.getAllByTestId('step-functions-execution-history-toggle');
+    expect(toggles[0]).toHaveTextContent('View history');
+
+    fireEvent.click(toggles[0]);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('step-functions-execution-history-row')).toBeInTheDocument(),
+    );
+    expect(getExecutionHistoryMock).toHaveBeenCalledWith(
+      'arn:aws:states:eu-west-1:000000000000:execution:orders-workflow:run-1',
+      expect.any(AbortSignal),
+    );
+    expect(screen.getAllByTestId('step-functions-execution-history-toggle')[0]).toHaveTextContent(
+      'Hide history',
+    );
+
+    fireEvent.click(screen.getAllByTestId('step-functions-execution-history-toggle')[0]);
+
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId('step-functions-execution-history-row'),
+      ).not.toBeInTheDocument(),
+    );
+  });
+});

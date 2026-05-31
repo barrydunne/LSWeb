@@ -19,6 +19,7 @@
     <PackageVersion Include="AWSSDK.SimpleNotificationService" Version="4.0.3.3" />
     <PackageVersion Include="AWSSDK.SimpleSystemsManagement" Version="4.0.8.3" />
     <PackageVersion Include="AWSSDK.SQS" Version="4.0.3.3" />
+    <PackageVersion Include="AWSSDK.StepFunctions" Version="4.0.4.4" />
     <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.8" />
     <PackageVersion Include="Serilog.AspNetCore" Version="9.0.0" />

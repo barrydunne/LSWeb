@@ -3229,3 +3229,130 @@ export async function deleteIamAccountAlias(
     throw new Error(`IAM account alias delete request failed with status ${response.status}`);
   }
 }
+
+export interface StateMachineItem {
+  name: string;
+  stateMachineArn: string;
+  type: string;
+  creationDate: string;
+}
+
+export interface StateMachineListResult {
+  stateMachines: StateMachineItem[];
+}
+
+export async function getStateMachines(signal?: AbortSignal): Promise<StateMachineListResult> {
+  const response = await fetch('/api/services/step-functions/state-machines', { signal });
+  if (!response.ok) {
+    throw new Error(`Step Functions state machines request failed with status ${response.status}`);
+  }
+  return (await response.json()) as StateMachineListResult;
+}
+
+export interface StateMachineDetailResult {
+  name: string;
+  stateMachineArn: string;
+  type: string;
+  status: string;
+  roleArn: string;
+  definition: string;
+  creationDate: string;
+}
+
+export async function getStateMachine(
+  arn: string,
+  signal?: AbortSignal,
+): Promise<StateMachineDetailResult> {
+  const response = await fetch(
+    `/api/services/step-functions/state-machine?arn=${encodeURIComponent(arn)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`Step Functions state machine request failed with status ${response.status}`);
+  }
+  return (await response.json()) as StateMachineDetailResult;
+}
+
+export interface ExecutionSummary {
+  executionArn: string;
+  name: string;
+  stateMachineArn: string;
+  status: string;
+  startDate: string;
+  stopDate: string | null;
+}
+
+export interface ExecutionListResult {
+  executions: ExecutionSummary[];
+}
+
+export async function getExecutions(
+  arn: string,
+  signal?: AbortSignal,
+): Promise<ExecutionListResult> {
+  const response = await fetch(
+    `/api/services/step-functions/executions?arn=${encodeURIComponent(arn)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`Step Functions executions request failed with status ${response.status}`);
+  }
+  return (await response.json()) as ExecutionListResult;
+}
+
+export interface StartExecutionRequest {
+  stateMachineArn: string;
+  name: string | null;
+  input: string | null;
+}
+
+export interface StartExecutionResult {
+  executionArn: string;
+  startDate: string;
+}
+
+export async function startExecution(
+  request: StartExecutionRequest,
+  signal?: AbortSignal,
+): Promise<StartExecutionResult> {
+  const response = await fetch('/api/services/step-functions/executions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`Step Functions start execution request failed with status ${response.status}`);
+  }
+  return (await response.json()) as StartExecutionResult;
+}
+
+export interface ExecutionHistoryEvent {
+  id: number;
+  previousEventId: number | null;
+  type: string;
+  timestamp: string;
+  name: string | null;
+  input: string | null;
+  output: string | null;
+  error: string | null;
+  cause: string | null;
+}
+
+export interface ExecutionHistoryResult {
+  events: ExecutionHistoryEvent[];
+}
+
+export async function getExecutionHistory(
+  executionArn: string,
+  signal?: AbortSignal,
+): Promise<ExecutionHistoryResult> {
+  const response = await fetch(
+    `/api/services/step-functions/execution-history?arn=${encodeURIComponent(executionArn)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`Step Functions execution history request failed with status ${response.status}`);
+  }
+  return (await response.json()) as ExecutionHistoryResult;
+}

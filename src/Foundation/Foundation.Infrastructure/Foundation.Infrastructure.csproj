@@ -25,6 +25,7 @@
     <PackageReference Include="AWSSDK.SimpleNotificationService" />
     <PackageReference Include="AWSSDK.SimpleSystemsManagement" />
     <PackageReference Include="AWSSDK.SQS" />
+    <PackageReference Include="AWSSDK.StepFunctions" />
     <PackageReference Include="Polly.Core" />
   </ItemGroup>
 

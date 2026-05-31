@@ -17,6 +17,7 @@ using Foundation.Application.SecretsManager;
 using Foundation.Application.Sns;
 using Foundation.Application.Sqs;
 using Foundation.Application.Ssm;
+using Foundation.Application.StepFunctions;
 using Foundation.Application.Streaming;
 using Foundation.Infrastructure.Activity;
 using Foundation.Infrastructure.Aws;
@@ -38,6 +39,7 @@ using Foundation.Infrastructure.SecretsManager;
 using Foundation.Infrastructure.Sns;
 using Foundation.Infrastructure.Sqs;
 using Foundation.Infrastructure.Ssm;
+using Foundation.Infrastructure.StepFunctions;
 using Foundation.Infrastructure.Streaming;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Routing;
@@ -107,6 +109,8 @@ public static class DependencyInjection
             .AddSingleton<IResourceSource, SnsResourceSource>()
             .AddSingleton<IIamClient, IamClientAdapter>()
             .AddSingleton<IResourceSource, IamResourceSource>()
+            .AddSingleton<IStepFunctionsClient, StepFunctionsClientAdapter>()
+            .AddSingleton<IResourceSource, StepFunctionsResourceSource>()
             .AddSingleton<IReferenceResolver, ReferenceResolver>()
             .AddSingleton<IBackendHealthProbe, BackendHealthProbe>()
             .AddSingleton<HealthStatusStore>()

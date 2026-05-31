@@ -19,6 +19,8 @@ const SnsListView = lazy(() => import('./sns/SnsListView'));
 const SnsDetailView = lazy(() => import('./sns/SnsDetailView'));
 const IamListView = lazy(() => import('./iam/IamListView'));
 const IamDetailView = lazy(() => import('./iam/IamDetailView'));
+const StepFunctionsListView = lazy(() => import('./step-functions/StepFunctionsListView'));
+const StepFunctionsDetailView = lazy(() => import('./step-functions/StepFunctionsDetailView'));
 
 let registered = false;
 
@@ -46,6 +48,10 @@ export function registerServiceViews(): void {
   });
   registerServiceView('sns', { list: SnsListView, detail: SnsDetailView });
   registerServiceView('iam', { list: IamListView, detail: IamDetailView });
+  registerServiceView('step-functions', {
+    list: StepFunctionsListView,
+    detail: StepFunctionsDetailView,
+  });
 }
 
 registerServiceViews();

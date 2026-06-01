@@ -20,5 +20,6 @@ public static class ServiceCatalogue
         new("sqs", "SQS", ServiceCategory.Messaging, "inbox", "/services/sqs"),
         new("ssm-parameter-store", "SSM Parameter Store", ServiceCategory.Management, "gear", "/services/ssm-parameter-store"),
         new("step-functions", "Step Functions", ServiceCategory.Compute, "workflow", "/services/step-functions"),
+        new("cloudformation", "CloudFormation", ServiceCategory.Management, "stack", "/services/cloudformation"),
     ];
 }

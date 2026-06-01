@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Foundation.Application.Activity;
 using Foundation.Application.Capabilities;
+using Foundation.Application.CloudFormation;
 using Foundation.Application.CloudWatchLogs;
 using Foundation.Application.Configuration;
 using Foundation.Application.Connectivity;
@@ -22,6 +23,7 @@ using Foundation.Application.Streaming;
 using Foundation.Infrastructure.Activity;
 using Foundation.Infrastructure.Aws;
 using Foundation.Infrastructure.Capabilities;
+using Foundation.Infrastructure.CloudFormation;
 using Foundation.Infrastructure.CloudWatchLogs;
 using Foundation.Infrastructure.Configuration;
 using Foundation.Infrastructure.Connectivity;
@@ -111,6 +113,8 @@ public static class DependencyInjection
             .AddSingleton<IResourceSource, IamResourceSource>()
             .AddSingleton<IStepFunctionsClient, StepFunctionsClientAdapter>()
             .AddSingleton<IResourceSource, StepFunctionsResourceSource>()
+            .AddSingleton<ICloudFormationClient, CloudFormationClientAdapter>()
+            .AddSingleton<IResourceSource, CloudFormationResourceSource>()
             .AddSingleton<IReferenceResolver, ReferenceResolver>()
             .AddSingleton<IBackendHealthProbe, BackendHealthProbe>()
             .AddSingleton<HealthStatusStore>()

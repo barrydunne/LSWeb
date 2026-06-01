@@ -103,6 +103,19 @@ import {
   getExecutions,
   startExecution,
   getExecutionHistory,
+  getStacks,
+  getStack,
+  getStackTemplate,
+  getStackResources,
+  getStackEvents,
+  createStack,
+  updateStack,
+  deleteStack,
+  getChangeSets,
+  getChangeSet,
+  createChangeSet,
+  executeChangeSet,
+  deleteChangeSet,
 } from './client';
 import type {
   DynamoDbQueryRequest,
@@ -3832,5 +3845,524 @@ describe('getExecutionHistory', () => {
     await expect(
       getExecutionHistory('arn:aws:states:eu-west-1:000000000000:execution:orders-workflow:run-1'),
     ).rejects.toThrow('Step Functions execution history request failed with status 503');
+  });
+});
+
+describe('getStacks', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed stacks when the request succeeds', async () => {
+    const payload = {
+      stacks: [
+        {
+          stackName: 'orders-stack',
+          stackId: 'arn:aws:cloudformation:eu-west-1:000000000000:stack/orders-stack/abc',
+          stackStatus: 'CREATE_COMPLETE',
+          description: 'Orders processing stack',
+          creationTime: '2024-01-01T00:00:00+00:00',
+          lastUpdatedTime: '2024-02-01T00:00:00+00:00',
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getStacks(controller.signal);
+
+    expect(result.stacks).toHaveLength(1);
+    expect(result.stacks[0].stackName).toBe('orders-stack');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/cloudformation/stacks', {
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getStacks()).rejects.toThrow(
+      'CloudFormation stacks request failed with status 503',
+    );
+  });
+});
+
+describe('getStack', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed stack when the request succeeds', async () => {
+    const payload = {
+      stackName: 'orders-stack',
+      stackId: 'arn:aws:cloudformation:eu-west-1:000000000000:stack/orders-stack/abc',
+      stackStatus: 'CREATE_COMPLETE',
+      stackStatusReason: null,
+      description: 'Orders processing stack',
+      creationTime: '2024-01-01T00:00:00+00:00',
+      lastUpdatedTime: null,
+      parameters: [],
+      outputs: [],
+      tags: [],
+      capabilities: [],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getStack('orders-stack', controller.signal);
+
+    expect(result.stackName).toBe('orders-stack');
+    expect(result.stackStatus).toBe('CREATE_COMPLETE');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cloudformation/stack?name=orders-stack',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getStack('missing-stack')).rejects.toThrow(
+      'CloudFormation stack request failed with status 404',
+    );
+  });
+});
+
+describe('getStackTemplate', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed template when the request succeeds', async () => {
+    const payload = {
+      templateBody: '{"Resources":{}}',
+      format: 'json',
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getStackTemplate('orders-stack', controller.signal);
+
+    expect(result.templateBody).toBe('{"Resources":{}}');
+    expect(result.format).toBe('json');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cloudformation/stack/template?name=orders-stack',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(getStackTemplate('missing-stack')).rejects.toThrow(
+      'CloudFormation stack template request failed with status 500',
+    );
+  });
+});
+
+describe('createStack', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the stack definition and returns the stack id', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ stackId: 'arn:stack/new' }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await createStack(
+      'new-stack',
+      '{"Resources":{}}',
+      [{ parameterKey: 'Env', parameterValue: 'dev' }],
+      ['CAPABILITY_IAM'],
+      controller.signal,
+    );
+
+    expect(result.stackId).toBe('arn:stack/new');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/cloudformation/stack', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        stackName: 'new-stack',
+        templateBody: '{"Resources":{}}',
+        parameters: [{ parameterKey: 'Env', parameterValue: 'dev' }],
+        capabilities: ['CAPABILITY_IAM'],
+      }),
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(createStack('new-stack', '{}', [], [])).rejects.toThrow(
+      'CloudFormation stack create request failed with status 400',
+    );
+  });
+});
+
+describe('updateStack', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the stack definition with the name in the query and returns the stack id', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ stackId: 'arn:stack/updated' }) });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await updateStack(
+      'orders stack',
+      '{"Resources":{}}',
+      [{ parameterKey: 'Env', parameterValue: 'prod' }],
+      ['CAPABILITY_NAMED_IAM'],
+    );
+
+    expect(result.stackId).toBe('arn:stack/updated');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cloudformation/stack?name=orders%20stack',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          templateBody: '{"Resources":{}}',
+          parameters: [{ parameterKey: 'Env', parameterValue: 'prod' }],
+          capabilities: ['CAPABILITY_NAMED_IAM'],
+        }),
+        signal: undefined,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 409 }));
+
+    await expect(updateStack('orders-stack', '{}', [], [])).rejects.toThrow(
+      'CloudFormation stack update request failed with status 409',
+    );
+  });
+});
+
+describe('deleteStack', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('deletes the stack by name', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await deleteStack('orders stack', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cloudformation/stack?name=orders%20stack',
+      {
+        method: 'DELETE',
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(deleteStack('missing-stack')).rejects.toThrow(
+      'CloudFormation stack delete request failed with status 404',
+    );
+  });
+});
+
+describe('getStackResources', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed resources when the request succeeds', async () => {
+    const payload = {
+      resources: [
+        {
+          logicalResourceId: 'OrdersQueue',
+          physicalResourceId: 'orders-queue',
+          resourceType: 'AWS::SQS::Queue',
+          resourceStatus: 'CREATE_COMPLETE',
+          resourceStatusReason: null,
+          lastUpdatedTime: '2024-01-01T00:00:00Z',
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getStackResources('orders-stack', controller.signal);
+
+    expect(result.resources).toHaveLength(1);
+    expect(result.resources[0].logicalResourceId).toBe('OrdersQueue');
+    expect(result.resources[0].resourceType).toBe('AWS::SQS::Queue');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cloudformation/stack/resources?name=orders-stack',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(getStackResources('missing-stack')).rejects.toThrow(
+      'CloudFormation stack resources request failed with status 500',
+    );
+  });
+});
+
+describe('getStackEvents', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed events when the request succeeds', async () => {
+    const payload = {
+      events: [
+        {
+          eventId: 'event-1',
+          timestamp: '2024-01-01T00:00:00Z',
+          logicalResourceId: 'OrdersQueue',
+          physicalResourceId: 'orders-queue',
+          resourceType: 'AWS::SQS::Queue',
+          resourceStatus: 'CREATE_COMPLETE',
+          resourceStatusReason: 'Resource creation initiated',
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getStackEvents('orders-stack', controller.signal);
+
+    expect(result.events).toHaveLength(1);
+    expect(result.events[0].eventId).toBe('event-1');
+    expect(result.events[0].resourceStatus).toBe('CREATE_COMPLETE');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cloudformation/stack/events?name=orders-stack',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(getStackEvents('missing-stack')).rejects.toThrow(
+      'CloudFormation stack events request failed with status 500',
+    );
+  });
+});
+
+describe('getChangeSets', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed change sets when the request succeeds', async () => {
+    const payload = {
+      changeSets: [
+        {
+          changeSetId: 'arn:changeset/add-queue',
+          changeSetName: 'add-queue',
+          stackName: 'orders-stack',
+          status: 'CREATE_COMPLETE',
+          statusReason: null,
+          executionStatus: 'AVAILABLE',
+          description: 'Adds a queue',
+          creationTime: '2024-01-01T00:00:00Z',
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getChangeSets('orders stack', controller.signal);
+
+    expect(result.changeSets).toHaveLength(1);
+    expect(result.changeSets[0].changeSetName).toBe('add-queue');
+    expect(result.changeSets[0].executionStatus).toBe('AVAILABLE');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cloudformation/change-sets?name=orders%20stack',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(getChangeSets('missing-stack')).rejects.toThrow(
+      'CloudFormation change sets request failed with status 500',
+    );
+  });
+});
+
+describe('getChangeSet', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed change set detail when the request succeeds', async () => {
+    const payload = {
+      changeSetName: 'add-queue',
+      changeSetId: 'arn:changeset/add-queue',
+      stackName: 'orders-stack',
+      stackId: 'arn:stack/orders-stack',
+      status: 'CREATE_COMPLETE',
+      statusReason: null,
+      executionStatus: 'AVAILABLE',
+      description: 'Adds a queue',
+      creationTime: '2024-01-01T00:00:00Z',
+      parameters: [{ parameterKey: 'Env', parameterValue: 'dev' }],
+      capabilities: ['CAPABILITY_IAM'],
+      changes: [
+        {
+          action: 'Add',
+          logicalResourceId: 'OrdersQueue',
+          physicalResourceId: null,
+          resourceType: 'AWS::SQS::Queue',
+          replacement: null,
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getChangeSet('orders stack', 'add queue', controller.signal);
+
+    expect(result.changeSetName).toBe('add-queue');
+    expect(result.changes).toHaveLength(1);
+    expect(result.changes[0].action).toBe('Add');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cloudformation/change-set?name=orders%20stack&changeSet=add%20queue',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getChangeSet('missing-stack', 'missing')).rejects.toThrow(
+      'CloudFormation change set request failed with status 404',
+    );
+  });
+});
+
+describe('createChangeSet', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the change set definition and returns the change set id', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ changeSetId: 'arn:changeset/new' }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await createChangeSet(
+      'orders-stack',
+      'add-queue',
+      'UPDATE',
+      '{"Resources":{}}',
+      [{ parameterKey: 'Env', parameterValue: 'dev' }],
+      ['CAPABILITY_IAM'],
+      controller.signal,
+    );
+
+    expect(result.changeSetId).toBe('arn:changeset/new');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/cloudformation/change-set', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        stackName: 'orders-stack',
+        changeSetName: 'add-queue',
+        changeSetType: 'UPDATE',
+        templateBody: '{"Resources":{}}',
+        parameters: [{ parameterKey: 'Env', parameterValue: 'dev' }],
+        capabilities: ['CAPABILITY_IAM'],
+      }),
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      createChangeSet('orders-stack', 'add-queue', 'UPDATE', '{}', [], []),
+    ).rejects.toThrow('CloudFormation change set create request failed with status 400');
+  });
+});
+
+describe('executeChangeSet', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the execute request with the name and change set in the query', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await executeChangeSet('orders stack', 'add queue', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cloudformation/change-set/execute?name=orders%20stack&changeSet=add%20queue',
+      {
+        method: 'POST',
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 409 }));
+
+    await expect(executeChangeSet('orders-stack', 'add-queue')).rejects.toThrow(
+      'CloudFormation change set execute request failed with status 409',
+    );
+  });
+});
+
+describe('deleteChangeSet', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('deletes the change set by name and change set', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await deleteChangeSet('orders stack', 'add queue', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cloudformation/change-set?name=orders%20stack&changeSet=add%20queue',
+      {
+        method: 'DELETE',
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(deleteChangeSet('missing-stack', 'missing')).rejects.toThrow(
+      'CloudFormation change set delete request failed with status 404',
+    );
   });
 });

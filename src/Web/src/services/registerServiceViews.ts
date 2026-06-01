@@ -21,6 +21,8 @@ const IamListView = lazy(() => import('./iam/IamListView'));
 const IamDetailView = lazy(() => import('./iam/IamDetailView'));
 const StepFunctionsListView = lazy(() => import('./step-functions/StepFunctionsListView'));
 const StepFunctionsDetailView = lazy(() => import('./step-functions/StepFunctionsDetailView'));
+const CloudFormationListView = lazy(() => import('./cloudformation/CloudFormationListView'));
+const CloudFormationDetailView = lazy(() => import('./cloudformation/CloudFormationDetailView'));
 
 let registered = false;
 
@@ -51,6 +53,10 @@ export function registerServiceViews(): void {
   registerServiceView('step-functions', {
     list: StepFunctionsListView,
     detail: StepFunctionsDetailView,
+  });
+  registerServiceView('cloudformation', {
+    list: CloudFormationListView,
+    detail: CloudFormationDetailView,
   });
 }
 

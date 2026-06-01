@@ -3356,3 +3356,445 @@ export async function getExecutionHistory(
   }
   return (await response.json()) as ExecutionHistoryResult;
 }
+
+export interface CloudFormationStackItem {
+  stackName: string;
+  stackId: string;
+  stackStatus: string;
+  description: string | null;
+  creationTime: string;
+  lastUpdatedTime: string | null;
+}
+
+export interface CloudFormationStackListResult {
+  stacks: CloudFormationStackItem[];
+}
+
+export async function getStacks(signal?: AbortSignal): Promise<CloudFormationStackListResult> {
+  const response = await fetch('/api/services/cloudformation/stacks', { signal });
+  if (!response.ok) {
+    throw new Error(`CloudFormation stacks request failed with status ${response.status}`);
+  }
+  return (await response.json()) as CloudFormationStackListResult;
+}
+
+export interface StackParameter {
+  parameterKey: string;
+  parameterValue: string;
+}
+
+export interface StackOutput {
+  outputKey: string;
+  outputValue: string;
+  description: string | null;
+  exportName: string | null;
+}
+
+export interface StackTag {
+  key: string;
+  value: string;
+}
+
+export interface CloudFormationStackDetailResult {
+  stackName: string;
+  stackId: string;
+  stackStatus: string;
+  stackStatusReason: string | null;
+  description: string | null;
+  creationTime: string;
+  lastUpdatedTime: string | null;
+  parameters: StackParameter[];
+  outputs: StackOutput[];
+  tags: StackTag[];
+  capabilities: string[];
+}
+
+export async function getStack(
+  name: string,
+  signal?: AbortSignal,
+): Promise<CloudFormationStackDetailResult> {
+  const response = await fetch(
+    `/api/services/cloudformation/stack?name=${encodeURIComponent(name)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`CloudFormation stack request failed with status ${response.status}`);
+  }
+  return (await response.json()) as CloudFormationStackDetailResult;
+}
+
+export interface CloudFormationStackTemplateResult {
+  templateBody: string;
+  format: string;
+}
+
+export async function getStackTemplate(
+  name: string,
+  signal?: AbortSignal,
+): Promise<CloudFormationStackTemplateResult> {
+  const response = await fetch(
+    `/api/services/cloudformation/stack/template?name=${encodeURIComponent(name)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`CloudFormation stack template request failed with status ${response.status}`);
+  }
+  return (await response.json()) as CloudFormationStackTemplateResult;
+}
+
+export interface CloudFormationStackResource {
+  logicalResourceId: string;
+  physicalResourceId: string | null;
+  resourceType: string;
+  resourceStatus: string;
+  resourceStatusReason: string | null;
+  lastUpdatedTime: string;
+}
+
+export interface CloudFormationStackResourceListResult {
+  resources: CloudFormationStackResource[];
+}
+
+export async function getStackResources(
+  name: string,
+  signal?: AbortSignal,
+): Promise<CloudFormationStackResourceListResult> {
+  const response = await fetch(
+    `/api/services/cloudformation/stack/resources?name=${encodeURIComponent(name)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`CloudFormation stack resources request failed with status ${response.status}`);
+  }
+  return (await response.json()) as CloudFormationStackResourceListResult;
+}
+
+export interface CloudFormationStackEvent {
+  eventId: string;
+  timestamp: string;
+  logicalResourceId: string;
+  physicalResourceId: string | null;
+  resourceType: string;
+  resourceStatus: string;
+  resourceStatusReason: string | null;
+}
+
+export interface CloudFormationStackEventListResult {
+  events: CloudFormationStackEvent[];
+}
+
+export async function getStackEvents(
+  name: string,
+  signal?: AbortSignal,
+): Promise<CloudFormationStackEventListResult> {
+  const response = await fetch(
+    `/api/services/cloudformation/stack/events?name=${encodeURIComponent(name)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`CloudFormation stack events request failed with status ${response.status}`);
+  }
+  return (await response.json()) as CloudFormationStackEventListResult;
+}
+
+export interface CloudFormationStackOperationResult {
+  stackId: string;
+}
+
+export async function createStack(
+  stackName: string,
+  templateBody: string,
+  parameters: StackParameter[],
+  capabilities: string[],
+  signal?: AbortSignal,
+): Promise<CloudFormationStackOperationResult> {
+  const response = await fetch('/api/services/cloudformation/stack', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ stackName, templateBody, parameters, capabilities }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`CloudFormation stack create request failed with status ${response.status}`);
+  }
+  return (await response.json()) as CloudFormationStackOperationResult;
+}
+
+export async function updateStack(
+  name: string,
+  templateBody: string,
+  parameters: StackParameter[],
+  capabilities: string[],
+  signal?: AbortSignal,
+): Promise<CloudFormationStackOperationResult> {
+  const response = await fetch(
+    `/api/services/cloudformation/stack?name=${encodeURIComponent(name)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ templateBody, parameters, capabilities }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`CloudFormation stack update request failed with status ${response.status}`);
+  }
+  return (await response.json()) as CloudFormationStackOperationResult;
+}
+
+export async function deleteStack(name: string, signal?: AbortSignal): Promise<void> {
+  const response = await fetch(
+    `/api/services/cloudformation/stack?name=${encodeURIComponent(name)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`CloudFormation stack delete request failed with status ${response.status}`);
+  }
+}
+
+export interface CloudFormationChangeSetSummary {
+  changeSetId: string;
+  changeSetName: string;
+  stackName: string;
+  status: string;
+  statusReason: string | null;
+  executionStatus: string;
+  description: string | null;
+  creationTime: string;
+}
+
+export interface CloudFormationChangeSetListResult {
+  changeSets: CloudFormationChangeSetSummary[];
+}
+
+export async function getChangeSets(
+  name: string,
+  signal?: AbortSignal,
+): Promise<CloudFormationChangeSetListResult> {
+  const response = await fetch(
+    `/api/services/cloudformation/change-sets?name=${encodeURIComponent(name)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`CloudFormation change sets request failed with status ${response.status}`);
+  }
+  return (await response.json()) as CloudFormationChangeSetListResult;
+}
+
+export interface CloudFormationResourceChange {
+  action: string;
+  logicalResourceId: string;
+  physicalResourceId: string | null;
+  resourceType: string;
+  replacement: string | null;
+}
+
+export interface CloudFormationChangeSetDetailResult {
+  changeSetName: string;
+  changeSetId: string;
+  stackName: string;
+  stackId: string;
+  status: string;
+  statusReason: string | null;
+  executionStatus: string;
+  description: string | null;
+  creationTime: string;
+  parameters: StackParameter[];
+  capabilities: string[];
+  changes: CloudFormationResourceChange[];
+}
+
+export async function getChangeSet(
+  name: string,
+  changeSet: string,
+  signal?: AbortSignal,
+): Promise<CloudFormationChangeSetDetailResult> {
+  const response = await fetch(
+    `/api/services/cloudformation/change-set?name=${encodeURIComponent(name)}&changeSet=${encodeURIComponent(changeSet)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`CloudFormation change set request failed with status ${response.status}`);
+  }
+  return (await response.json()) as CloudFormationChangeSetDetailResult;
+}
+
+export interface CloudFormationChangeSetOperationResult {
+  changeSetId: string;
+}
+
+export async function createChangeSet(
+  stackName: string,
+  changeSetName: string,
+  changeSetType: string,
+  templateBody: string,
+  parameters: StackParameter[],
+  capabilities: string[],
+  signal?: AbortSignal,
+): Promise<CloudFormationChangeSetOperationResult> {
+  const response = await fetch('/api/services/cloudformation/change-set', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      stackName,
+      changeSetName,
+      changeSetType,
+      templateBody,
+      parameters,
+      capabilities,
+    }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`CloudFormation change set create request failed with status ${response.status}`);
+  }
+  return (await response.json()) as CloudFormationChangeSetOperationResult;
+}
+
+export async function executeChangeSet(
+  name: string,
+  changeSet: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/cloudformation/change-set/execute?name=${encodeURIComponent(name)}&changeSet=${encodeURIComponent(changeSet)}`,
+    {
+      method: 'POST',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`CloudFormation change set execute request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteChangeSet(
+  name: string,
+  changeSet: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/cloudformation/change-set?name=${encodeURIComponent(name)}&changeSet=${encodeURIComponent(changeSet)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`CloudFormation change set delete request failed with status ${response.status}`);
+  }
+}
+
+export interface CloudFormationDriftDetectionResult {
+  stackDriftDetectionId: string;
+}
+
+export async function detectStackDrift(
+  name: string,
+  signal?: AbortSignal,
+): Promise<CloudFormationDriftDetectionResult> {
+  const response = await fetch(
+    `/api/services/cloudformation/stack/drift?name=${encodeURIComponent(name)}`,
+    {
+      method: 'POST',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`CloudFormation drift detection request failed with status ${response.status}`);
+  }
+  return (await response.json()) as CloudFormationDriftDetectionResult;
+}
+
+export interface CloudFormationDriftStatusResult {
+  stackDriftDetectionId: string;
+  stackId: string;
+  detectionStatus: string;
+  detectionStatusReason: string | null;
+  stackDriftStatus: string;
+  driftedStackResourceCount: number;
+  timestamp: string;
+}
+
+export async function getDriftStatus(
+  driftDetectionId: string,
+  signal?: AbortSignal,
+): Promise<CloudFormationDriftStatusResult> {
+  const response = await fetch(
+    `/api/services/cloudformation/stack/drift?driftDetectionId=${encodeURIComponent(driftDetectionId)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`CloudFormation drift status request failed with status ${response.status}`);
+  }
+  return (await response.json()) as CloudFormationDriftStatusResult;
+}
+
+export interface CloudFormationResourceDrift {
+  logicalResourceId: string;
+  physicalResourceId: string | null;
+  resourceType: string;
+  driftStatus: string;
+  expectedProperties: string | null;
+  actualProperties: string | null;
+  timestamp: string;
+}
+
+export interface CloudFormationResourceDriftListResult {
+  drifts: CloudFormationResourceDrift[];
+}
+
+export async function getResourceDrifts(
+  name: string,
+  signal?: AbortSignal,
+): Promise<CloudFormationResourceDriftListResult> {
+  const response = await fetch(
+    `/api/services/cloudformation/stack/drift/resources?name=${encodeURIComponent(name)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`CloudFormation resource drifts request failed with status ${response.status}`);
+  }
+  return (await response.json()) as CloudFormationResourceDriftListResult;
+}
+
+export interface CloudFormationExport {
+  name: string;
+  value: string;
+  exportingStackId: string;
+}
+
+export interface CloudFormationExportListResult {
+  exports: CloudFormationExport[];
+}
+
+export async function getExports(
+  signal?: AbortSignal,
+): Promise<CloudFormationExportListResult> {
+  const response = await fetch('/api/services/cloudformation/exports', { signal });
+  if (!response.ok) {
+    throw new Error(`CloudFormation exports request failed with status ${response.status}`);
+  }
+  return (await response.json()) as CloudFormationExportListResult;
+}
+
+export interface CloudFormationImportListResult {
+  importingStackNames: string[];
+}
+
+export async function getImports(
+  exportName: string,
+  signal?: AbortSignal,
+): Promise<CloudFormationImportListResult> {
+  const response = await fetch(
+    `/api/services/cloudformation/exports/${encodeURIComponent(exportName)}/imports`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`CloudFormation imports request failed with status ${response.status}`);
+  }
+  return (await response.json()) as CloudFormationImportListResult;
+}

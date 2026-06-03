@@ -35,6 +35,25 @@
     does not exist and the container's LSW_USER_DATA_DIR points at the mount, so
     user data survives container restarts. When omitted the container keeps user
     data in memory only (cleared on restart).
+.PARAMETER AwsAccessKeyId
+    Optional AWS access key id (AWS_ACCESS_KEY_ID). When omitted the container
+    falls back to its built-in default suitable for LocalStack.
+.PARAMETER AwsSecretAccessKey
+    Optional AWS secret access key (AWS_SECRET_ACCESS_KEY). When omitted the
+    container falls back to its built-in default suitable for LocalStack. The
+    value is never echoed to the console.
+.PARAMETER AwsRegion
+    Optional AWS region (AWS_REGION). When omitted the container falls back to
+    its built-in default region.
+.PARAMETER ContainerPort
+    Port the application listens on inside the container (PORT). The host port is
+    published to this port. Defaults to 8080.
+.PARAMETER SeqUrl
+    Optional Seq ingestion URL (Seq__Url) for structured-log shipping. When
+    omitted the container does not ship logs to Seq.
+.PARAMETER AllowDiagnosticReveal
+    When set, allows the diagnostics endpoint to reveal otherwise-redacted
+    configuration values (LSW_ALLOW_DIAGNOSTIC_REVEAL=true). Off by default.
 #>
 [CmdletBinding()]
 param(
@@ -43,7 +62,13 @@ param(
     [string]$Tag = 'localstackweb:latest',
     [int]$HostPort = 5080,
     [string]$AwsEndpointUrl,
-    [string]$UserDataPath
+    [string]$UserDataPath,
+    [string]$AwsAccessKeyId,
+    [string]$AwsSecretAccessKey,
+    [string]$AwsRegion,
+    [int]$ContainerPort = 8080,
+    [string]$SeqUrl,
+    [switch]$AllowDiagnosticReveal
 )
 
 $ErrorActionPreference = 'Stop'
@@ -82,9 +107,28 @@ $dockerArgs = @(
     'run', '-d',
     '--name', $ContainerName,
     '--restart', 'unless-stopped',
-    '--publish', "${HostPort}:8080",
-    '--env', "AWS_ENDPOINT_URL=$AwsEndpointUrl"
+    '--publish', "${HostPort}:${ContainerPort}",
+    '--env', "AWS_ENDPOINT_URL=$AwsEndpointUrl",
+    '--env', "PORT=$ContainerPort"
 )
+
+# Optional API configuration. Each value is only forwarded when supplied so the
+# container keeps its built-in defaults (suitable for LocalStack) otherwise.
+if ($PSBoundParameters.ContainsKey('AwsAccessKeyId')) {
+    $dockerArgs += @('--env', "AWS_ACCESS_KEY_ID=$AwsAccessKeyId")
+}
+if ($PSBoundParameters.ContainsKey('AwsSecretAccessKey')) {
+    $dockerArgs += @('--env', "AWS_SECRET_ACCESS_KEY=$AwsSecretAccessKey")
+}
+if ($PSBoundParameters.ContainsKey('AwsRegion')) {
+    $dockerArgs += @('--env', "AWS_REGION=$AwsRegion")
+}
+if ($PSBoundParameters.ContainsKey('SeqUrl')) {
+    $dockerArgs += @('--env', "Seq__Url=$SeqUrl")
+}
+if ($AllowDiagnosticReveal) {
+    $dockerArgs += @('--env', 'LSW_ALLOW_DIAGNOSTIC_REVEAL=true')
+}
 
 if ($useNetwork) {
     $dockerArgs += @('--network', $NetworkName)
@@ -104,6 +148,12 @@ $dockerArgs += $Tag
 
 $networkLabel = if ($useNetwork) { $NetworkName } else { 'host-gateway' }
 Write-Host "Running '$Tag' as '$ContainerName' on http://localhost:$HostPort (network: $networkLabel, AWS endpoint: $AwsEndpointUrl)..." -ForegroundColor Cyan
+if ($PSBoundParameters.ContainsKey('AwsRegion')) {
+    Write-Host "AWS region: $AwsRegion." -ForegroundColor Cyan
+}
+if ($PSBoundParameters.ContainsKey('SeqUrl')) {
+    Write-Host "Shipping logs to Seq at $SeqUrl." -ForegroundColor Cyan
+}
 if ($mountUserData) {
     Write-Host "Persisting user data to '$UserDataPath' (mounted at $containerUserDataDir)." -ForegroundColor Cyan
 }

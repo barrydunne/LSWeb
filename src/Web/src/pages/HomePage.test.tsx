@@ -74,6 +74,24 @@ describe('HomePage', () => {
     expect(links[0]).toHaveAttribute('href', '/services/svc-0');
   });
 
+  it('orders the quick links alphabetically by display name, case-insensitively', async () => {
+    getCatalogueMock.mockResolvedValue({
+      services: [
+        service({ key: 'sqs', displayName: 'Simple Queue Service', route: '/services/sqs' }),
+        service({ key: 'apigw', displayName: 'api gateway', route: '/services/apigw' }),
+        service({ key: 'lambda', displayName: 'Lambda', route: '/services/lambda' }),
+        service({ key: 's3', displayName: 'Simple Storage Service', route: '/services/s3' }),
+      ],
+    });
+
+    renderHome();
+
+    await waitFor(() => expect(screen.getByTestId('home-quick-links')).toBeInTheDocument());
+
+    const names = screen.getAllByTestId('home-quick-link-name').map((node) => node.textContent);
+    expect(names).toEqual(['api gateway', 'Lambda', 'Simple Queue Service', 'Simple Storage Service']);
+  });
+
   it('groups recently-viewed resources onto their service cards, capped at three', async () => {
     getCatalogueMock.mockResolvedValue({
       services: [
@@ -99,11 +117,12 @@ describe('HomePage', () => {
     await waitFor(() => expect(screen.getAllByTestId('home-quick-link-resource')).toHaveLength(4));
 
     const cards = screen.getAllByTestId('home-quick-link-card');
-    expect(within(cards[0]).getAllByTestId('home-quick-link-resource')).toHaveLength(3);
-    expect(within(cards[0]).getByText('a')).toBeInTheDocument();
-    expect(within(cards[0]).queryByText('d')).not.toBeInTheDocument();
-    expect(within(cards[1]).getAllByTestId('home-quick-link-resource')).toHaveLength(1);
-    expect(within(cards[2]).queryByTestId('home-quick-link-resources')).not.toBeInTheDocument();
+    // Cards are ordered alphabetically by display name: Lambda, Simple Queue Service, Simple Storage Service.
+    expect(within(cards[0]).queryByTestId('home-quick-link-resources')).not.toBeInTheDocument();
+    expect(within(cards[1]).getAllByTestId('home-quick-link-resource')).toHaveLength(3);
+    expect(within(cards[1]).getByText('a')).toBeInTheDocument();
+    expect(within(cards[1]).queryByText('d')).not.toBeInTheDocument();
+    expect(within(cards[2]).getAllByTestId('home-quick-link-resource')).toHaveLength(1);
   });
 
   it('filters the quick links by the search query', async () => {

@@ -159,9 +159,13 @@ export function HomePage() {
       return [];
     }
     const needle = query.trim().toLowerCase();
-    return state.services.filter((service) =>
-      `${service.displayName} ${service.category}`.toLowerCase().includes(needle),
-    );
+    return state.services
+      .filter((service) =>
+        `${service.displayName} ${service.category}`.toLowerCase().includes(needle),
+      )
+      .sort((a, b) =>
+        a.displayName.localeCompare(b.displayName, undefined, { sensitivity: 'base' }),
+      );
   }, [state, query]);
 
   return (

@@ -99,6 +99,7 @@ describe('S3ConfigurationPanel', () => {
     expect(screen.getByTestId('s3-config-policy-document')).toHaveTextContent(
       '{"Version":"2012-10-17"}',
     );
+    await waitFor(() => expect(resolveReferenceMock).toHaveBeenCalled());
   });
 
   it('resolves the notification target as a cross-resource link', async () => {
@@ -165,6 +166,7 @@ describe('S3ConfigurationPanel', () => {
 
     expect(screen.getByTestId('s3-config-notification-prefix')).toHaveTextContent('Prefix: uploads/');
     expect(screen.queryByTestId('s3-config-notification-suffix')).not.toBeInTheDocument();
+    await waitFor(() => expect(resolveReferenceMock).toHaveBeenCalled());
   });
 
   it('shows only the suffix when a notification has no prefix filter', async () => {
@@ -187,6 +189,7 @@ describe('S3ConfigurationPanel', () => {
 
     expect(screen.queryByTestId('s3-config-notification-prefix')).not.toBeInTheDocument();
     expect(screen.getByTestId('s3-config-notification-suffix')).toHaveTextContent('Suffix: .json');
+    await waitFor(() => expect(resolveReferenceMock).toHaveBeenCalled());
   });
 
   it('shows no filter when a notification has neither a prefix nor a suffix', async () => {
@@ -211,5 +214,6 @@ describe('S3ConfigurationPanel', () => {
     expect(filterCell).toHaveTextContent('(no filter)');
     expect(screen.queryByTestId('s3-config-notification-prefix')).not.toBeInTheDocument();
     expect(screen.queryByTestId('s3-config-notification-suffix')).not.toBeInTheDocument();
+    await waitFor(() => expect(resolveReferenceMock).toHaveBeenCalled());
   });
 });

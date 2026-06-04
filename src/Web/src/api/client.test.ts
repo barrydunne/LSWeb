@@ -116,6 +116,76 @@ import {
   createChangeSet,
   executeChangeSet,
   deleteChangeSet,
+  getEventBridgeRules,
+  getEventBridgeTargets,
+  putEventBridgeEvent,
+  getAcmCertificates,
+  getApiGatewayRestApis,
+  getRoute53HostedZones,
+  getSesIdentities,
+  getIamUsers,
+  getIamUser,
+  createIamUser,
+  deleteIamUser,
+  addIamUserToGroup,
+  removeIamUserFromGroup,
+  attachIamUserPolicy,
+  detachIamUserPolicy,
+  putIamUserInlinePolicy,
+  deleteIamUserInlinePolicy,
+  createIamAccessKey,
+  updateIamAccessKeyStatus,
+  deleteIamAccessKey,
+  tagIamUser,
+  untagIamUser,
+  putIamUserPermissionsBoundary,
+  deleteIamUserPermissionsBoundary,
+  getIamGroups,
+  getIamGroup,
+  createIamGroup,
+  deleteIamGroup,
+  addIamGroupMember,
+  removeIamGroupMember,
+  attachIamGroupPolicy,
+  detachIamGroupPolicy,
+  putIamGroupInlinePolicy,
+  deleteIamGroupInlinePolicy,
+  getIamRoles,
+  getIamRole,
+  getIamRoleUsedBy,
+  createIamRole,
+  updateIamRole,
+  deleteIamRole,
+  attachIamRolePolicy,
+  detachIamRolePolicy,
+  putIamRoleInlinePolicy,
+  deleteIamRoleInlinePolicy,
+  tagIamRole,
+  untagIamRole,
+  putIamRolePermissionsBoundary,
+  deleteIamRolePermissionsBoundary,
+  getIamPolicies,
+  getIamPolicy,
+  createIamPolicy,
+  createIamPolicyVersion,
+  setIamPolicyDefaultVersion,
+  deleteIamPolicyVersion,
+  deleteIamPolicy,
+  tagIamPolicy,
+  untagIamPolicy,
+  getIamAccountSummary,
+  getIamAccountPasswordPolicy,
+  updateIamAccountPasswordPolicy,
+  deleteIamAccountPasswordPolicy,
+  getIamAccountAliases,
+  createIamAccountAlias,
+  deleteIamAccountAlias,
+  IamNotSupportedError,
+  detectStackDrift,
+  getDriftStatus,
+  getResourceDrifts,
+  getExports,
+  getImports,
 } from './client';
 import type {
   DynamoDbQueryRequest,
@@ -125,6 +195,7 @@ import type {
   ParameterCreateRequest,
   SnsTopicCreateRequest,
   StartExecutionRequest,
+  PutEventBridgeEventRequest,
 } from './client';
 
 describe('getLiveness', () => {
@@ -4363,6 +4434,2112 @@ describe('deleteChangeSet', () => {
 
     await expect(deleteChangeSet('missing-stack', 'missing')).rejects.toThrow(
       'CloudFormation change set delete request failed with status 404',
+    );
+  });
+});
+
+describe('getEventBridgeRules', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed rules when the request succeeds', async () => {
+    const payload = {
+      rules: [
+        {
+          name: 'orders-rule',
+          arn: 'arn:aws:events:eu-west-1:000000000000:rule/orders-rule',
+          eventBusName: 'default',
+          state: 'ENABLED',
+          description: 'Routes order events',
+          scheduleExpression: 'rate(5 minutes)',
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getEventBridgeRules(controller.signal);
+
+    expect(result.rules).toHaveLength(1);
+    expect(result.rules[0].name).toBe('orders-rule');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/eventbridge/rules', {
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getEventBridgeRules()).rejects.toThrow(
+      'EventBridge rules request failed with status 503',
+    );
+  });
+});
+
+describe('getEventBridgeTargets', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed targets and forwards the rule name', async () => {
+    const payload = {
+      targets: [
+        {
+          id: 'target-1',
+          arn: 'arn:aws:lambda:eu-west-1:000000000000:function:orders-handler',
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getEventBridgeTargets('orders rule', controller.signal);
+
+    expect(result.targets).toHaveLength(1);
+    expect(result.targets[0].id).toBe('target-1');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/eventbridge/targets?rule=orders%20rule',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getEventBridgeTargets('missing')).rejects.toThrow(
+      'EventBridge targets request failed with status 404',
+    );
+  });
+});
+
+describe('putEventBridgeEvent', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const request: PutEventBridgeEventRequest = {
+    source: 'orders.service',
+    detailType: 'OrderPlaced',
+    detail: '{"orderId":"123"}',
+    eventBusName: 'default',
+  };
+
+  it('posts the request and returns the parsed result when it succeeds', async () => {
+    const payload = {
+      accepted: true,
+      eventId: 'event-1',
+      errorCode: null,
+      errorMessage: null,
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await putEventBridgeEvent(request, controller.signal);
+
+    expect(result.accepted).toBe(true);
+    expect(result.eventId).toBe('event-1');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/eventbridge/events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(putEventBridgeEvent(request)).rejects.toThrow(
+      'EventBridge put event request failed with status 400',
+    );
+  });
+});
+
+describe('getAcmCertificates', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed certificates when the request succeeds', async () => {
+    const payload = {
+      certificates: [
+        {
+          arn: 'arn:aws:acm:eu-west-1:000000000000:certificate/abc',
+          domainName: 'example.com',
+          status: 'ISSUED',
+          type: 'AMAZON_ISSUED',
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getAcmCertificates(controller.signal);
+
+    expect(result.certificates).toHaveLength(1);
+    expect(result.certificates[0].domainName).toBe('example.com');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/acm/certificates', {
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getAcmCertificates()).rejects.toThrow(
+      'ACM certificates request failed with status 503',
+    );
+  });
+});
+
+describe('getApiGatewayRestApis', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed REST APIs when the request succeeds', async () => {
+    const payload = {
+      restApis: [
+        {
+          id: 'api-1',
+          name: 'orders-api',
+          description: 'Orders service',
+          createdDate: '2024-01-01T00:00:00+00:00',
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getApiGatewayRestApis(controller.signal);
+
+    expect(result.restApis).toHaveLength(1);
+    expect(result.restApis[0].name).toBe('orders-api');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/apigateway/restapis', {
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(getApiGatewayRestApis()).rejects.toThrow(
+      'API Gateway REST APIs request failed with status 500',
+    );
+  });
+});
+
+describe('getRoute53HostedZones', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed hosted zones when the request succeeds', async () => {
+    const payload = {
+      hostedZones: [
+        {
+          id: '/hostedzone/Z123',
+          name: 'example.com.',
+          recordCount: 4,
+          privateZone: false,
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getRoute53HostedZones(controller.signal);
+
+    expect(result.hostedZones).toHaveLength(1);
+    expect(result.hostedZones[0].name).toBe('example.com.');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/route53/hostedzones', {
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 502 }));
+
+    await expect(getRoute53HostedZones()).rejects.toThrow(
+      'Route 53 hosted zones request failed with status 502',
+    );
+  });
+});
+
+describe('getSesIdentities', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed identities when the request succeeds', async () => {
+    const payload = {
+      identities: [
+        {
+          identity: 'sender@example.com',
+          identityType: 'EmailAddress',
+          verificationStatus: 'Success',
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getSesIdentities(controller.signal);
+
+    expect(result.identities).toHaveLength(1);
+    expect(result.identities[0].identity).toBe('sender@example.com');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/ses/identities', {
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getSesIdentities()).rejects.toThrow(
+      'SES identities request failed with status 404',
+    );
+  });
+});
+
+describe('getIamUsers', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed users when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ users: [{ userName: 'alice', arn: 'arn:user/alice' }] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getIamUsers();
+
+    expect(result.users).toHaveLength(1);
+    expect(result.users[0].userName).toBe('alice');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/users', { signal: undefined });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getIamUsers()).rejects.toThrow('IAM users request failed with status 503');
+  });
+});
+
+describe('getIamUser', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the user detail when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ userName: 'alice', arn: 'arn:user/alice' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getIamUser('alice');
+
+    expect(result.userName).toBe('alice');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/users/alice', { signal: undefined });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getIamUser('alice')).rejects.toThrow('IAM user request failed with status 503');
+  });
+});
+
+describe('createIamUser', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the create request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await createIamUser({ userName: 'alice', path: null });
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userName: 'alice', path: null }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(createIamUser({ userName: 'alice', path: null })).rejects.toThrow(
+      'IAM user create request failed with status 503',
+    );
+  });
+});
+
+describe('deleteIamUser', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends the delete request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await deleteIamUser('alice');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/users/alice', {
+      method: 'DELETE',
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(deleteIamUser('alice')).rejects.toThrow(
+      'IAM user delete request failed with status 503',
+    );
+  });
+});
+
+describe('addIamUserToGroup', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the membership request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await addIamUserToGroup('alice', 'admins');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/users/alice/groups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groupName: 'admins' }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(addIamUserToGroup('alice', 'admins')).rejects.toThrow(
+      'IAM add-user-to-group request failed with status 503',
+    );
+  });
+});
+
+describe('removeIamUserFromGroup', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends the delete request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await removeIamUserFromGroup('alice', 'admins');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/users/alice/groups/admins', {
+      method: 'DELETE',
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(removeIamUserFromGroup('alice', 'admins')).rejects.toThrow(
+      'IAM remove-user-from-group request failed with status 503',
+    );
+  });
+});
+
+describe('attachIamUserPolicy', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the attach request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await attachIamUserPolicy('alice', 'arn:policy/ReadOnly');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/users/alice/attached-policies', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ policyArn: 'arn:policy/ReadOnly' }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(attachIamUserPolicy('alice', 'arn:policy/ReadOnly')).rejects.toThrow(
+      'IAM attach-user-policy request failed with status 503',
+    );
+  });
+});
+
+describe('detachIamUserPolicy', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends the detach request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await detachIamUserPolicy('alice', 'arn:policy/ReadOnly');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/iam/users/alice/attached-policies?policyArn=arn%3Apolicy%2FReadOnly',
+      { method: 'DELETE', signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(detachIamUserPolicy('alice', 'arn:policy/ReadOnly')).rejects.toThrow(
+      'IAM detach-user-policy request failed with status 503',
+    );
+  });
+});
+
+describe('putIamUserInlinePolicy', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the inline policy when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await putIamUserInlinePolicy('alice', 'deny-all', '{"Statement":[]}');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/iam/users/alice/inline-policies/deny-all',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ policyDocument: '{"Statement":[]}' }),
+        signal: undefined,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(putIamUserInlinePolicy('alice', 'deny-all', '{}')).rejects.toThrow(
+      'IAM put-user-inline-policy request failed with status 503',
+    );
+  });
+});
+
+describe('deleteIamUserInlinePolicy', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends the delete request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await deleteIamUserInlinePolicy('alice', 'deny-all');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/iam/users/alice/inline-policies/deny-all',
+      { method: 'DELETE', signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(deleteIamUserInlinePolicy('alice', 'deny-all')).rejects.toThrow(
+      'IAM delete-user-inline-policy request failed with status 503',
+    );
+  });
+});
+
+describe('createIamAccessKey', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the created access key when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        accessKeyId: 'AKIA1',
+        secretAccessKey: 'secret',
+        status: 'Active',
+        createDate: null,
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await createIamAccessKey('alice');
+
+    expect(result.accessKeyId).toBe('AKIA1');
+    expect(result.secretAccessKey).toBe('secret');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/users/alice/access-keys', {
+      method: 'POST',
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(createIamAccessKey('alice')).rejects.toThrow(
+      'IAM create-access-key request failed with status 503',
+    );
+  });
+});
+
+describe('updateIamAccessKeyStatus', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the status update when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await updateIamAccessKeyStatus('alice', 'AKIA1', 'Inactive');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/iam/users/alice/access-keys/AKIA1/status',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'Inactive' }),
+        signal: undefined,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(updateIamAccessKeyStatus('alice', 'AKIA1', 'Inactive')).rejects.toThrow(
+      'IAM update-access-key-status request failed with status 503',
+    );
+  });
+});
+
+describe('deleteIamAccessKey', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends the delete request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await deleteIamAccessKey('alice', 'AKIA1');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/users/alice/access-keys/AKIA1', {
+      method: 'DELETE',
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(deleteIamAccessKey('alice', 'AKIA1')).rejects.toThrow(
+      'IAM delete-access-key request failed with status 503',
+    );
+  });
+});
+
+describe('tagIamUser', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the tags when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await tagIamUser('alice', [{ key: 'team', value: 'platform' }]);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/users/alice/tags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags: [{ key: 'team', value: 'platform' }] }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(tagIamUser('alice', [{ key: 'team', value: 'platform' }])).rejects.toThrow(
+      'IAM user tag request failed with status 503',
+    );
+  });
+});
+
+describe('untagIamUser', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends the untag request with repeated key params when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await untagIamUser('alice', ['team', 'env']);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/users/alice/tags?key=team&key=env', {
+      method: 'DELETE',
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(untagIamUser('alice', ['team'])).rejects.toThrow(
+      'IAM user untag request failed with status 503',
+    );
+  });
+});
+
+describe('putIamUserPermissionsBoundary', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the permissions boundary when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await putIamUserPermissionsBoundary('alice', 'arn:policy/Boundary');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/users/alice/permissions-boundary', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ permissionsBoundaryArn: 'arn:policy/Boundary' }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(putIamUserPermissionsBoundary('alice', 'arn:policy/Boundary')).rejects.toThrow(
+      'IAM user permissions-boundary request failed with status 503',
+    );
+  });
+});
+
+describe('deleteIamUserPermissionsBoundary', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends the delete request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await deleteIamUserPermissionsBoundary('alice');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/users/alice/permissions-boundary', {
+      method: 'DELETE',
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(deleteIamUserPermissionsBoundary('alice')).rejects.toThrow(
+      'IAM user permissions-boundary delete request failed with status 503',
+    );
+  });
+});
+
+describe('getIamGroups', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed groups when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ groups: [{ groupName: 'admins', arn: 'arn:group/admins' }] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getIamGroups();
+
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups[0].groupName).toBe('admins');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/groups', { signal: undefined });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getIamGroups()).rejects.toThrow('IAM groups request failed with status 503');
+  });
+});
+
+describe('getIamGroup', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the group detail when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ groupName: 'admins', arn: 'arn:group/admins' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getIamGroup('admins');
+
+    expect(result.groupName).toBe('admins');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/groups/admins', { signal: undefined });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getIamGroup('admins')).rejects.toThrow('IAM group request failed with status 503');
+  });
+});
+
+describe('createIamGroup', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the create request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await createIamGroup({ groupName: 'admins', path: null });
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/groups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ groupName: 'admins', path: null }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(createIamGroup({ groupName: 'admins', path: null })).rejects.toThrow(
+      'IAM group create request failed with status 503',
+    );
+  });
+});
+
+describe('deleteIamGroup', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends the delete request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await deleteIamGroup('admins');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/groups/admins', {
+      method: 'DELETE',
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(deleteIamGroup('admins')).rejects.toThrow(
+      'IAM group delete request failed with status 503',
+    );
+  });
+});
+
+describe('addIamGroupMember', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the member request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await addIamGroupMember('admins', 'alice');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/groups/admins/members', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userName: 'alice' }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(addIamGroupMember('admins', 'alice')).rejects.toThrow(
+      'IAM add-group-member request failed with status 503',
+    );
+  });
+});
+
+describe('removeIamGroupMember', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends the delete request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await removeIamGroupMember('admins', 'alice');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/groups/admins/members/alice', {
+      method: 'DELETE',
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(removeIamGroupMember('admins', 'alice')).rejects.toThrow(
+      'IAM remove-group-member request failed with status 503',
+    );
+  });
+});
+
+describe('attachIamGroupPolicy', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the attach request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await attachIamGroupPolicy('admins', 'arn:policy/ReadOnly');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/groups/admins/attached-policies', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ policyArn: 'arn:policy/ReadOnly' }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(attachIamGroupPolicy('admins', 'arn:policy/ReadOnly')).rejects.toThrow(
+      'IAM attach-group-policy request failed with status 503',
+    );
+  });
+});
+
+describe('detachIamGroupPolicy', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends the detach request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await detachIamGroupPolicy('admins', 'arn:policy/ReadOnly');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/iam/groups/admins/attached-policies?policyArn=arn%3Apolicy%2FReadOnly',
+      { method: 'DELETE', signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(detachIamGroupPolicy('admins', 'arn:policy/ReadOnly')).rejects.toThrow(
+      'IAM detach-group-policy request failed with status 503',
+    );
+  });
+});
+
+describe('putIamGroupInlinePolicy', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the inline policy when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await putIamGroupInlinePolicy('admins', 'deny-all', '{"Statement":[]}');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/iam/groups/admins/inline-policies/deny-all',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ policyDocument: '{"Statement":[]}' }),
+        signal: undefined,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(putIamGroupInlinePolicy('admins', 'deny-all', '{}')).rejects.toThrow(
+      'IAM put-group-inline-policy request failed with status 503',
+    );
+  });
+});
+
+describe('deleteIamGroupInlinePolicy', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends the delete request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await deleteIamGroupInlinePolicy('admins', 'deny-all');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/iam/groups/admins/inline-policies/deny-all',
+      { method: 'DELETE', signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(deleteIamGroupInlinePolicy('admins', 'deny-all')).rejects.toThrow(
+      'IAM delete-group-inline-policy request failed with status 503',
+    );
+  });
+});
+
+describe('getIamRoles', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed roles when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ roles: [{ roleName: 'lambda-exec', arn: 'arn:role/lambda-exec' }] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getIamRoles();
+
+    expect(result.roles).toHaveLength(1);
+    expect(result.roles[0].roleName).toBe('lambda-exec');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/roles', { signal: undefined });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getIamRoles()).rejects.toThrow('IAM roles request failed with status 503');
+  });
+});
+
+describe('getIamRole', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the role detail when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ roleName: 'lambda-exec', arn: 'arn:role/lambda-exec' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getIamRole('lambda-exec');
+
+    expect(result.roleName).toBe('lambda-exec');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/roles/lambda-exec', {
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getIamRole('lambda-exec')).rejects.toThrow('IAM role request failed with status 503');
+  });
+});
+
+describe('getIamRoleUsedBy', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the consumers when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ consumers: [{ serviceKey: 'lambda', resourceId: 'fn-1' }] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getIamRoleUsedBy('lambda-exec');
+
+    expect(result.consumers).toHaveLength(1);
+    expect(result.consumers[0].serviceKey).toBe('lambda');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/roles/lambda-exec/used-by', {
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getIamRoleUsedBy('lambda-exec')).rejects.toThrow(
+      'IAM role used-by request failed with status 503',
+    );
+  });
+});
+
+describe('createIamRole', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the create request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const request = {
+      roleName: 'lambda-exec',
+      assumeRolePolicyDocument: '{"Statement":[]}',
+      path: null,
+      description: null,
+      maxSessionDuration: null,
+    };
+    await createIamRole(request);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/roles', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(
+      createIamRole({
+        roleName: 'lambda-exec',
+        assumeRolePolicyDocument: '{}',
+        path: null,
+        description: null,
+        maxSessionDuration: null,
+      }),
+    ).rejects.toThrow('IAM role create request failed with status 503');
+  });
+});
+
+describe('updateIamRole', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the update request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const request = {
+      description: 'updated',
+      maxSessionDuration: 3600,
+      trustPolicyDocument: null,
+    };
+    await updateIamRole('lambda-exec', request);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/roles/lambda-exec', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(
+      updateIamRole('lambda-exec', {
+        description: null,
+        maxSessionDuration: null,
+        trustPolicyDocument: null,
+      }),
+    ).rejects.toThrow('IAM role update request failed with status 503');
+  });
+});
+
+describe('deleteIamRole', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends the delete request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await deleteIamRole('lambda-exec');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/roles/lambda-exec', {
+      method: 'DELETE',
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(deleteIamRole('lambda-exec')).rejects.toThrow(
+      'IAM role delete request failed with status 503',
+    );
+  });
+});
+
+describe('attachIamRolePolicy', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the attach request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await attachIamRolePolicy('lambda-exec', 'arn:policy/ReadOnly');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/roles/lambda-exec/attached-policies', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ policyArn: 'arn:policy/ReadOnly' }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(attachIamRolePolicy('lambda-exec', 'arn:policy/ReadOnly')).rejects.toThrow(
+      'IAM attach-role-policy request failed with status 503',
+    );
+  });
+});
+
+describe('detachIamRolePolicy', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends the detach request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await detachIamRolePolicy('lambda-exec', 'arn:policy/ReadOnly');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/iam/roles/lambda-exec/attached-policies?policyArn=arn%3Apolicy%2FReadOnly',
+      { method: 'DELETE', signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(detachIamRolePolicy('lambda-exec', 'arn:policy/ReadOnly')).rejects.toThrow(
+      'IAM detach-role-policy request failed with status 503',
+    );
+  });
+});
+
+describe('putIamRoleInlinePolicy', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the inline policy when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await putIamRoleInlinePolicy('lambda-exec', 'deny-all', '{"Statement":[]}');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/iam/roles/lambda-exec/inline-policies/deny-all',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ policyDocument: '{"Statement":[]}' }),
+        signal: undefined,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(putIamRoleInlinePolicy('lambda-exec', 'deny-all', '{}')).rejects.toThrow(
+      'IAM put-role-inline-policy request failed with status 503',
+    );
+  });
+});
+
+describe('deleteIamRoleInlinePolicy', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends the delete request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await deleteIamRoleInlinePolicy('lambda-exec', 'deny-all');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/iam/roles/lambda-exec/inline-policies/deny-all',
+      { method: 'DELETE', signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(deleteIamRoleInlinePolicy('lambda-exec', 'deny-all')).rejects.toThrow(
+      'IAM delete-role-inline-policy request failed with status 503',
+    );
+  });
+});
+
+describe('tagIamRole', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the tags when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await tagIamRole('lambda-exec', [{ key: 'team', value: 'platform' }]);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/roles/lambda-exec/tags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tags: [{ key: 'team', value: 'platform' }] }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(tagIamRole('lambda-exec', [{ key: 'team', value: 'platform' }])).rejects.toThrow(
+      'IAM role tag request failed with status 503',
+    );
+  });
+});
+
+describe('untagIamRole', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends the untag request with repeated key params when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await untagIamRole('lambda-exec', ['team', 'env']);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/iam/roles/lambda-exec/tags?key=team&key=env',
+      { method: 'DELETE', signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(untagIamRole('lambda-exec', ['team'])).rejects.toThrow(
+      'IAM role untag request failed with status 503',
+    );
+  });
+});
+
+describe('putIamRolePermissionsBoundary', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the permissions boundary when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await putIamRolePermissionsBoundary('lambda-exec', 'arn:policy/Boundary');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/iam/roles/lambda-exec/permissions-boundary',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ permissionsBoundaryArn: 'arn:policy/Boundary' }),
+        signal: undefined,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(
+      putIamRolePermissionsBoundary('lambda-exec', 'arn:policy/Boundary'),
+    ).rejects.toThrow('IAM role permissions-boundary request failed with status 503');
+  });
+});
+
+describe('deleteIamRolePermissionsBoundary', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends the delete request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await deleteIamRolePermissionsBoundary('lambda-exec');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/iam/roles/lambda-exec/permissions-boundary',
+      { method: 'DELETE', signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(deleteIamRolePermissionsBoundary('lambda-exec')).rejects.toThrow(
+      'IAM role permissions-boundary delete request failed with status 503',
+    );
+  });
+});
+
+describe('getIamPolicies', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed policies when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ policies: [{ policyName: 'ReadOnly', arn: 'arn:policy/ReadOnly' }] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getIamPolicies('local');
+
+    expect(result.policies).toHaveLength(1);
+    expect(result.policies[0].policyName).toBe('ReadOnly');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/policies?scope=local', {
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getIamPolicies('aws')).rejects.toThrow('IAM policies request failed with status 503');
+  });
+});
+
+describe('getIamPolicy', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the policy detail when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ policyName: 'ReadOnly', arn: 'arn:policy/ReadOnly' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getIamPolicy('arn:policy/ReadOnly');
+
+    expect(result.policyName).toBe('ReadOnly');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/iam/policies/detail?policyArn=arn%3Apolicy%2FReadOnly',
+      { signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getIamPolicy('arn:policy/ReadOnly')).rejects.toThrow(
+      'IAM policy request failed with status 503',
+    );
+  });
+});
+
+describe('createIamPolicy', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the create request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const request = {
+      policyName: 'ReadOnly',
+      policyDocument: '{"Statement":[]}',
+      description: null,
+      path: null,
+    };
+    await createIamPolicy(request);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/policies', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(
+      createIamPolicy({
+        policyName: 'ReadOnly',
+        policyDocument: '{}',
+        description: null,
+        path: null,
+      }),
+    ).rejects.toThrow('IAM policy create request failed with status 503');
+  });
+});
+
+describe('createIamPolicyVersion', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the version request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await createIamPolicyVersion('arn:policy/ReadOnly', '{"Statement":[]}', true);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/policies/versions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        policyArn: 'arn:policy/ReadOnly',
+        policyDocument: '{"Statement":[]}',
+        setAsDefault: true,
+      }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(
+      createIamPolicyVersion('arn:policy/ReadOnly', '{}', false),
+    ).rejects.toThrow('IAM policy version create request failed with status 503');
+  });
+});
+
+describe('setIamPolicyDefaultVersion', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the default version request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await setIamPolicyDefaultVersion('arn:policy/ReadOnly', 'v2');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/policies/default-version', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ policyArn: 'arn:policy/ReadOnly', versionId: 'v2' }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(setIamPolicyDefaultVersion('arn:policy/ReadOnly', 'v2')).rejects.toThrow(
+      'IAM policy default-version request failed with status 503',
+    );
+  });
+});
+
+describe('deleteIamPolicyVersion', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends the version delete request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await deleteIamPolicyVersion('arn:policy/ReadOnly', 'v2');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/iam/policies/versions?policyArn=arn%3Apolicy%2FReadOnly&versionId=v2',
+      { method: 'DELETE', signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(deleteIamPolicyVersion('arn:policy/ReadOnly', 'v2')).rejects.toThrow(
+      'IAM policy version delete request failed with status 503',
+    );
+  });
+});
+
+describe('deleteIamPolicy', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends the delete request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await deleteIamPolicy('arn:policy/ReadOnly');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/iam/policies?policyArn=arn%3Apolicy%2FReadOnly',
+      { method: 'DELETE', signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(deleteIamPolicy('arn:policy/ReadOnly')).rejects.toThrow(
+      'IAM policy delete request failed with status 503',
+    );
+  });
+});
+
+describe('tagIamPolicy', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the tags when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await tagIamPolicy('arn:policy/ReadOnly', [{ key: 'team', value: 'platform' }]);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/iam/policies/tags?policyArn=arn%3Apolicy%2FReadOnly',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tags: [{ key: 'team', value: 'platform' }] }),
+        signal: undefined,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(
+      tagIamPolicy('arn:policy/ReadOnly', [{ key: 'team', value: 'platform' }]),
+    ).rejects.toThrow('IAM policy tag request failed with status 503');
+  });
+});
+
+describe('untagIamPolicy', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends the untag request with repeated key params when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await untagIamPolicy('arn:policy/ReadOnly', ['team', 'env']);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/iam/policies/tags?policyArn=arn%3Apolicy%2FReadOnly&key=team&key=env',
+      { method: 'DELETE', signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(untagIamPolicy('arn:policy/ReadOnly', ['team'])).rejects.toThrow(
+      'IAM policy untag request failed with status 503',
+    );
+  });
+});
+
+describe('getIamAccountSummary', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed summary when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ entries: { Users: 3, Groups: 1 } }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getIamAccountSummary();
+
+    expect(result.entries.Users).toBe(3);
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/account/summary', {
+      signal: undefined,
+    });
+  });
+
+  it('throws IamNotSupportedError when the backend returns 501', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 501 }));
+
+    await expect(getIamAccountSummary()).rejects.toThrow(IamNotSupportedError);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 501 }));
+    await expect(getIamAccountSummary()).rejects.toThrow(
+      'IAM account summary is not supported by the current backend.',
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getIamAccountSummary()).rejects.toThrow(
+      'IAM account summary request failed with status 503',
+    );
+  });
+});
+
+describe('getIamAccountPasswordPolicy', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed policy when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ minimumPasswordLength: 8, requireSymbols: true }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getIamAccountPasswordPolicy();
+
+    expect(result?.minimumPasswordLength).toBe(8);
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/account/password-policy', {
+      signal: undefined,
+    });
+  });
+
+  it('returns null when the backend returns 404', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    const result = await getIamAccountPasswordPolicy();
+
+    expect(result).toBeNull();
+  });
+
+  it('throws IamNotSupportedError when the backend returns 501', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 501 }));
+
+    await expect(getIamAccountPasswordPolicy()).rejects.toThrow(IamNotSupportedError);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 501 }));
+    await expect(getIamAccountPasswordPolicy()).rejects.toThrow(
+      'IAM account password policy is not supported by the current backend.',
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getIamAccountPasswordPolicy()).rejects.toThrow(
+      'IAM account password policy request failed with status 503',
+    );
+  });
+});
+
+describe('updateIamAccountPasswordPolicy', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the update request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const request = {
+      minimumPasswordLength: 12,
+      requireSymbols: true,
+      requireNumbers: true,
+      requireUppercaseCharacters: true,
+      requireLowercaseCharacters: true,
+      allowUsersToChangePassword: true,
+      maxPasswordAge: 90,
+      passwordReusePrevention: 5,
+      hardExpiry: false,
+    };
+    await updateIamAccountPasswordPolicy(request);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/account/password-policy', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(
+      updateIamAccountPasswordPolicy({
+        minimumPasswordLength: 12,
+        requireSymbols: true,
+        requireNumbers: true,
+        requireUppercaseCharacters: true,
+        requireLowercaseCharacters: true,
+        allowUsersToChangePassword: true,
+        maxPasswordAge: 90,
+        passwordReusePrevention: 5,
+        hardExpiry: false,
+      }),
+    ).rejects.toThrow('IAM account password policy update request failed with status 503');
+  });
+});
+
+describe('deleteIamAccountPasswordPolicy', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends the delete request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await deleteIamAccountPasswordPolicy();
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/account/password-policy', {
+      method: 'DELETE',
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(deleteIamAccountPasswordPolicy()).rejects.toThrow(
+      'IAM account password policy delete request failed with status 503',
+    );
+  });
+});
+
+describe('getIamAccountAliases', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed aliases when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ aliases: ['my-account'] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getIamAccountAliases();
+
+    expect(result.aliases).toEqual(['my-account']);
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/account/aliases', {
+      signal: undefined,
+    });
+  });
+
+  it('throws IamNotSupportedError when the backend returns 501', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 501 }));
+
+    await expect(getIamAccountAliases()).rejects.toThrow(IamNotSupportedError);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 501 }));
+    await expect(getIamAccountAliases()).rejects.toThrow(
+      'IAM account aliases are not supported by the current backend.',
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getIamAccountAliases()).rejects.toThrow(
+      'IAM account aliases request failed with status 503',
+    );
+  });
+});
+
+describe('createIamAccountAlias', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the create request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await createIamAccountAlias('my-account');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/account/aliases', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accountAlias: 'my-account' }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(createIamAccountAlias('my-account')).rejects.toThrow(
+      'IAM account alias create request failed with status 503',
+    );
+  });
+});
+
+describe('deleteIamAccountAlias', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends the delete request when invoked', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await deleteIamAccountAlias('my-account');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/account/aliases/my-account', {
+      method: 'DELETE',
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(deleteIamAccountAlias('my-account')).rejects.toThrow(
+      'IAM account alias delete request failed with status 503',
+    );
+  });
+});
+
+describe('detectStackDrift', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the drift detection id when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ stackDriftDetectionId: 'drift-1' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await detectStackDrift('my-stack');
+
+    expect(result.stackDriftDetectionId).toBe('drift-1');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cloudformation/stack/drift?name=my-stack',
+      { method: 'POST', signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(detectStackDrift('my-stack')).rejects.toThrow(
+      'CloudFormation drift detection request failed with status 503',
+    );
+  });
+});
+
+describe('getDriftStatus', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the drift status when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        stackDriftDetectionId: 'drift-1',
+        stackId: 'arn:stack/my-stack',
+        detectionStatus: 'DETECTION_COMPLETE',
+        detectionStatusReason: null,
+        stackDriftStatus: 'IN_SYNC',
+        driftedStackResourceCount: 0,
+        timestamp: '2026-01-02T03:04:05Z',
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getDriftStatus('drift-1');
+
+    expect(result.detectionStatus).toBe('DETECTION_COMPLETE');
+    expect(result.stackDriftStatus).toBe('IN_SYNC');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cloudformation/stack/drift?driftDetectionId=drift-1',
+      { signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getDriftStatus('drift-1')).rejects.toThrow(
+      'CloudFormation drift status request failed with status 503',
+    );
+  });
+});
+
+describe('getResourceDrifts', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the resource drifts when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        drifts: [{ logicalResourceId: 'Bucket', stackResourceDriftStatus: 'MODIFIED' }],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getResourceDrifts('my-stack');
+
+    expect(result.drifts).toHaveLength(1);
+    expect(result.drifts[0].logicalResourceId).toBe('Bucket');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cloudformation/stack/drift/resources?name=my-stack',
+      { signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getResourceDrifts('my-stack')).rejects.toThrow(
+      'CloudFormation resource drifts request failed with status 503',
+    );
+  });
+});
+
+describe('getExports', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the exports when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        exports: [{ name: 'VpcId', value: 'vpc-1', exportingStackId: 'arn:stack/net' }],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getExports();
+
+    expect(result.exports).toHaveLength(1);
+    expect(result.exports[0].name).toBe('VpcId');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/cloudformation/exports', {
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getExports()).rejects.toThrow(
+      'CloudFormation exports request failed with status 503',
+    );
+  });
+});
+
+describe('getImports', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the importing stack names when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ importingStackNames: ['app-stack'] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getImports('VpcId');
+
+    expect(result.importingStackNames).toEqual(['app-stack']);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cloudformation/exports/VpcId/imports',
+      { signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getImports('VpcId')).rejects.toThrow(
+      'CloudFormation imports request failed with status 503',
     );
   });
 });

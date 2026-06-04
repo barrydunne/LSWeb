@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react';
-import { Heading, Text } from '@primer/react';
+import { Heading } from '@primer/react';
 import type { ServiceDetailViewProps } from '../serviceViewRegistry';
 import { IamUserDetailView } from './IamUserDetailView';
 import { IamGroupDetailView } from './IamGroupDetailView';
@@ -16,18 +16,9 @@ const containerStyle: CSSProperties = {
   background: '#161b22',
 };
 
-const labelStyle: CSSProperties = { fontSize: 12, opacity: 0.7 };
-const valueStyle: CSSProperties = { fontSize: 14, fontFamily: 'monospace' };
 const messageStyle: CSSProperties = { fontSize: 14, opacity: 0.7 };
 
 type ResourceKind = 'user' | 'group' | 'role' | 'policy';
-
-const kindLabels: Record<ResourceKind, string> = {
-  user: 'User',
-  group: 'Group',
-  role: 'Role',
-  policy: 'Policy',
-};
 
 interface ParsedResource {
   kind: ResourceKind | null;
@@ -76,16 +67,9 @@ export function IamDetailView({ serviceKey, resourceId }: ServiceDetailViewProps
       <Heading as="h3" data-testid="iam-detail-name" style={{ fontSize: 16 }}>
         {name}
       </Heading>
-      {kind ? (
-        <div data-testid={`iam-detail-${kind}`} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Text style={labelStyle}>Type</Text>
-          <Text style={valueStyle}>{kindLabels[kind]}</Text>
-        </div>
-      ) : (
-        <p data-testid="iam-detail-unknown" style={messageStyle}>
-          Unrecognised IAM resource.
-        </p>
-      )}
+      <p data-testid="iam-detail-unknown" style={messageStyle}>
+        Unrecognised IAM resource.
+      </p>
       <p data-testid="iam-detail-placeholder" style={messageStyle}>
         Details for this IAM resource are not available yet.
       </p>

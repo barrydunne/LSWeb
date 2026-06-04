@@ -14,15 +14,20 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="AWSSDK.APIGateway" />
+    <PackageReference Include="AWSSDK.CertificateManager" />
     <PackageReference Include="AWSSDK.CloudFormation" />
     <PackageReference Include="AWSSDK.CloudWatchLogs" />
     <PackageReference Include="AWSSDK.Core" />
     <PackageReference Include="AWSSDK.DynamoDBv2" />
+    <PackageReference Include="AWSSDK.EventBridge" />
     <PackageReference Include="AWSSDK.IdentityManagement" />
     <PackageReference Include="AWSSDK.Lambda" />
     <PackageReference Include="AWSSDK.S3" />
+    <PackageReference Include="AWSSDK.Route53" />
     <PackageReference Include="AWSSDK.SecretsManager" />
     <PackageReference Include="AWSSDK.SecurityToken" />
+    <PackageReference Include="AWSSDK.SimpleEmail" />
     <PackageReference Include="AWSSDK.SimpleNotificationService" />
     <PackageReference Include="AWSSDK.SimpleSystemsManagement" />
     <PackageReference Include="AWSSDK.SQS" />

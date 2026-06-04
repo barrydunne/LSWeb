@@ -48,6 +48,7 @@ public class ServiceCatalogueTests
         [
             "cloudwatch-logs",
             "dynamodb",
+            "eventbridge",
             "iam",
             "lambda",
             "s3",

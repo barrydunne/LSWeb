@@ -1,28 +1,35 @@
 using System.Diagnostics.CodeAnalysis;
 using Foundation.Application.Activity;
+using Foundation.Application.ApiGateway;
 using Foundation.Application.Capabilities;
+using Foundation.Application.CertificateManager;
 using Foundation.Application.CloudFormation;
 using Foundation.Application.CloudWatchLogs;
 using Foundation.Application.Configuration;
 using Foundation.Application.Connectivity;
 using Foundation.Application.Diagnostics;
 using Foundation.Application.DynamoDb;
+using Foundation.Application.EventBridge;
 using Foundation.Application.Health;
 using Foundation.Application.Iam;
 using Foundation.Application.Lambda;
 using Foundation.Application.Navigation;
 using Foundation.Application.Preferences;
+using Foundation.Application.Route53;
 using Foundation.Application.S3;
 using Foundation.Application.Search;
 using Foundation.Application.SecretsManager;
+using Foundation.Application.Ses;
 using Foundation.Application.Sns;
 using Foundation.Application.Sqs;
 using Foundation.Application.Ssm;
 using Foundation.Application.StepFunctions;
 using Foundation.Application.Streaming;
 using Foundation.Infrastructure.Activity;
+using Foundation.Infrastructure.ApiGateway;
 using Foundation.Infrastructure.Aws;
 using Foundation.Infrastructure.Capabilities;
+using Foundation.Infrastructure.CertificateManager;
 using Foundation.Infrastructure.CloudFormation;
 using Foundation.Infrastructure.CloudWatchLogs;
 using Foundation.Infrastructure.Configuration;
@@ -30,14 +37,17 @@ using Foundation.Infrastructure.Connectivity;
 using Foundation.Infrastructure.Diagnostics;
 using Foundation.Infrastructure.DynamoDb;
 using Foundation.Infrastructure.Errors;
+using Foundation.Infrastructure.EventBridge;
 using Foundation.Infrastructure.Health;
 using Foundation.Infrastructure.Iam;
 using Foundation.Infrastructure.Lambda;
 using Foundation.Infrastructure.Navigation;
 using Foundation.Infrastructure.Preferences;
+using Foundation.Infrastructure.Route53;
 using Foundation.Infrastructure.S3;
 using Foundation.Infrastructure.Search;
 using Foundation.Infrastructure.SecretsManager;
+using Foundation.Infrastructure.Ses;
 using Foundation.Infrastructure.Sns;
 using Foundation.Infrastructure.Sqs;
 using Foundation.Infrastructure.Ssm;
@@ -115,6 +125,16 @@ public static class DependencyInjection
             .AddSingleton<IResourceSource, StepFunctionsResourceSource>()
             .AddSingleton<ICloudFormationClient, CloudFormationClientAdapter>()
             .AddSingleton<IResourceSource, CloudFormationResourceSource>()
+            .AddSingleton<IEventBridgeClient, EventBridgeClientAdapter>()
+            .AddSingleton<IResourceSource, EventBridgeResourceSource>()
+            .AddSingleton<ICertificateManagerClient, CertificateManagerClientAdapter>()
+            .AddSingleton<IResourceSource, CertificateManagerResourceSource>()
+            .AddSingleton<IApiGatewayClient, ApiGatewayClientAdapter>()
+            .AddSingleton<IResourceSource, ApiGatewayResourceSource>()
+            .AddSingleton<IRoute53Client, Route53ClientAdapter>()
+            .AddSingleton<IResourceSource, Route53ResourceSource>()
+            .AddSingleton<ISesClient, SesClientAdapter>()
+            .AddSingleton<IResourceSource, SesResourceSource>()
             .AddSingleton<IReferenceResolver, ReferenceResolver>()
             .AddSingleton<IBackendHealthProbe, BackendHealthProbe>()
             .AddSingleton<HealthStatusStore>()

@@ -159,7 +159,7 @@ describe('CloudFormationDetailView', () => {
   });
 
   afterEach(() => {
-    vi.resetAllMocks();
+    vi.clearAllMocks();
   });
 
   it('shows a loading state before the stack arrives', () => {

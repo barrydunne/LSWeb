@@ -39,6 +39,9 @@ describe('registerServiceViews', () => {
     const stepFunctions = getServiceView('step-functions');
     expect(stepFunctions?.list).toBeDefined();
     expect(stepFunctions?.detail).toBeDefined();
+
+    const eventbridge = getServiceView('eventbridge');
+    expect(eventbridge?.list).toBeDefined();
   });
 
   it('is idempotent and does not re-register after the first call', () => {

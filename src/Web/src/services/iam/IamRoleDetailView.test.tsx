@@ -113,6 +113,7 @@ describe('IamRoleDetailView', () => {
 
   it('shows a loading state before the role arrives', () => {
     getIamRoleMock.mockReturnValue(new Promise(() => {}));
+    getIamRoleUsedByMock.mockReturnValue(new Promise(() => {}));
 
     renderView();
 

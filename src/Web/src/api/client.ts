@@ -3798,3 +3798,162 @@ export async function getImports(
   }
   return (await response.json()) as CloudFormationImportListResult;
 }
+
+export interface EventBridgeRuleItem {
+  name: string;
+  arn: string;
+  eventBusName: string;
+  state: string;
+  description: string | null;
+  scheduleExpression: string | null;
+}
+
+export interface EventBridgeRuleListResult {
+  rules: EventBridgeRuleItem[];
+}
+
+export async function getEventBridgeRules(
+  signal?: AbortSignal,
+): Promise<EventBridgeRuleListResult> {
+  const response = await fetch('/api/services/eventbridge/rules', { signal });
+  if (!response.ok) {
+    throw new Error(`EventBridge rules request failed with status ${response.status}`);
+  }
+  return (await response.json()) as EventBridgeRuleListResult;
+}
+
+export interface EventBridgeTargetItem {
+  id: string;
+  arn: string;
+}
+
+export interface EventBridgeTargetListResult {
+  targets: EventBridgeTargetItem[];
+}
+
+export async function getEventBridgeTargets(
+  ruleName: string,
+  signal?: AbortSignal,
+): Promise<EventBridgeTargetListResult> {
+  const response = await fetch(
+    `/api/services/eventbridge/targets?rule=${encodeURIComponent(ruleName)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`EventBridge targets request failed with status ${response.status}`);
+  }
+  return (await response.json()) as EventBridgeTargetListResult;
+}
+
+export interface PutEventBridgeEventRequest {
+  source: string;
+  detailType: string;
+  detail: string;
+  eventBusName: string | null;
+}
+
+export interface PutEventBridgeEventResult {
+  accepted: boolean;
+  eventId: string | null;
+  errorCode: string | null;
+  errorMessage: string | null;
+}
+
+export async function putEventBridgeEvent(
+  request: PutEventBridgeEventRequest,
+  signal?: AbortSignal,
+): Promise<PutEventBridgeEventResult> {
+  const response = await fetch('/api/services/eventbridge/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`EventBridge put event request failed with status ${response.status}`);
+  }
+  return (await response.json()) as PutEventBridgeEventResult;
+}
+
+export interface AcmCertificateItem {
+  arn: string;
+  domainName: string;
+  status: string;
+  type: string | null;
+}
+
+export interface AcmCertificateListResult {
+  certificates: AcmCertificateItem[];
+}
+
+export async function getAcmCertificates(
+  signal?: AbortSignal,
+): Promise<AcmCertificateListResult> {
+  const response = await fetch('/api/services/acm/certificates', { signal });
+  if (!response.ok) {
+    throw new Error(`ACM certificates request failed with status ${response.status}`);
+  }
+  return (await response.json()) as AcmCertificateListResult;
+}
+
+export interface ApiGatewayRestApiItem {
+  id: string;
+  name: string;
+  description: string | null;
+  createdDate: string | null;
+}
+
+export interface ApiGatewayRestApiListResult {
+  restApis: ApiGatewayRestApiItem[];
+}
+
+export async function getApiGatewayRestApis(
+  signal?: AbortSignal,
+): Promise<ApiGatewayRestApiListResult> {
+  const response = await fetch('/api/services/apigateway/restapis', { signal });
+  if (!response.ok) {
+    throw new Error(`API Gateway REST APIs request failed with status ${response.status}`);
+  }
+  return (await response.json()) as ApiGatewayRestApiListResult;
+}
+
+export interface Route53HostedZoneItem {
+  id: string;
+  name: string;
+  recordCount: number;
+  privateZone: boolean;
+}
+
+export interface Route53HostedZoneListResult {
+  hostedZones: Route53HostedZoneItem[];
+}
+
+export async function getRoute53HostedZones(
+  signal?: AbortSignal,
+): Promise<Route53HostedZoneListResult> {
+  const response = await fetch('/api/services/route53/hostedzones', { signal });
+  if (!response.ok) {
+    throw new Error(`Route 53 hosted zones request failed with status ${response.status}`);
+  }
+  return (await response.json()) as Route53HostedZoneListResult;
+}
+
+export interface SesIdentityItem {
+  identity: string;
+  identityType: string;
+  verificationStatus: string;
+}
+
+export interface SesIdentityListResult {
+  identities: SesIdentityItem[];
+}
+
+export async function getSesIdentities(
+  signal?: AbortSignal,
+): Promise<SesIdentityListResult> {
+  const response = await fetch('/api/services/ses/identities', { signal });
+  if (!response.ok) {
+    throw new Error(`SES identities request failed with status ${response.status}`);
+  }
+  return (await response.json()) as SesIdentityListResult;
+}

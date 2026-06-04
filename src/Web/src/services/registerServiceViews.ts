@@ -23,6 +23,11 @@ const StepFunctionsListView = lazy(() => import('./step-functions/StepFunctionsL
 const StepFunctionsDetailView = lazy(() => import('./step-functions/StepFunctionsDetailView'));
 const CloudFormationListView = lazy(() => import('./cloudformation/CloudFormationListView'));
 const CloudFormationDetailView = lazy(() => import('./cloudformation/CloudFormationDetailView'));
+const EventBridgeListView = lazy(() => import('./eventbridge/EventBridgeListView'));
+const AcmListView = lazy(() => import('./acm/AcmListView'));
+const ApiGatewayListView = lazy(() => import('./apigateway/ApiGatewayListView'));
+const Route53ListView = lazy(() => import('./route53/Route53ListView'));
+const SesListView = lazy(() => import('./ses/SesListView'));
 
 let registered = false;
 
@@ -58,6 +63,11 @@ export function registerServiceViews(): void {
     list: CloudFormationListView,
     detail: CloudFormationDetailView,
   });
+  registerServiceView('eventbridge', { list: EventBridgeListView });
+  registerServiceView('acm', { list: AcmListView });
+  registerServiceView('apigateway', { list: ApiGatewayListView });
+  registerServiceView('route53', { list: Route53ListView });
+  registerServiceView('ses', { list: SesListView });
 }
 
 registerServiceViews();

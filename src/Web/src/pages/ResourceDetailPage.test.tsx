@@ -44,7 +44,7 @@ describe('ResourceDetailPage', () => {
 
   afterEach(() => {
     clearServiceViews();
-    vi.resetAllMocks();
+    vi.clearAllMocks();
   });
 
   it('shows a not-built placeholder when no detail view is registered', async () => {

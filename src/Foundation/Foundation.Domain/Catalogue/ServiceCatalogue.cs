@@ -19,6 +19,7 @@ public static class ServiceCatalogue
         new("lambda", "Lambda", ServiceCategory.Compute, "zap", "/services/lambda"),
         new("route53", "Route 53", ServiceCategory.Management, "globe", "/services/route53"),
         new("s3", "S3", ServiceCategory.Storage, "archive", "/services/s3"),
+        new("scheduler", "EventBridge Scheduler", ServiceCategory.Messaging, "clock", "/services/scheduler"),
         new("secrets-manager", "Secrets Manager", ServiceCategory.Security, "key", "/services/secrets-manager"),
         new("ses", "SES", ServiceCategory.Messaging, "mail", "/services/ses"),
         new("sns", "SNS", ServiceCategory.Messaging, "broadcast", "/services/sns"),

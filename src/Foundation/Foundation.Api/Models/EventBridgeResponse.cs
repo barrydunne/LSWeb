@@ -65,3 +65,91 @@ public sealed record PutEventResponse(
     string? EventId,
     string? ErrorCode,
     string? ErrorMessage);
+
+/// <summary>
+/// The EventBridge scheduled rules available on the default event bus.
+/// </summary>
+/// <param name="Rules">The scheduled rule summaries, ordered as returned by the backend.</param>
+public sealed record ScheduledRuleListResponse(
+    IReadOnlyList<RuleSummaryResponse> Rules);
+
+/// <summary>
+/// The full configuration of a single EventBridge scheduled rule.
+/// </summary>
+/// <param name="Name">The rule name, unique within its event bus.</param>
+/// <param name="Arn">The Amazon Resource Name that uniquely identifies the rule.</param>
+/// <param name="EventBusName">The name of the event bus the rule belongs to.</param>
+/// <param name="State">The rule state, either <c>ENABLED</c> or <c>DISABLED</c>.</param>
+/// <param name="ScheduleExpression">The schedule expression for the rule, or <c>null</c> when none is configured.</param>
+/// <param name="Description">An optional human-readable description of the rule.</param>
+/// <param name="RoleArn">The IAM role the rule assumes when invoking targets, or <c>null</c> when none is configured.</param>
+/// <param name="ManagedBy">The principal that created the rule on the caller's behalf, or <c>null</c> for an unmanaged rule.</param>
+public sealed record ScheduledRuleDetailResponse(
+    string Name,
+    string Arn,
+    string EventBusName,
+    string State,
+    string? ScheduleExpression,
+    string? Description,
+    string? RoleArn,
+    string? ManagedBy);
+
+/// <summary>
+/// A request to create or replace a legacy EventBridge scheduled rule.
+/// </summary>
+/// <param name="Name">The rule name, unique within its event bus.</param>
+/// <param name="ScheduleExpression">The schedule expression, starting with <c>rate(</c> or <c>cron(</c>.</param>
+/// <param name="State">The desired rule state, either <c>ENABLED</c> or <c>DISABLED</c>.</param>
+/// <param name="Description">An optional human-readable description of the rule.</param>
+/// <param name="EventBusName">The target event bus name, or <c>null</c> to use the default bus.</param>
+public sealed record ScheduledRulePutRequest(
+    string Name,
+    string ScheduleExpression,
+    string State,
+    string? Description,
+    string? EventBusName);
+
+/// <summary>
+/// A request to update an existing legacy EventBridge scheduled rule.
+/// </summary>
+/// <param name="ScheduleExpression">The schedule expression, starting with <c>rate(</c> or <c>cron(</c>.</param>
+/// <param name="State">The desired rule state, either <c>ENABLED</c> or <c>DISABLED</c>.</param>
+/// <param name="Description">An optional human-readable description of the rule.</param>
+public sealed record ScheduledRuleUpdateRequest(
+    string ScheduleExpression,
+    string State,
+    string? Description);
+
+/// <summary>
+/// A request to enable or disable a legacy EventBridge scheduled rule.
+/// </summary>
+/// <param name="State">The desired rule state, either <c>ENABLED</c> or <c>DISABLED</c>.</param>
+public sealed record ScheduledRuleStateRequest(
+    string State);
+
+/// <summary>
+/// A single target to add or replace on a legacy EventBridge scheduled rule.
+/// </summary>
+/// <param name="Id">The target identifier, unique within the rule.</param>
+/// <param name="Arn">The Amazon Resource Name of the resource the rule delivers events to.</param>
+/// <param name="RoleArn">The IAM role the rule assumes when invoking the target, or <c>null</c> when none is required.</param>
+/// <param name="Input">A constant JSON text passed to the target, or <c>null</c> to pass the matched event.</param>
+public sealed record ScheduledRuleTargetRequest(
+    string Id,
+    string Arn,
+    string? RoleArn,
+    string? Input);
+
+/// <summary>
+/// A request to add or replace targets on a legacy EventBridge scheduled rule.
+/// </summary>
+/// <param name="Targets">The targets to add or replace, matched by their identifiers.</param>
+public sealed record ScheduledRuleTargetsPutRequest(
+    IReadOnlyList<ScheduledRuleTargetRequest> Targets);
+
+/// <summary>
+/// A request to remove targets from a legacy EventBridge scheduled rule.
+/// </summary>
+/// <param name="Ids">The identifiers of the targets to remove.</param>
+public sealed record ScheduledRuleTargetsRemoveRequest(
+    IReadOnlyList<string> Ids);

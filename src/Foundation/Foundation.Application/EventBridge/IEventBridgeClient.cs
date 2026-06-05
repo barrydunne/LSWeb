@@ -28,6 +28,16 @@ public interface IEventBridgeClient
         string ruleName, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Describe the full configuration of a single rule.
+    /// </summary>
+    /// <param name="ruleName">The name of the rule to describe.</param>
+    /// <param name="eventBusName">The event bus the rule belongs to, or <c>null</c> to use the default bus.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The rule detail, or an error when the backend cannot be reached.</returns>
+    Task<Result<EventBridgeRuleDetail>> DescribeRuleAsync(
+        string ruleName, string? eventBusName, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Put a single custom event onto an event bus.
     /// </summary>
     /// <param name="source">The source that identifies the application emitting the event.</param>
@@ -41,5 +51,72 @@ public interface IEventBridgeClient
         string detailType,
         string detail,
         string? eventBusName,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Create or update a scheduled rule from the supplied specification.
+    /// </summary>
+    /// <param name="specification">The rule configuration to apply.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A success result, or an error when the rule cannot be written.</returns>
+    Task<Result> PutRuleAsync(
+        EventBridgeRuleSpecification specification, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Delete a rule by its name. The rule must have no remaining targets before it can be deleted.
+    /// </summary>
+    /// <param name="ruleName">The name of the rule to delete.</param>
+    /// <param name="eventBusName">The event bus the rule belongs to, or <c>null</c> to use the default bus.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A success result, or an error when the rule cannot be deleted.</returns>
+    Task<Result> DeleteRuleAsync(
+        string ruleName, string? eventBusName, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Enable a rule so that it fires on its schedule.
+    /// </summary>
+    /// <param name="ruleName">The name of the rule to enable.</param>
+    /// <param name="eventBusName">The event bus the rule belongs to, or <c>null</c> to use the default bus.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A success result, or an error when the rule cannot be enabled.</returns>
+    Task<Result> EnableRuleAsync(
+        string ruleName, string? eventBusName, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Disable a rule so that it stops firing on its schedule.
+    /// </summary>
+    /// <param name="ruleName">The name of the rule to disable.</param>
+    /// <param name="eventBusName">The event bus the rule belongs to, or <c>null</c> to use the default bus.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A success result, or an error when the rule cannot be disabled.</returns>
+    Task<Result> DisableRuleAsync(
+        string ruleName, string? eventBusName, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Add or replace one or more targets on a rule.
+    /// </summary>
+    /// <param name="ruleName">The name of the rule whose targets to write.</param>
+    /// <param name="eventBusName">The event bus the rule belongs to, or <c>null</c> to use the default bus.</param>
+    /// <param name="targets">The targets to add or replace, matched by their identifiers.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A success result, or an error when the targets cannot be written.</returns>
+    Task<Result> PutTargetsAsync(
+        string ruleName,
+        string? eventBusName,
+        IReadOnlyList<EventBridgeTargetSpecification> targets,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Remove one or more targets from a rule by their identifiers.
+    /// </summary>
+    /// <param name="ruleName">The name of the rule whose targets to remove.</param>
+    /// <param name="eventBusName">The event bus the rule belongs to, or <c>null</c> to use the default bus.</param>
+    /// <param name="targetIds">The identifiers of the targets to remove.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A success result, or an error when the targets cannot be removed.</returns>
+    Task<Result> RemoveTargetsAsync(
+        string ruleName,
+        string? eventBusName,
+        IReadOnlyList<string> targetIds,
         CancellationToken cancellationToken);
 }

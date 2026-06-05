@@ -118,6 +118,7 @@ public class CloudFormationControllerTests
         // Assert
         var ok = result.Should().BeOfType<Ok<CloudFormationStackDetailResponse>>().Subject;
         ok.Value!.StackName.Should().Be("orders-stack");
+        ok.Value.StackId.Should().Be("arn:aws:cloudformation:eu-west-1:000000000000:stack/orders-stack/abc");
         ok.Value.StackStatus.Should().Be("UPDATE_COMPLETE");
         ok.Value.StackStatusReason.Should().Be("User initiated");
         ok.Value.Description.Should().Be("Orders processing stack");

@@ -17,6 +17,7 @@ using Foundation.Application.Navigation;
 using Foundation.Application.Preferences;
 using Foundation.Application.Route53;
 using Foundation.Application.S3;
+using Foundation.Application.Scheduler;
 using Foundation.Application.Search;
 using Foundation.Application.SecretsManager;
 using Foundation.Application.Ses;
@@ -45,6 +46,7 @@ using Foundation.Infrastructure.Navigation;
 using Foundation.Infrastructure.Preferences;
 using Foundation.Infrastructure.Route53;
 using Foundation.Infrastructure.S3;
+using Foundation.Infrastructure.Scheduler;
 using Foundation.Infrastructure.Search;
 using Foundation.Infrastructure.SecretsManager;
 using Foundation.Infrastructure.Ses;
@@ -123,6 +125,8 @@ public static class DependencyInjection
             .AddSingleton<IResourceSource, IamResourceSource>()
             .AddSingleton<IStepFunctionsClient, StepFunctionsClientAdapter>()
             .AddSingleton<IResourceSource, StepFunctionsResourceSource>()
+            .AddSingleton<ISchedulerClient, SchedulerClientAdapter>()
+            .AddSingleton<IResourceSource, SchedulerResourceSource>()
             .AddSingleton<ICloudFormationClient, CloudFormationClientAdapter>()
             .AddSingleton<IResourceSource, CloudFormationResourceSource>()
             .AddSingleton<IEventBridgeClient, EventBridgeClientAdapter>()

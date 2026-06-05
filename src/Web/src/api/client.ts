@@ -3875,6 +3875,185 @@ export async function putEventBridgeEvent(
   return (await response.json()) as PutEventBridgeEventResult;
 }
 
+export interface ScheduledRuleListResult {
+  rules: EventBridgeRuleItem[];
+}
+
+export async function getScheduledRules(
+  signal?: AbortSignal,
+): Promise<ScheduledRuleListResult> {
+  const response = await fetch('/api/services/eventbridge/scheduled-rules', { signal });
+  if (!response.ok) {
+    throw new Error(`EventBridge scheduled rules request failed with status ${response.status}`);
+  }
+  return (await response.json()) as ScheduledRuleListResult;
+}
+
+export interface ScheduledRuleDetail {
+  name: string;
+  arn: string;
+  eventBusName: string;
+  state: string;
+  scheduleExpression: string | null;
+  description: string | null;
+  roleArn: string | null;
+  managedBy: string | null;
+}
+
+export async function getScheduledRule(
+  name: string,
+  bus?: string,
+  signal?: AbortSignal,
+): Promise<ScheduledRuleDetail> {
+  const query = bus ? `?bus=${encodeURIComponent(bus)}` : '';
+  const response = await fetch(
+    `/api/services/eventbridge/scheduled-rules/${encodeURIComponent(name)}${query}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`EventBridge scheduled rule request failed with status ${response.status}`);
+  }
+  return (await response.json()) as ScheduledRuleDetail;
+}
+
+export interface PutScheduledRuleRequest {
+  name: string;
+  scheduleExpression: string;
+  state: string;
+  description?: string | null;
+  eventBusName?: string | null;
+}
+
+export async function putScheduledRule(
+  request: PutScheduledRuleRequest,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/eventbridge/scheduled-rules', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`EventBridge create scheduled rule request failed with status ${response.status}`);
+  }
+}
+
+export interface UpdateScheduledRuleRequest {
+  scheduleExpression: string;
+  state: string;
+  description?: string | null;
+}
+
+export async function updateScheduledRule(
+  name: string,
+  request: UpdateScheduledRuleRequest,
+  bus?: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const query = bus ? `?bus=${encodeURIComponent(bus)}` : '';
+  const response = await fetch(
+    `/api/services/eventbridge/scheduled-rules/${encodeURIComponent(name)}${query}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`EventBridge update scheduled rule request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteScheduledRule(
+  name: string,
+  bus?: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const query = bus ? `?bus=${encodeURIComponent(bus)}` : '';
+  const response = await fetch(
+    `/api/services/eventbridge/scheduled-rules/${encodeURIComponent(name)}${query}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`EventBridge delete scheduled rule request failed with status ${response.status}`);
+  }
+}
+
+export async function setScheduledRuleState(
+  name: string,
+  state: string,
+  bus?: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const query = bus ? `?bus=${encodeURIComponent(bus)}` : '';
+  const response = await fetch(
+    `/api/services/eventbridge/scheduled-rules/${encodeURIComponent(name)}/state${query}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ state }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`EventBridge set scheduled rule state request failed with status ${response.status}`);
+  }
+}
+
+export interface ScheduledRuleTargetInput {
+  id: string;
+  arn: string;
+  roleArn?: string | null;
+  input?: string | null;
+}
+
+export async function putScheduledRuleTargets(
+  name: string,
+  targets: ScheduledRuleTargetInput[],
+  bus?: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const query = bus ? `?bus=${encodeURIComponent(bus)}` : '';
+  const response = await fetch(
+    `/api/services/eventbridge/scheduled-rules/${encodeURIComponent(name)}/targets${query}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targets }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`EventBridge put scheduled rule targets request failed with status ${response.status}`);
+  }
+}
+
+export async function removeScheduledRuleTargets(
+  name: string,
+  ids: string[],
+  bus?: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const query = bus ? `?bus=${encodeURIComponent(bus)}` : '';
+  const response = await fetch(
+    `/api/services/eventbridge/scheduled-rules/${encodeURIComponent(name)}/targets${query}`,
+    {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`EventBridge remove scheduled rule targets request failed with status ${response.status}`);
+  }
+}
+
 export interface AcmCertificateItem {
   arn: string;
   domainName: string;
@@ -3956,4 +4135,186 @@ export async function getSesIdentities(
     throw new Error(`SES identities request failed with status ${response.status}`);
   }
   return (await response.json()) as SesIdentityListResult;
+}
+
+export interface ScheduleSummaryItem {
+  name: string;
+  groupName: string;
+  state: string;
+  targetArn: string;
+  arn: string;
+}
+
+export interface ScheduleListResult {
+  schedules: ScheduleSummaryItem[];
+}
+
+export async function getSchedules(signal?: AbortSignal): Promise<ScheduleListResult> {
+  const response = await fetch('/api/services/scheduler/schedules', { signal });
+  if (!response.ok) {
+    throw new Error(`EventBridge Scheduler schedules request failed with status ${response.status}`);
+  }
+  return (await response.json()) as ScheduleListResult;
+}
+
+export interface ScheduleDetailResult {
+  name: string;
+  groupName: string;
+  state: string;
+  scheduleExpression: string;
+  scheduleExpressionTimezone: string | null;
+  description: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  targetArn: string;
+  roleArn: string;
+  flexibleTimeWindowMode: string;
+  maximumWindowInMinutes: number | null;
+  arn: string;
+  creationDate: string | null;
+  lastModificationDate: string | null;
+}
+
+export async function getSchedule(
+  name: string,
+  group: string,
+  signal?: AbortSignal,
+): Promise<ScheduleDetailResult> {
+  const response = await fetch(
+    `/api/services/scheduler/schedule?name=${encodeURIComponent(name)}&group=${encodeURIComponent(group)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`EventBridge Scheduler schedule request failed with status ${response.status}`);
+  }
+  return (await response.json()) as ScheduleDetailResult;
+}
+
+export interface ScheduleCreateRequest {
+  name: string;
+  groupName: string;
+  scheduleExpression: string;
+  scheduleExpressionTimezone: string | null;
+  description: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  targetArn: string;
+  roleArn: string;
+  flexibleTimeWindowMode: string;
+  maximumWindowInMinutes: number | null;
+  state: string;
+}
+
+export async function createSchedule(
+  request: ScheduleCreateRequest,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/scheduler/schedules', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`EventBridge Scheduler schedule create request failed with status ${response.status}`);
+  }
+}
+
+export interface ScheduleUpdateRequest {
+  scheduleExpression: string;
+  scheduleExpressionTimezone: string | null;
+  description: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  targetArn: string;
+  roleArn: string;
+  flexibleTimeWindowMode: string;
+  maximumWindowInMinutes: number | null;
+  state: string;
+}
+
+export async function updateSchedule(
+  name: string,
+  group: string,
+  request: ScheduleUpdateRequest,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/scheduler/schedules/${encodeURIComponent(name)}?group=${encodeURIComponent(group)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`EventBridge Scheduler schedule update request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteSchedule(
+  name: string,
+  group: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/scheduler/schedules/${encodeURIComponent(name)}?group=${encodeURIComponent(group)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`EventBridge Scheduler schedule delete request failed with status ${response.status}`);
+  }
+}
+
+export interface ScheduleGroupItem {
+  name: string;
+  state: string;
+  arn: string;
+  creationDate: string | null;
+  lastModificationDate: string | null;
+}
+
+export interface ScheduleGroupListResult {
+  groups: ScheduleGroupItem[];
+}
+
+export async function getScheduleGroups(signal?: AbortSignal): Promise<ScheduleGroupListResult> {
+  const response = await fetch('/api/services/scheduler/groups', { signal });
+  if (!response.ok) {
+    throw new Error(`EventBridge Scheduler schedule groups request failed with status ${response.status}`);
+  }
+  return (await response.json()) as ScheduleGroupListResult;
+}
+
+export interface ScheduleGroupCreateRequest {
+  name: string;
+}
+
+export async function createScheduleGroup(
+  request: ScheduleGroupCreateRequest,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/scheduler/groups', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`EventBridge Scheduler schedule group create request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteScheduleGroup(name: string, signal?: AbortSignal): Promise<void> {
+  const response = await fetch(`/api/services/scheduler/groups/${encodeURIComponent(name)}`, {
+    method: 'DELETE',
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`EventBridge Scheduler schedule group delete request failed with status ${response.status}`);
+  }
 }

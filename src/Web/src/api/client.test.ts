@@ -119,6 +119,14 @@ import {
   getEventBridgeRules,
   getEventBridgeTargets,
   putEventBridgeEvent,
+  getScheduledRules,
+  getScheduledRule,
+  putScheduledRule,
+  updateScheduledRule,
+  deleteScheduledRule,
+  setScheduledRuleState,
+  putScheduledRuleTargets,
+  removeScheduledRuleTargets,
   getAcmCertificates,
   getApiGatewayRestApis,
   getRoute53HostedZones,
@@ -186,6 +194,14 @@ import {
   getResourceDrifts,
   getExports,
   getImports,
+  getSchedules,
+  getSchedule,
+  createSchedule,
+  updateSchedule,
+  deleteSchedule,
+  getScheduleGroups,
+  createScheduleGroup,
+  deleteScheduleGroup,
 } from './client';
 import type {
   DynamoDbQueryRequest,
@@ -196,6 +212,9 @@ import type {
   SnsTopicCreateRequest,
   StartExecutionRequest,
   PutEventBridgeEventRequest,
+  PutScheduledRuleRequest,
+  UpdateScheduledRuleRequest,
+  ScheduledRuleTargetInput,
 } from './client';
 
 describe('getLiveness', () => {
@@ -4559,6 +4578,387 @@ describe('putEventBridgeEvent', () => {
   });
 });
 
+describe('getScheduledRules', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed scheduled rules when the request succeeds', async () => {
+    const payload = {
+      rules: [
+        {
+          name: 'hourly-report',
+          arn: 'arn:aws:events:eu-west-1:000000000000:rule/hourly-report',
+          eventBusName: 'default',
+          state: 'ENABLED',
+          description: 'Runs hourly',
+          scheduleExpression: 'rate(1 hour)',
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getScheduledRules(controller.signal);
+
+    expect(result.rules).toHaveLength(1);
+    expect(result.rules[0].scheduleExpression).toBe('rate(1 hour)');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/eventbridge/scheduled-rules', {
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getScheduledRules()).rejects.toThrow(
+      'EventBridge scheduled rules request failed with status 503',
+    );
+  });
+});
+
+describe('getScheduledRule', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const detail = {
+    name: 'hourly-report',
+    arn: 'arn:aws:events:eu-west-1:000000000000:rule/hourly-report',
+    eventBusName: 'default',
+    state: 'ENABLED',
+    scheduleExpression: 'rate(1 hour)',
+    description: 'Runs hourly',
+    roleArn: 'arn:aws:iam::000000000000:role/scheduler',
+    managedBy: null,
+  };
+
+  it('returns the parsed detail and forwards the bus when provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => detail });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getScheduledRule('hourly report', 'custom bus', controller.signal);
+
+    expect(result.name).toBe('hourly-report');
+    expect(result.scheduleExpression).toBe('rate(1 hour)');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/eventbridge/scheduled-rules/hourly%20report?bus=custom%20bus',
+      { signal: controller.signal },
+    );
+  });
+
+  it('omits the bus query when no bus is provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => detail });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getScheduledRule('hourly-report');
+
+    expect(result.name).toBe('hourly-report');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/eventbridge/scheduled-rules/hourly-report',
+      { signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getScheduledRule('missing')).rejects.toThrow(
+      'EventBridge scheduled rule request failed with status 404',
+    );
+  });
+});
+
+describe('putScheduledRule', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const request: PutScheduledRuleRequest = {
+    name: 'hourly-report',
+    scheduleExpression: 'rate(1 hour)',
+    state: 'ENABLED',
+    description: 'Runs hourly',
+    eventBusName: 'default',
+  };
+
+  it('posts the rule when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await putScheduledRule(request, controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/eventbridge/scheduled-rules', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(putScheduledRule(request)).rejects.toThrow(
+      'EventBridge create scheduled rule request failed with status 400',
+    );
+  });
+});
+
+describe('updateScheduledRule', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const request: UpdateScheduledRuleRequest = {
+    scheduleExpression: 'rate(2 hours)',
+    state: 'ENABLED',
+    description: 'Updated',
+  };
+
+  it('puts the rule and forwards the bus when provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await updateScheduledRule('hourly report', request, 'custom bus', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/eventbridge/scheduled-rules/hourly%20report?bus=custom%20bus',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('omits the bus query when no bus is provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await updateScheduledRule('hourly-report', request);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/eventbridge/scheduled-rules/hourly-report',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+        signal: undefined,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(updateScheduledRule('missing', request)).rejects.toThrow(
+      'EventBridge update scheduled rule request failed with status 404',
+    );
+  });
+});
+
+describe('deleteScheduledRule', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('deletes the rule and forwards the bus when provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await deleteScheduledRule('hourly report', 'custom bus', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/eventbridge/scheduled-rules/hourly%20report?bus=custom%20bus',
+      {
+        method: 'DELETE',
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('omits the bus query when no bus is provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await deleteScheduledRule('hourly-report');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/eventbridge/scheduled-rules/hourly-report',
+      {
+        method: 'DELETE',
+        signal: undefined,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(deleteScheduledRule('missing')).rejects.toThrow(
+      'EventBridge delete scheduled rule request failed with status 404',
+    );
+  });
+});
+
+describe('setScheduledRuleState', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the state and forwards the bus when provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await setScheduledRuleState('hourly report', 'DISABLED', 'custom bus', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/eventbridge/scheduled-rules/hourly%20report/state?bus=custom%20bus',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: 'DISABLED' }),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('omits the bus query when no bus is provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await setScheduledRuleState('hourly-report', 'ENABLED');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/eventbridge/scheduled-rules/hourly-report/state',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state: 'ENABLED' }),
+        signal: undefined,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(setScheduledRuleState('missing', 'ENABLED')).rejects.toThrow(
+      'EventBridge set scheduled rule state request failed with status 500',
+    );
+  });
+});
+
+describe('putScheduledRuleTargets', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const targets: ScheduledRuleTargetInput[] = [
+    { id: 'target-1', arn: 'arn:aws:sqs:eu-west-1:000000000000:queue', roleArn: null, input: null },
+  ];
+
+  it('puts the targets and forwards the bus when provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await putScheduledRuleTargets('hourly report', targets, 'custom bus', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/eventbridge/scheduled-rules/hourly%20report/targets?bus=custom%20bus',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targets }),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('omits the bus query when no bus is provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await putScheduledRuleTargets('hourly-report', targets);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/eventbridge/scheduled-rules/hourly-report/targets',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targets }),
+        signal: undefined,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(putScheduledRuleTargets('missing', targets)).rejects.toThrow(
+      'EventBridge put scheduled rule targets request failed with status 400',
+    );
+  });
+});
+
+describe('removeScheduledRuleTargets', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('removes the targets and forwards the bus when provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await removeScheduledRuleTargets('hourly report', ['target-1'], 'custom bus', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/eventbridge/scheduled-rules/hourly%20report/targets?bus=custom%20bus',
+      {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: ['target-1'] }),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('omits the bus query when no bus is provided', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await removeScheduledRuleTargets('hourly-report', ['target-1']);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/eventbridge/scheduled-rules/hourly-report/targets',
+      {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: ['target-1'] }),
+        signal: undefined,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(removeScheduledRuleTargets('missing', ['target-1'])).rejects.toThrow(
+      'EventBridge remove scheduled rule targets request failed with status 404',
+    );
+  });
+});
+
 describe('getAcmCertificates', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -6540,6 +6940,332 @@ describe('getImports', () => {
 
     await expect(getImports('VpcId')).rejects.toThrow(
       'CloudFormation imports request failed with status 503',
+    );
+  });
+});
+
+describe('getSchedules', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed schedules when the request succeeds', async () => {
+    const payload = {
+      schedules: [
+        {
+          name: 'nightly',
+          groupName: 'default',
+          state: 'ENABLED',
+          targetArn: 'arn:aws:lambda:eu-west-1:000000000000:function:job',
+          arn: 'arn:aws:scheduler:eu-west-1:000000000000:schedule/default/nightly',
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getSchedules(controller.signal);
+
+    expect(result.schedules).toHaveLength(1);
+    expect(result.schedules[0].name).toBe('nightly');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/scheduler/schedules', {
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getSchedules()).rejects.toThrow(
+      'EventBridge Scheduler schedules request failed with status 503',
+    );
+  });
+});
+
+describe('getSchedule', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed schedule when the request succeeds', async () => {
+    const payload = {
+      name: 'nightly',
+      groupName: 'default',
+      state: 'ENABLED',
+      scheduleExpression: 'rate(1 day)',
+      scheduleExpressionTimezone: 'UTC',
+      description: 'Nightly job',
+      startDate: '2024-01-01T00:00:00+00:00',
+      endDate: null,
+      targetArn: 'arn:aws:lambda:eu-west-1:000000000000:function:job',
+      roleArn: 'arn:aws:iam::000000000000:role/scheduler',
+      flexibleTimeWindowMode: 'OFF',
+      maximumWindowInMinutes: null,
+      arn: 'arn:aws:scheduler:eu-west-1:000000000000:schedule/default/nightly',
+      creationDate: '2024-01-01T00:00:00+00:00',
+      lastModificationDate: '2024-01-02T00:00:00+00:00',
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getSchedule('nightly', 'default', controller.signal);
+
+    expect(result.name).toBe('nightly');
+    expect(result.scheduleExpression).toBe('rate(1 day)');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/scheduler/schedule?name=nightly&group=default',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getSchedule('missing', 'default')).rejects.toThrow(
+      'EventBridge Scheduler schedule request failed with status 404',
+    );
+  });
+});
+
+describe('createSchedule', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the schedule create request', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const request = {
+      name: 'daily-job',
+      groupName: 'default',
+      scheduleExpression: 'rate(5 minutes)',
+      scheduleExpressionTimezone: null,
+      description: null,
+      startDate: null,
+      endDate: null,
+      targetArn: 'arn:aws:sqs:eu-west-1:000000000000:queue',
+      roleArn: 'arn:aws:iam::000000000000:role/scheduler',
+      flexibleTimeWindowMode: 'OFF',
+      maximumWindowInMinutes: null,
+      state: 'ENABLED',
+    };
+
+    await createSchedule(request, controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/scheduler/schedules', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      createSchedule({
+        name: 'daily-job',
+        groupName: 'default',
+        scheduleExpression: 'rate(5 minutes)',
+        scheduleExpressionTimezone: null,
+        description: null,
+        startDate: null,
+        endDate: null,
+        targetArn: 'arn:aws:sqs:eu-west-1:000000000000:queue',
+        roleArn: 'arn:aws:iam::000000000000:role/scheduler',
+        flexibleTimeWindowMode: 'OFF',
+        maximumWindowInMinutes: null,
+        state: 'ENABLED',
+      }),
+    ).rejects.toThrow(
+      'EventBridge Scheduler schedule create request failed with status 400',
+    );
+  });
+});
+
+describe('updateSchedule', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the schedule update request with the encoded name and group', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const request = {
+      scheduleExpression: 'rate(10 minutes)',
+      scheduleExpressionTimezone: null,
+      description: null,
+      startDate: null,
+      endDate: null,
+      targetArn: 'arn:aws:sqs:eu-west-1:000000000000:queue',
+      roleArn: 'arn:aws:iam::000000000000:role/scheduler',
+      flexibleTimeWindowMode: 'FLEXIBLE',
+      maximumWindowInMinutes: 15,
+      state: 'DISABLED',
+    };
+
+    await updateSchedule('nightly/run', 'my group', request, controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/scheduler/schedules/nightly%2Frun?group=my%20group',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(
+      updateSchedule('nightly', 'default', {
+        scheduleExpression: 'rate(10 minutes)',
+        scheduleExpressionTimezone: null,
+        description: null,
+        startDate: null,
+        endDate: null,
+        targetArn: 'arn:aws:sqs:eu-west-1:000000000000:queue',
+        roleArn: 'arn:aws:iam::000000000000:role/scheduler',
+        flexibleTimeWindowMode: 'OFF',
+        maximumWindowInMinutes: null,
+        state: 'ENABLED',
+      }),
+    ).rejects.toThrow(
+      'EventBridge Scheduler schedule update request failed with status 500',
+    );
+  });
+});
+
+describe('deleteSchedule', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('deletes the schedule with the encoded name and group', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await deleteSchedule('nightly/run', 'my group', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/scheduler/schedules/nightly%2Frun?group=my%20group',
+      {
+        method: 'DELETE',
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(deleteSchedule('missing', 'default')).rejects.toThrow(
+      'EventBridge Scheduler schedule delete request failed with status 404',
+    );
+  });
+});
+
+describe('getScheduleGroups', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed groups when the request succeeds', async () => {
+    const payload = {
+      groups: [
+        {
+          name: 'default',
+          state: 'ACTIVE',
+          arn: 'arn:aws:scheduler:eu-west-1:000000000000:schedule-group/default',
+          creationDate: '2024-01-01T00:00:00+00:00',
+          lastModificationDate: '2024-01-02T00:00:00+00:00',
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getScheduleGroups(controller.signal);
+
+    expect(result.groups).toHaveLength(1);
+    expect(result.groups[0].name).toBe('default');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/scheduler/groups', {
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getScheduleGroups()).rejects.toThrow(
+      'EventBridge Scheduler schedule groups request failed with status 503',
+    );
+  });
+});
+
+describe('createScheduleGroup', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the schedule group create request', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const request = { name: 'reports' };
+
+    await createScheduleGroup(request, controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/scheduler/groups', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(createScheduleGroup({ name: 'reports' })).rejects.toThrow(
+      'EventBridge Scheduler schedule group create request failed with status 400',
+    );
+  });
+});
+
+describe('deleteScheduleGroup', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('deletes the schedule group with the encoded name', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await deleteScheduleGroup('my group', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/scheduler/groups/my%20group', {
+      method: 'DELETE',
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(deleteScheduleGroup('missing')).rejects.toThrow(
+      'EventBridge Scheduler schedule group delete request failed with status 404',
     );
   });
 });

@@ -24,6 +24,7 @@
     <PackageVersion Include="AWSSDK.SimpleEmail" Version="4.0.3.3" />
     <PackageVersion Include="AWSSDK.SimpleNotificationService" Version="4.0.3.3" />
     <PackageVersion Include="AWSSDK.SimpleSystemsManagement" Version="4.0.8.3" />
+    <PackageVersion Include="AWSSDK.Scheduler" Version="4.0.3.3" />
     <PackageVersion Include="AWSSDK.SQS" Version="4.0.3.3" />
     <PackageVersion Include="AWSSDK.StepFunctions" Version="4.0.4.4" />
     <PackageVersion Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />

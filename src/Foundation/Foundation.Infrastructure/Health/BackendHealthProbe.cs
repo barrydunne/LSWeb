@@ -26,6 +26,7 @@ internal sealed partial class BackendHealthProbe : IBackendHealthProbe
         ["sqs"] = "sqs",
         ["ssm"] = "ssm-parameter-store",
         ["stepfunctions"] = "step-functions",
+        ["scheduler"] = "scheduler",
         ["cloudformation"] = "cloudformation",
     };
 

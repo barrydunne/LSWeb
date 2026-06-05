@@ -28,6 +28,8 @@ const AcmListView = lazy(() => import('./acm/AcmListView'));
 const ApiGatewayListView = lazy(() => import('./apigateway/ApiGatewayListView'));
 const Route53ListView = lazy(() => import('./route53/Route53ListView'));
 const SesListView = lazy(() => import('./ses/SesListView'));
+const SchedulerListView = lazy(() => import('./scheduler/SchedulerListView'));
+const SchedulerDetailView = lazy(() => import('./scheduler/SchedulerDetailView'));
 
 let registered = false;
 
@@ -68,6 +70,10 @@ export function registerServiceViews(): void {
   registerServiceView('apigateway', { list: ApiGatewayListView });
   registerServiceView('route53', { list: Route53ListView });
   registerServiceView('ses', { list: SesListView });
+  registerServiceView('scheduler', {
+    list: SchedulerListView,
+    detail: SchedulerDetailView,
+  });
 }
 
 registerServiceViews();

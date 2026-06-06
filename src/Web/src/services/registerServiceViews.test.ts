@@ -46,6 +46,10 @@ describe('registerServiceViews', () => {
     const cognito = getServiceView('cognito');
     expect(cognito?.list).toBeDefined();
     expect(cognito?.detail).toBeDefined();
+
+    const apigatewayv2 = getServiceView('apigatewayv2');
+    expect(apigatewayv2?.list).toBeDefined();
+    expect(apigatewayv2?.detail).toBeDefined();
   });
 
   it('is idempotent and does not re-register after the first call', () => {

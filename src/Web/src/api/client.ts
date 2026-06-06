@@ -4096,6 +4096,540 @@ export async function getApiGatewayRestApis(
   return (await response.json()) as ApiGatewayRestApiListResult;
 }
 
+export interface ApiGatewayRestApiDetailResult {
+  id: string;
+  name: string;
+  description: string | null;
+  version: string | null;
+  apiKeySource: string | null;
+  endpointConfigurationTypes: string[];
+  binaryMediaTypes: string[];
+  createdDate: string | null;
+}
+
+export async function getApiGatewayRestApi(
+  restApiId: string,
+  signal?: AbortSignal,
+): Promise<ApiGatewayRestApiDetailResult> {
+  const response = await fetch(
+    `/api/services/apigateway/restapis/${encodeURIComponent(restApiId)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway REST API request failed with status ${response.status}`);
+  }
+  return (await response.json()) as ApiGatewayRestApiDetailResult;
+}
+
+export interface ApiGatewayRestApiCreateRequest {
+  name: string;
+  description: string | null;
+  version: string | null;
+  apiKeySource: string | null;
+  endpointConfigurationTypes: string[];
+}
+
+export interface ApiGatewayRestApiCreatedResult {
+  id: string;
+}
+
+export async function createApiGatewayRestApi(
+  request: ApiGatewayRestApiCreateRequest,
+  signal?: AbortSignal,
+): Promise<ApiGatewayRestApiCreatedResult> {
+  const response = await fetch('/api/services/apigateway/restapis', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`API Gateway REST API create request failed with status ${response.status}`);
+  }
+  return (await response.json()) as ApiGatewayRestApiCreatedResult;
+}
+
+export interface ApiGatewayRestApiUpdateRequest {
+  name: string;
+  description: string | null;
+}
+
+export async function updateApiGatewayRestApi(
+  restApiId: string,
+  request: ApiGatewayRestApiUpdateRequest,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/apigateway/restapis/${encodeURIComponent(restApiId)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway REST API update request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteApiGatewayRestApi(
+  restApiId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/apigateway/restapis/${encodeURIComponent(restApiId)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway REST API delete request failed with status ${response.status}`);
+  }
+}
+
+export interface ApiGatewayRestResourceItem {
+  id: string;
+  parentId: string | null;
+  pathPart: string | null;
+  path: string;
+  resourceMethods: string[];
+}
+
+export interface ApiGatewayRestResourceListResult {
+  resources: ApiGatewayRestResourceItem[];
+}
+
+export async function getApiGatewayRestResources(
+  restApiId: string,
+  signal?: AbortSignal,
+): Promise<ApiGatewayRestResourceListResult> {
+  const response = await fetch(
+    `/api/services/apigateway/restapis/${encodeURIComponent(restApiId)}/resources`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway resources request failed with status ${response.status}`);
+  }
+  return (await response.json()) as ApiGatewayRestResourceListResult;
+}
+
+export interface ApiGatewayRestResourceCreateRequest {
+  parentId: string;
+  pathPart: string;
+}
+
+export interface ApiGatewayRestResourceCreatedResult {
+  id: string;
+}
+
+export async function createApiGatewayRestResource(
+  restApiId: string,
+  request: ApiGatewayRestResourceCreateRequest,
+  signal?: AbortSignal,
+): Promise<ApiGatewayRestResourceCreatedResult> {
+  const response = await fetch(
+    `/api/services/apigateway/restapis/${encodeURIComponent(restApiId)}/resources`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway resource create request failed with status ${response.status}`);
+  }
+  return (await response.json()) as ApiGatewayRestResourceCreatedResult;
+}
+
+export async function deleteApiGatewayRestResource(
+  restApiId: string,
+  resourceId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/apigateway/restapis/${encodeURIComponent(restApiId)}/resources/${encodeURIComponent(resourceId)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway resource delete request failed with status ${response.status}`);
+  }
+}
+
+export interface ApiGatewayRestMethodDetailResult {
+  resourceId: string;
+  httpMethod: string;
+  authorizationType: string;
+  authorizerId: string | null;
+  apiKeyRequired: boolean;
+  authorizationScopes: string[];
+}
+
+export async function getApiGatewayRestMethod(
+  restApiId: string,
+  resourceId: string,
+  httpMethod: string,
+  signal?: AbortSignal,
+): Promise<ApiGatewayRestMethodDetailResult> {
+  const response = await fetch(
+    `/api/services/apigateway/restapis/${encodeURIComponent(restApiId)}/resources/${encodeURIComponent(resourceId)}/methods/${encodeURIComponent(httpMethod)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway method request failed with status ${response.status}`);
+  }
+  return (await response.json()) as ApiGatewayRestMethodDetailResult;
+}
+
+export interface ApiGatewayRestMethodPutRequest {
+  authorizationType: string;
+  authorizerId: string | null;
+  apiKeyRequired: boolean;
+  authorizationScopes: string[];
+}
+
+export async function putApiGatewayRestMethod(
+  restApiId: string,
+  resourceId: string,
+  httpMethod: string,
+  request: ApiGatewayRestMethodPutRequest,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/apigateway/restapis/${encodeURIComponent(restApiId)}/resources/${encodeURIComponent(resourceId)}/methods/${encodeURIComponent(httpMethod)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway method put request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteApiGatewayRestMethod(
+  restApiId: string,
+  resourceId: string,
+  httpMethod: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/apigateway/restapis/${encodeURIComponent(restApiId)}/resources/${encodeURIComponent(resourceId)}/methods/${encodeURIComponent(httpMethod)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway method delete request failed with status ${response.status}`);
+  }
+}
+
+export interface ApiGatewayRestAuthorizerItem {
+  id: string;
+  name: string;
+  type: string;
+}
+
+export interface ApiGatewayRestAuthorizerListResult {
+  authorizers: ApiGatewayRestAuthorizerItem[];
+}
+
+export async function getApiGatewayRestAuthorizers(
+  restApiId: string,
+  signal?: AbortSignal,
+): Promise<ApiGatewayRestAuthorizerListResult> {
+  const response = await fetch(
+    `/api/services/apigateway/restapis/${encodeURIComponent(restApiId)}/authorizers`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway authorizers request failed with status ${response.status}`);
+  }
+  return (await response.json()) as ApiGatewayRestAuthorizerListResult;
+}
+
+export interface ApiGatewayRestAuthorizerDetailResult {
+  id: string;
+  name: string;
+  type: string;
+  providerARNs: string[];
+  identitySource: string | null;
+  authType: string | null;
+}
+
+export async function getApiGatewayRestAuthorizer(
+  restApiId: string,
+  authorizerId: string,
+  signal?: AbortSignal,
+): Promise<ApiGatewayRestAuthorizerDetailResult> {
+  const response = await fetch(
+    `/api/services/apigateway/restapis/${encodeURIComponent(restApiId)}/authorizers/${encodeURIComponent(authorizerId)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway authorizer request failed with status ${response.status}`);
+  }
+  return (await response.json()) as ApiGatewayRestAuthorizerDetailResult;
+}
+
+export interface ApiGatewayRestAuthorizerCreateRequest {
+  name: string;
+  type: string;
+  providerARNs: string[];
+  identitySource: string | null;
+}
+
+export interface ApiGatewayRestAuthorizerCreatedResult {
+  id: string;
+}
+
+export async function createApiGatewayRestAuthorizer(
+  restApiId: string,
+  request: ApiGatewayRestAuthorizerCreateRequest,
+  signal?: AbortSignal,
+): Promise<ApiGatewayRestAuthorizerCreatedResult> {
+  const response = await fetch(
+    `/api/services/apigateway/restapis/${encodeURIComponent(restApiId)}/authorizers`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway authorizer create request failed with status ${response.status}`);
+  }
+  return (await response.json()) as ApiGatewayRestAuthorizerCreatedResult;
+}
+
+export interface ApiGatewayRestAuthorizerUpdateRequest {
+  name: string;
+  type: string;
+  providerARNs: string[];
+  identitySource: string | null;
+}
+
+export async function updateApiGatewayRestAuthorizer(
+  restApiId: string,
+  authorizerId: string,
+  request: ApiGatewayRestAuthorizerUpdateRequest,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/apigateway/restapis/${encodeURIComponent(restApiId)}/authorizers/${encodeURIComponent(authorizerId)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway authorizer update request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteApiGatewayRestAuthorizer(
+  restApiId: string,
+  authorizerId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/apigateway/restapis/${encodeURIComponent(restApiId)}/authorizers/${encodeURIComponent(authorizerId)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway authorizer delete request failed with status ${response.status}`);
+  }
+}
+
+export interface ApiGatewayRestStageItem {
+  stageName: string;
+  deploymentId: string;
+  createdDate: string | null;
+}
+
+export interface ApiGatewayRestStageListResult {
+  stages: ApiGatewayRestStageItem[];
+}
+
+export async function getApiGatewayRestStages(
+  restApiId: string,
+  signal?: AbortSignal,
+): Promise<ApiGatewayRestStageListResult> {
+  const response = await fetch(
+    `/api/services/apigateway/restapis/${encodeURIComponent(restApiId)}/stages`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway stages request failed with status ${response.status}`);
+  }
+  return (await response.json()) as ApiGatewayRestStageListResult;
+}
+
+export interface ApiGatewayRestStageDetailResult {
+  stageName: string;
+  deploymentId: string;
+  description: string | null;
+  cacheClusterEnabled: boolean;
+  variables: Record<string, string>;
+  createdDate: string | null;
+  lastUpdatedDate: string | null;
+}
+
+export async function getApiGatewayRestStage(
+  restApiId: string,
+  stageName: string,
+  signal?: AbortSignal,
+): Promise<ApiGatewayRestStageDetailResult> {
+  const response = await fetch(
+    `/api/services/apigateway/restapis/${encodeURIComponent(restApiId)}/stages/${encodeURIComponent(stageName)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway stage request failed with status ${response.status}`);
+  }
+  return (await response.json()) as ApiGatewayRestStageDetailResult;
+}
+
+export interface ApiGatewayRestDeploymentItem {
+  id: string;
+  description: string | null;
+  createdDate: string | null;
+}
+
+export interface ApiGatewayRestDeploymentListResult {
+  deployments: ApiGatewayRestDeploymentItem[];
+}
+
+export async function getApiGatewayRestDeployments(
+  restApiId: string,
+  signal?: AbortSignal,
+): Promise<ApiGatewayRestDeploymentListResult> {
+  const response = await fetch(
+    `/api/services/apigateway/restapis/${encodeURIComponent(restApiId)}/deployments`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway deployments request failed with status ${response.status}`);
+  }
+  return (await response.json()) as ApiGatewayRestDeploymentListResult;
+}
+
+export interface ApiGatewayRestDeploymentCreateRequest {
+  stageName: string | null;
+  description: string | null;
+}
+
+export interface ApiGatewayRestDeploymentCreatedResult {
+  id: string;
+}
+
+export async function createApiGatewayRestDeployment(
+  restApiId: string,
+  request: ApiGatewayRestDeploymentCreateRequest,
+  signal?: AbortSignal,
+): Promise<ApiGatewayRestDeploymentCreatedResult> {
+  const response = await fetch(
+    `/api/services/apigateway/restapis/${encodeURIComponent(restApiId)}/deployments`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway deployment create request failed with status ${response.status}`);
+  }
+  return (await response.json()) as ApiGatewayRestDeploymentCreatedResult;
+}
+
+export interface ApiGatewayRestStageCreateRequest {
+  stageName: string;
+  deploymentId: string;
+  description: string | null;
+  variables: Record<string, string> | null;
+}
+
+export interface ApiGatewayRestStageCreatedResult {
+  stageName: string;
+}
+
+export async function createApiGatewayRestStage(
+  restApiId: string,
+  request: ApiGatewayRestStageCreateRequest,
+  signal?: AbortSignal,
+): Promise<ApiGatewayRestStageCreatedResult> {
+  const response = await fetch(
+    `/api/services/apigateway/restapis/${encodeURIComponent(restApiId)}/stages`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway stage create request failed with status ${response.status}`);
+  }
+  return (await response.json()) as ApiGatewayRestStageCreatedResult;
+}
+
+export interface ApiGatewayRestStageUpdateRequest {
+  description: string | null;
+  variables: Record<string, string> | null;
+}
+
+export async function updateApiGatewayRestStage(
+  restApiId: string,
+  stageName: string,
+  request: ApiGatewayRestStageUpdateRequest,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/apigateway/restapis/${encodeURIComponent(restApiId)}/stages/${encodeURIComponent(stageName)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway stage update request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteApiGatewayRestStage(
+  restApiId: string,
+  stageName: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/apigateway/restapis/${encodeURIComponent(restApiId)}/stages/${encodeURIComponent(stageName)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway stage delete request failed with status ${response.status}`);
+  }
+}
+
 export interface Route53HostedZoneItem {
   id: string;
   name: string;
@@ -4527,5 +5061,569 @@ export async function deleteUserPoolClient(
   );
   if (!response.ok) {
     throw new Error(`Cognito user pool client delete request failed with status ${response.status}`);
+  }
+}
+
+export interface HttpApiSummaryItem {
+  apiId: string;
+  name: string;
+  protocolType: string;
+  apiEndpoint: string | null;
+  createdDate: string | null;
+}
+
+export interface HttpApiListResult {
+  apis: HttpApiSummaryItem[];
+}
+
+export async function getHttpApis(signal?: AbortSignal): Promise<HttpApiListResult> {
+  const response = await fetch('/api/services/apigatewayv2/apis', { signal });
+  if (!response.ok) {
+    throw new Error(`API Gateway v2 APIs request failed with status ${response.status}`);
+  }
+  return (await response.json()) as HttpApiListResult;
+}
+
+export interface HttpApiCorsConfiguration {
+  allowCredentials: boolean | null;
+  allowHeaders: string[];
+  allowMethods: string[];
+  allowOrigins: string[];
+  exposeHeaders: string[];
+  maxAge: number | null;
+}
+
+export interface HttpApiDetailResult {
+  apiId: string;
+  name: string;
+  protocolType: string;
+  apiEndpoint: string | null;
+  description: string | null;
+  version: string | null;
+  routeSelectionExpression: string | null;
+  corsConfiguration: HttpApiCorsConfiguration | null;
+  createdDate: string | null;
+}
+
+export async function getHttpApi(
+  apiId: string,
+  signal?: AbortSignal,
+): Promise<HttpApiDetailResult> {
+  const response = await fetch(
+    `/api/services/apigatewayv2/apis/${encodeURIComponent(apiId)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway v2 API request failed with status ${response.status}`);
+  }
+  return (await response.json()) as HttpApiDetailResult;
+}
+
+export interface HttpApiCreateRequest {
+  name: string;
+  protocolType: string;
+  description: string | null;
+  version: string | null;
+  routeSelectionExpression: string | null;
+}
+
+export interface HttpApiCreatedResult {
+  apiId: string;
+}
+
+export async function createHttpApi(
+  request: HttpApiCreateRequest,
+  signal?: AbortSignal,
+): Promise<HttpApiCreatedResult> {
+  const response = await fetch('/api/services/apigatewayv2/apis', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`API Gateway v2 API create request failed with status ${response.status}`);
+  }
+  return (await response.json()) as HttpApiCreatedResult;
+}
+
+export interface HttpApiUpdateRequest {
+  name: string;
+  protocolType: string;
+  description: string | null;
+  version: string | null;
+  routeSelectionExpression: string | null;
+}
+
+export async function updateHttpApi(
+  apiId: string,
+  request: HttpApiUpdateRequest,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/apigatewayv2/apis/${encodeURIComponent(apiId)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway v2 API update request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteHttpApi(apiId: string, signal?: AbortSignal): Promise<void> {
+  const response = await fetch(
+    `/api/services/apigatewayv2/apis/${encodeURIComponent(apiId)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway v2 API delete request failed with status ${response.status}`);
+  }
+}
+
+export interface HttpRouteSummaryItem {
+  routeId: string;
+  routeKey: string;
+  target: string | null;
+  authorizationType: string | null;
+}
+
+export interface HttpRouteListResult {
+  routes: HttpRouteSummaryItem[];
+}
+
+export async function getHttpRoutes(
+  apiId: string,
+  signal?: AbortSignal,
+): Promise<HttpRouteListResult> {
+  const response = await fetch(
+    `/api/services/apigatewayv2/apis/${encodeURIComponent(apiId)}/routes`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway v2 routes request failed with status ${response.status}`);
+  }
+  return (await response.json()) as HttpRouteListResult;
+}
+
+export interface HttpRouteDetailResult {
+  routeId: string;
+  routeKey: string;
+  target: string | null;
+  authorizationType: string | null;
+  authorizerId: string | null;
+  authorizationScopes: string[];
+  apiKeyRequired: boolean | null;
+}
+
+export async function getHttpRoute(
+  apiId: string,
+  routeId: string,
+  signal?: AbortSignal,
+): Promise<HttpRouteDetailResult> {
+  const response = await fetch(
+    `/api/services/apigatewayv2/apis/${encodeURIComponent(apiId)}/routes/${encodeURIComponent(routeId)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway v2 route request failed with status ${response.status}`);
+  }
+  return (await response.json()) as HttpRouteDetailResult;
+}
+
+export interface HttpRouteCreateRequest {
+  routeKey: string;
+  target: string | null;
+  authorizationType: string | null;
+  authorizerId: string | null;
+  authorizationScopes: string[] | null;
+}
+
+export interface HttpRouteCreatedResult {
+  routeId: string;
+}
+
+export async function createHttpRoute(
+  apiId: string,
+  request: HttpRouteCreateRequest,
+  signal?: AbortSignal,
+): Promise<HttpRouteCreatedResult> {
+  const response = await fetch(
+    `/api/services/apigatewayv2/apis/${encodeURIComponent(apiId)}/routes`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway v2 route create request failed with status ${response.status}`);
+  }
+  return (await response.json()) as HttpRouteCreatedResult;
+}
+
+export interface HttpRouteUpdateRequest {
+  routeKey: string;
+  target: string | null;
+  authorizationType: string | null;
+  authorizerId: string | null;
+  authorizationScopes: string[] | null;
+}
+
+export async function updateHttpRoute(
+  apiId: string,
+  routeId: string,
+  request: HttpRouteUpdateRequest,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/apigatewayv2/apis/${encodeURIComponent(apiId)}/routes/${encodeURIComponent(routeId)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway v2 route update request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteHttpRoute(
+  apiId: string,
+  routeId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/apigatewayv2/apis/${encodeURIComponent(apiId)}/routes/${encodeURIComponent(routeId)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway v2 route delete request failed with status ${response.status}`);
+  }
+}
+
+export interface HttpIntegrationSummaryItem {
+  integrationId: string;
+  integrationType: string;
+  integrationMethod: string | null;
+  integrationUri: string | null;
+  payloadFormatVersion: string | null;
+  description: string | null;
+}
+
+export interface HttpIntegrationListResult {
+  integrations: HttpIntegrationSummaryItem[];
+}
+
+export async function getHttpIntegrations(
+  apiId: string,
+  signal?: AbortSignal,
+): Promise<HttpIntegrationListResult> {
+  const response = await fetch(
+    `/api/services/apigatewayv2/apis/${encodeURIComponent(apiId)}/integrations`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway v2 integrations request failed with status ${response.status}`);
+  }
+  return (await response.json()) as HttpIntegrationListResult;
+}
+
+export interface HttpIntegrationCreateRequest {
+  integrationType: string;
+  integrationMethod: string | null;
+  integrationUri: string | null;
+  payloadFormatVersion: string | null;
+  description: string | null;
+}
+
+export interface HttpIntegrationCreatedResult {
+  integrationId: string;
+}
+
+export async function createHttpIntegration(
+  apiId: string,
+  request: HttpIntegrationCreateRequest,
+  signal?: AbortSignal,
+): Promise<HttpIntegrationCreatedResult> {
+  const response = await fetch(
+    `/api/services/apigatewayv2/apis/${encodeURIComponent(apiId)}/integrations`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway v2 integration create request failed with status ${response.status}`);
+  }
+  return (await response.json()) as HttpIntegrationCreatedResult;
+}
+
+export interface HttpAuthorizerSummaryItem {
+  authorizerId: string;
+  name: string;
+  authorizerType: string;
+}
+
+export interface HttpAuthorizerListResult {
+  authorizers: HttpAuthorizerSummaryItem[];
+}
+
+export async function getHttpAuthorizers(
+  apiId: string,
+  signal?: AbortSignal,
+): Promise<HttpAuthorizerListResult> {
+  const response = await fetch(
+    `/api/services/apigatewayv2/apis/${encodeURIComponent(apiId)}/authorizers`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway v2 authorizers request failed with status ${response.status}`);
+  }
+  return (await response.json()) as HttpAuthorizerListResult;
+}
+
+export interface HttpAuthorizerDetailResult {
+  authorizerId: string;
+  name: string;
+  authorizerType: string;
+  identitySource: string[];
+  jwtIssuer: string | null;
+  jwtAudience: string[];
+}
+
+export async function getHttpAuthorizer(
+  apiId: string,
+  authorizerId: string,
+  signal?: AbortSignal,
+): Promise<HttpAuthorizerDetailResult> {
+  const response = await fetch(
+    `/api/services/apigatewayv2/apis/${encodeURIComponent(apiId)}/authorizers/${encodeURIComponent(authorizerId)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway v2 authorizer request failed with status ${response.status}`);
+  }
+  return (await response.json()) as HttpAuthorizerDetailResult;
+}
+
+export interface HttpAuthorizerCreateRequest {
+  name: string;
+  authorizerType: string;
+  identitySource: string[];
+  jwtIssuer: string | null;
+  jwtAudience: string[];
+}
+
+export interface HttpAuthorizerCreatedResult {
+  authorizerId: string;
+}
+
+export async function createHttpAuthorizer(
+  apiId: string,
+  request: HttpAuthorizerCreateRequest,
+  signal?: AbortSignal,
+): Promise<HttpAuthorizerCreatedResult> {
+  const response = await fetch(
+    `/api/services/apigatewayv2/apis/${encodeURIComponent(apiId)}/authorizers`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway v2 authorizer create request failed with status ${response.status}`);
+  }
+  return (await response.json()) as HttpAuthorizerCreatedResult;
+}
+
+export interface HttpAuthorizerUpdateRequest {
+  name: string;
+  authorizerType: string;
+  identitySource: string[];
+  jwtIssuer: string | null;
+  jwtAudience: string[];
+}
+
+export async function updateHttpAuthorizer(
+  apiId: string,
+  authorizerId: string,
+  request: HttpAuthorizerUpdateRequest,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/apigatewayv2/apis/${encodeURIComponent(apiId)}/authorizers/${encodeURIComponent(authorizerId)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway v2 authorizer update request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteHttpAuthorizer(
+  apiId: string,
+  authorizerId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/apigatewayv2/apis/${encodeURIComponent(apiId)}/authorizers/${encodeURIComponent(authorizerId)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway v2 authorizer delete request failed with status ${response.status}`);
+  }
+}
+
+export interface HttpStageSummaryItem {
+  stageName: string;
+  autoDeploy: boolean;
+  deploymentId: string | null;
+  createdDate: string | null;
+}
+
+export interface HttpStageListResult {
+  stages: HttpStageSummaryItem[];
+}
+
+export async function getHttpStages(
+  apiId: string,
+  signal?: AbortSignal,
+): Promise<HttpStageListResult> {
+  const response = await fetch(
+    `/api/services/apigatewayv2/apis/${encodeURIComponent(apiId)}/stages`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway v2 stages request failed with status ${response.status}`);
+  }
+  return (await response.json()) as HttpStageListResult;
+}
+
+export interface HttpStageDetailResult {
+  stageName: string;
+  autoDeploy: boolean;
+  deploymentId: string | null;
+  description: string | null;
+  defaultRouteThrottlingBurstLimit: number | null;
+  defaultRouteThrottlingRateLimit: number | null;
+  stageVariables: Record<string, string>;
+  createdDate: string | null;
+  lastUpdatedDate: string | null;
+}
+
+export async function getHttpStage(
+  apiId: string,
+  stageName: string,
+  signal?: AbortSignal,
+): Promise<HttpStageDetailResult> {
+  const response = await fetch(
+    `/api/services/apigatewayv2/apis/${encodeURIComponent(apiId)}/stages/${encodeURIComponent(stageName)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway v2 stage request failed with status ${response.status}`);
+  }
+  return (await response.json()) as HttpStageDetailResult;
+}
+
+export interface HttpStageCreateRequest {
+  stageName: string;
+  autoDeploy: boolean;
+  description: string | null;
+  defaultRouteThrottlingBurstLimit: number | null;
+  defaultRouteThrottlingRateLimit: number | null;
+  stageVariables: Record<string, string>;
+}
+
+export interface HttpStageCreatedResult {
+  stageName: string;
+}
+
+export async function createHttpStage(
+  apiId: string,
+  request: HttpStageCreateRequest,
+  signal?: AbortSignal,
+): Promise<HttpStageCreatedResult> {
+  const response = await fetch(
+    `/api/services/apigatewayv2/apis/${encodeURIComponent(apiId)}/stages`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway v2 stage create request failed with status ${response.status}`);
+  }
+  return (await response.json()) as HttpStageCreatedResult;
+}
+
+export interface HttpStageUpdateRequest {
+  autoDeploy: boolean;
+  description: string | null;
+  defaultRouteThrottlingBurstLimit: number | null;
+  defaultRouteThrottlingRateLimit: number | null;
+  stageVariables: Record<string, string>;
+}
+
+export async function updateHttpStage(
+  apiId: string,
+  stageName: string,
+  request: HttpStageUpdateRequest,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/apigatewayv2/apis/${encodeURIComponent(apiId)}/stages/${encodeURIComponent(stageName)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway v2 stage update request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteHttpStage(
+  apiId: string,
+  stageName: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/apigatewayv2/apis/${encodeURIComponent(apiId)}/stages/${encodeURIComponent(stageName)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`API Gateway v2 stage delete request failed with status ${response.status}`);
   }
 }

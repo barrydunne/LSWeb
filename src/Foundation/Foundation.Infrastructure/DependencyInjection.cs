@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Foundation.Application.Activity;
 using Foundation.Application.ApiGateway;
+using Foundation.Application.ApiGatewayV2;
 using Foundation.Application.Capabilities;
 using Foundation.Application.CertificateManager;
 using Foundation.Application.CloudFormation;
@@ -29,6 +30,7 @@ using Foundation.Application.StepFunctions;
 using Foundation.Application.Streaming;
 using Foundation.Infrastructure.Activity;
 using Foundation.Infrastructure.ApiGateway;
+using Foundation.Infrastructure.ApiGatewayV2;
 using Foundation.Infrastructure.Aws;
 using Foundation.Infrastructure.Capabilities;
 using Foundation.Infrastructure.CertificateManager;
@@ -139,6 +141,8 @@ public static class DependencyInjection
             .AddSingleton<IResourceSource, CertificateManagerResourceSource>()
             .AddSingleton<IApiGatewayClient, ApiGatewayClientAdapter>()
             .AddSingleton<IResourceSource, ApiGatewayResourceSource>()
+            .AddSingleton<IApiGatewayV2Client, ApiGatewayV2ClientAdapter>()
+            .AddSingleton<IResourceSource, ApiGatewayV2ResourceSource>()
             .AddSingleton<IRoute53Client, Route53ClientAdapter>()
             .AddSingleton<IResourceSource, Route53ResourceSource>()
             .AddSingleton<ISesClient, SesClientAdapter>()

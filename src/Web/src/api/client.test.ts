@@ -129,6 +129,28 @@ import {
   removeScheduledRuleTargets,
   getAcmCertificates,
   getApiGatewayRestApis,
+  getApiGatewayRestApi,
+  createApiGatewayRestApi,
+  updateApiGatewayRestApi,
+  deleteApiGatewayRestApi,
+  getApiGatewayRestResources,
+  createApiGatewayRestResource,
+  deleteApiGatewayRestResource,
+  getApiGatewayRestMethod,
+  putApiGatewayRestMethod,
+  deleteApiGatewayRestMethod,
+  getApiGatewayRestAuthorizers,
+  getApiGatewayRestAuthorizer,
+  createApiGatewayRestAuthorizer,
+  updateApiGatewayRestAuthorizer,
+  deleteApiGatewayRestAuthorizer,
+  getApiGatewayRestStages,
+  getApiGatewayRestStage,
+  getApiGatewayRestDeployments,
+  createApiGatewayRestDeployment,
+  createApiGatewayRestStage,
+  updateApiGatewayRestStage,
+  deleteApiGatewayRestStage,
   getRoute53HostedZones,
   getSesIdentities,
   getIamUsers,
@@ -211,6 +233,28 @@ import {
   createUserPoolClient,
   updateUserPoolClient,
   deleteUserPoolClient,
+  getHttpApis,
+  getHttpApi,
+  createHttpApi,
+  updateHttpApi,
+  deleteHttpApi,
+  getHttpRoutes,
+  getHttpRoute,
+  createHttpRoute,
+  updateHttpRoute,
+  deleteHttpRoute,
+  getHttpIntegrations,
+  createHttpIntegration,
+  getHttpAuthorizers,
+  getHttpAuthorizer,
+  createHttpAuthorizer,
+  updateHttpAuthorizer,
+  deleteHttpAuthorizer,
+  getHttpStages,
+  getHttpStage,
+  createHttpStage,
+  updateHttpStage,
+  deleteHttpStage,
 } from './client';
 import type {
   DynamoDbQueryRequest,
@@ -5044,6 +5088,804 @@ describe('getApiGatewayRestApis', () => {
   });
 });
 
+describe('getApiGatewayRestApi', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed REST API detail with the encoded id when the request succeeds', async () => {
+    const payload = {
+      id: 'api 1',
+      name: 'orders-api',
+      description: 'Orders service',
+      version: '1.0',
+      apiKeySource: 'HEADER',
+      endpointConfigurationTypes: ['REGIONAL'],
+      binaryMediaTypes: ['application/octet-stream'],
+      createdDate: '2024-01-01T00:00:00+00:00',
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getApiGatewayRestApi('api 1', controller.signal);
+
+    expect(result.name).toBe('orders-api');
+    expect(result.endpointConfigurationTypes).toEqual(['REGIONAL']);
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/apigateway/restapis/api%201', {
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getApiGatewayRestApi('missing')).rejects.toThrow(
+      'API Gateway REST API request failed with status 404',
+    );
+  });
+});
+
+describe('createApiGatewayRestApi', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the REST API create request and returns the created id', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ id: 'new123' }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const request = {
+      name: 'orders-api',
+      description: 'Orders service',
+      version: '1.0',
+      apiKeySource: 'HEADER',
+      endpointConfigurationTypes: ['REGIONAL'],
+    };
+
+    const result = await createApiGatewayRestApi(request, controller.signal);
+
+    expect(result.id).toBe('new123');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/apigateway/restapis', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      createApiGatewayRestApi({
+        name: 'orders-api',
+        description: null,
+        version: null,
+        apiKeySource: null,
+        endpointConfigurationTypes: [],
+      }),
+    ).rejects.toThrow('API Gateway REST API create request failed with status 400');
+  });
+});
+
+describe('updateApiGatewayRestApi', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the REST API update request with the encoded id', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const request = {
+      name: 'orders-api',
+      description: 'Updated',
+    };
+
+    await updateApiGatewayRestApi('api 1', request, controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/apigateway/restapis/api%201', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      updateApiGatewayRestApi('api1', {
+        name: 'orders-api',
+        description: null,
+      }),
+    ).rejects.toThrow('API Gateway REST API update request failed with status 400');
+  });
+});
+
+describe('deleteApiGatewayRestApi', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('deletes the REST API with the encoded id', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await deleteApiGatewayRestApi('api 1', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/apigateway/restapis/api%201', {
+      method: 'DELETE',
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(deleteApiGatewayRestApi('missing')).rejects.toThrow(
+      'API Gateway REST API delete request failed with status 404',
+    );
+  });
+});
+
+describe('getApiGatewayRestResources', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed resources when the request succeeds', async () => {
+    const payload = {
+      resources: [
+        { id: 'res1', parentId: null, pathPart: null, path: '/', resourceMethods: [] },
+        {
+          id: 'res2',
+          parentId: 'res1',
+          pathPart: 'items',
+          path: '/items',
+          resourceMethods: ['GET', 'POST'],
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getApiGatewayRestResources('api 1', controller.signal);
+
+    expect(result.resources).toHaveLength(2);
+    expect(result.resources[1].path).toBe('/items');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigateway/restapis/api%201/resources',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getApiGatewayRestResources('missing')).rejects.toThrow(
+      'API Gateway resources request failed with status 404',
+    );
+  });
+});
+
+describe('createApiGatewayRestResource', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the resource create request and returns the created id', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ id: 'res9' }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const request = { parentId: 'res1', pathPart: 'items' };
+
+    const result = await createApiGatewayRestResource('api 1', request, controller.signal);
+
+    expect(result.id).toBe('res9');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigateway/restapis/api%201/resources',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      createApiGatewayRestResource('api1', { parentId: 'res1', pathPart: 'items' }),
+    ).rejects.toThrow('API Gateway resource create request failed with status 400');
+  });
+});
+
+describe('deleteApiGatewayRestResource', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('deletes the resource with the encoded ids', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await deleteApiGatewayRestResource('api 1', 'res 2', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigateway/restapis/api%201/resources/res%202',
+      {
+        method: 'DELETE',
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(deleteApiGatewayRestResource('api1', 'missing')).rejects.toThrow(
+      'API Gateway resource delete request failed with status 404',
+    );
+  });
+});
+
+describe('getApiGatewayRestMethod', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed method detail when the request succeeds', async () => {
+    const payload = {
+      resourceId: 'res2',
+      httpMethod: 'GET',
+      authorizationType: 'NONE',
+      authorizerId: null,
+      apiKeyRequired: false,
+      authorizationScopes: [],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getApiGatewayRestMethod('api 1', 'res 2', 'GET', controller.signal);
+
+    expect(result.httpMethod).toBe('GET');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigateway/restapis/api%201/resources/res%202/methods/GET',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getApiGatewayRestMethod('api1', 'res2', 'GET')).rejects.toThrow(
+      'API Gateway method request failed with status 404',
+    );
+  });
+});
+
+describe('putApiGatewayRestMethod', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the method request with the encoded ids', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const request = {
+      authorizationType: 'NONE',
+      authorizerId: null,
+      apiKeyRequired: false,
+      authorizationScopes: [],
+    };
+
+    await putApiGatewayRestMethod('api 1', 'res 2', 'GET', request, controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigateway/restapis/api%201/resources/res%202/methods/GET',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      putApiGatewayRestMethod('api1', 'res2', 'GET', {
+        authorizationType: 'NONE',
+        authorizerId: null,
+        apiKeyRequired: false,
+        authorizationScopes: [],
+      }),
+    ).rejects.toThrow('API Gateway method put request failed with status 400');
+  });
+});
+
+describe('deleteApiGatewayRestMethod', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('deletes the method with the encoded ids', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await deleteApiGatewayRestMethod('api 1', 'res 2', 'GET', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigateway/restapis/api%201/resources/res%202/methods/GET',
+      {
+        method: 'DELETE',
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(deleteApiGatewayRestMethod('api1', 'res2', 'GET')).rejects.toThrow(
+      'API Gateway method delete request failed with status 404',
+    );
+  });
+});
+
+describe('getApiGatewayRestAuthorizers', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed authorizer list when the request succeeds', async () => {
+    const payload = {
+      authorizers: [{ id: 'auth1', name: 'pool-authorizer', type: 'COGNITO_USER_POOLS' }],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getApiGatewayRestAuthorizers('api 1', controller.signal);
+
+    expect(result.authorizers).toHaveLength(1);
+    expect(result.authorizers[0].name).toBe('pool-authorizer');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigateway/restapis/api%201/authorizers',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getApiGatewayRestAuthorizers('missing')).rejects.toThrow(
+      'API Gateway authorizers request failed with status 404',
+    );
+  });
+});
+
+describe('getApiGatewayRestAuthorizer', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed authorizer detail when the request succeeds', async () => {
+    const payload = {
+      id: 'auth1',
+      name: 'pool-authorizer',
+      type: 'COGNITO_USER_POOLS',
+      providerARNs: ['arn:aws:cognito-idp:eu-west-1:000000000000:userpool/eu-west-1_abc'],
+      identitySource: 'method.request.header.Authorization',
+      authType: 'COGNITO_USER_POOLS',
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getApiGatewayRestAuthorizer('api 1', 'auth 1', controller.signal);
+
+    expect(result.id).toBe('auth1');
+    expect(result.providerARNs).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigateway/restapis/api%201/authorizers/auth%201',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getApiGatewayRestAuthorizer('api1', 'missing')).rejects.toThrow(
+      'API Gateway authorizer request failed with status 404',
+    );
+  });
+});
+
+describe('createApiGatewayRestAuthorizer', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the authorizer create request and returns the created id', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ id: 'auth9' }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const request = {
+      name: 'pool-authorizer',
+      type: 'COGNITO_USER_POOLS',
+      providerARNs: ['arn:aws:cognito-idp:eu-west-1:000000000000:userpool/eu-west-1_abc'],
+      identitySource: null,
+    };
+
+    const result = await createApiGatewayRestAuthorizer('api 1', request, controller.signal);
+
+    expect(result.id).toBe('auth9');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigateway/restapis/api%201/authorizers',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      createApiGatewayRestAuthorizer('api1', {
+        name: 'pool-authorizer',
+        type: 'COGNITO_USER_POOLS',
+        providerARNs: [],
+        identitySource: null,
+      }),
+    ).rejects.toThrow('API Gateway authorizer create request failed with status 400');
+  });
+});
+
+describe('updateApiGatewayRestAuthorizer', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the authorizer update request with the encoded ids', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const request = {
+      name: 'pool-authorizer',
+      type: 'COGNITO_USER_POOLS',
+      providerARNs: ['arn:aws:cognito-idp:eu-west-1:000000000000:userpool/eu-west-1_abc'],
+      identitySource: 'method.request.header.Authorization',
+    };
+
+    await updateApiGatewayRestAuthorizer('api 1', 'auth 1', request, controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigateway/restapis/api%201/authorizers/auth%201',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      updateApiGatewayRestAuthorizer('api1', 'auth1', {
+        name: 'pool-authorizer',
+        type: 'COGNITO_USER_POOLS',
+        providerARNs: [],
+        identitySource: null,
+      }),
+    ).rejects.toThrow('API Gateway authorizer update request failed with status 400');
+  });
+});
+
+describe('deleteApiGatewayRestAuthorizer', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('deletes the authorizer with the encoded ids', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await deleteApiGatewayRestAuthorizer('api 1', 'auth 2', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigateway/restapis/api%201/authorizers/auth%202',
+      {
+        method: 'DELETE',
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(deleteApiGatewayRestAuthorizer('api1', 'missing')).rejects.toThrow(
+      'API Gateway authorizer delete request failed with status 404',
+    );
+  });
+});
+
+describe('getApiGatewayRestStages', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed stage list when the request succeeds', async () => {
+    const payload = {
+      stages: [{ stageName: 'dev', deploymentId: 'deployment1', createdDate: '1970-01-01T00:00:00+00:00' }],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getApiGatewayRestStages('api 1', controller.signal);
+
+    expect(result.stages).toHaveLength(1);
+    expect(result.stages[0].stageName).toBe('dev');
+    expect(result.stages[0].deploymentId).toBe('deployment1');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigateway/restapis/api%201/stages',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getApiGatewayRestStages('missing')).rejects.toThrow(
+      'API Gateway stages request failed with status 404',
+    );
+  });
+});
+
+describe('getApiGatewayRestStage', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed stage detail when the request succeeds', async () => {
+    const payload = {
+      stageName: 'dev',
+      deploymentId: 'deployment1',
+      description: 'Development stage',
+      cacheClusterEnabled: true,
+      variables: { key: 'value' },
+      createdDate: '1970-01-01T00:00:00+00:00',
+      lastUpdatedDate: '1970-01-02T00:00:00+00:00',
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getApiGatewayRestStage('api 1', 'dev 1', controller.signal);
+
+    expect(result.stageName).toBe('dev');
+    expect(result.variables.key).toBe('value');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigateway/restapis/api%201/stages/dev%201',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getApiGatewayRestStage('api1', 'missing')).rejects.toThrow(
+      'API Gateway stage request failed with status 404',
+    );
+  });
+});
+
+describe('getApiGatewayRestDeployments', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed deployment list when the request succeeds', async () => {
+    const payload = {
+      deployments: [{ id: 'deployment1', description: 'Initial deployment', createdDate: '1970-01-01T00:00:00+00:00' }],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getApiGatewayRestDeployments('api 1', controller.signal);
+
+    expect(result.deployments).toHaveLength(1);
+    expect(result.deployments[0].id).toBe('deployment1');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigateway/restapis/api%201/deployments',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getApiGatewayRestDeployments('missing')).rejects.toThrow(
+      'API Gateway deployments request failed with status 404',
+    );
+  });
+});
+
+describe('createApiGatewayRestDeployment', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the deployment create request and returns the created id', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ id: 'deployment9' }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const request = { stageName: 'dev', description: 'Initial deployment' };
+
+    const result = await createApiGatewayRestDeployment('api 1', request, controller.signal);
+
+    expect(result.id).toBe('deployment9');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigateway/restapis/api%201/deployments',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      createApiGatewayRestDeployment('api1', { stageName: null, description: null }),
+    ).rejects.toThrow('API Gateway deployment create request failed with status 400');
+  });
+});
+
+describe('createApiGatewayRestStage', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the stage create request and returns the created stage name', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ stageName: 'dev' }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const request = {
+      stageName: 'dev',
+      deploymentId: 'deployment1',
+      description: 'Development stage',
+      variables: { key: 'value' },
+    };
+
+    const result = await createApiGatewayRestStage('api 1', request, controller.signal);
+
+    expect(result.stageName).toBe('dev');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigateway/restapis/api%201/stages',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      createApiGatewayRestStage('api1', {
+        stageName: 'dev',
+        deploymentId: 'deployment1',
+        description: null,
+        variables: null,
+      }),
+    ).rejects.toThrow('API Gateway stage create request failed with status 400');
+  });
+});
+
+describe('updateApiGatewayRestStage', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the stage update request with the encoded ids', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const request = { description: 'Updated description', variables: { key: 'value' } };
+
+    await updateApiGatewayRestStage('api 1', 'dev 1', request, controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigateway/restapis/api%201/stages/dev%201',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      updateApiGatewayRestStage('api1', 'dev', { description: null, variables: null }),
+    ).rejects.toThrow('API Gateway stage update request failed with status 400');
+  });
+});
+
+describe('deleteApiGatewayRestStage', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('deletes the stage with the encoded ids', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await deleteApiGatewayRestStage('api 1', 'dev 2', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigateway/restapis/api%201/stages/dev%202',
+      {
+        method: 'DELETE',
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(deleteApiGatewayRestStage('api1', 'missing')).rejects.toThrow(
+      'API Gateway stage delete request failed with status 404',
+    );
+  });
+});
+
 describe('getRoute53HostedZones', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -7648,6 +8490,898 @@ describe('deleteUserPoolClient', () => {
 
     await expect(deleteUserPoolClient('eu-west-1_abc123', 'missing')).rejects.toThrow(
       'Cognito user pool client delete request failed with status 404',
+    );
+  });
+});
+
+describe('getHttpApis', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed HTTP APIs when the request succeeds', async () => {
+    const payload = {
+      apis: [
+        {
+          apiId: 'abc123',
+          name: 'orders',
+          protocolType: 'HTTP',
+          apiEndpoint: 'https://abc123.execute-api.localhost',
+          createdDate: '2024-01-01T00:00:00+00:00',
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getHttpApis(controller.signal);
+
+    expect(result.apis).toHaveLength(1);
+    expect(result.apis[0].apiId).toBe('abc123');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/apigatewayv2/apis', {
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getHttpApis()).rejects.toThrow(
+      'API Gateway v2 APIs request failed with status 503',
+    );
+  });
+});
+
+describe('getHttpApi', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed HTTP API with the encoded id when the request succeeds', async () => {
+    const payload = {
+      apiId: 'abc 123',
+      name: 'orders',
+      protocolType: 'HTTP',
+      apiEndpoint: 'https://abc123.execute-api.localhost',
+      description: 'Order API',
+      version: '1.0',
+      routeSelectionExpression: '$request.method $request.path',
+      corsConfiguration: {
+        allowCredentials: true,
+        allowHeaders: ['*'],
+        allowMethods: ['GET'],
+        allowOrigins: ['*'],
+        exposeHeaders: [],
+        maxAge: 600,
+      },
+      createdDate: '2024-01-01T00:00:00+00:00',
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getHttpApi('abc 123', controller.signal);
+
+    expect(result.name).toBe('orders');
+    expect(result.corsConfiguration?.maxAge).toBe(600);
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/apigatewayv2/apis/abc%20123', {
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getHttpApi('missing')).rejects.toThrow(
+      'API Gateway v2 API request failed with status 404',
+    );
+  });
+});
+
+describe('createHttpApi', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the HTTP API create request and returns the created id', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ apiId: 'new123' }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const request = {
+      name: 'orders',
+      protocolType: 'HTTP',
+      description: 'Order API',
+      version: '1.0',
+      routeSelectionExpression: null,
+    };
+
+    const result = await createHttpApi(request, controller.signal);
+
+    expect(result.apiId).toBe('new123');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/apigatewayv2/apis', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      createHttpApi({
+        name: 'orders',
+        protocolType: 'HTTP',
+        description: null,
+        version: null,
+        routeSelectionExpression: null,
+      }),
+    ).rejects.toThrow('API Gateway v2 API create request failed with status 400');
+  });
+});
+
+describe('updateHttpApi', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the HTTP API update request with the encoded id', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const request = {
+      name: 'orders',
+      protocolType: 'HTTP',
+      description: 'Updated',
+      version: '2.0',
+      routeSelectionExpression: null,
+    };
+
+    await updateHttpApi('abc 123', request, controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/apigatewayv2/apis/abc%20123', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      updateHttpApi('abc123', {
+        name: 'orders',
+        protocolType: 'HTTP',
+        description: null,
+        version: null,
+        routeSelectionExpression: null,
+      }),
+    ).rejects.toThrow('API Gateway v2 API update request failed with status 400');
+  });
+});
+
+describe('deleteHttpApi', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('deletes the HTTP API with the encoded id', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await deleteHttpApi('abc 123', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/apigatewayv2/apis/abc%20123', {
+      method: 'DELETE',
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(deleteHttpApi('missing')).rejects.toThrow(
+      'API Gateway v2 API delete request failed with status 404',
+    );
+  });
+});
+
+describe('getHttpRoutes', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed routes with the encoded id when the request succeeds', async () => {
+    const payload = {
+      routes: [
+        {
+          routeId: 'route1',
+          routeKey: 'GET /items',
+          target: 'integrations/int1',
+          authorizationType: 'NONE',
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getHttpRoutes('abc 123', controller.signal);
+
+    expect(result.routes).toHaveLength(1);
+    expect(result.routes[0].routeKey).toBe('GET /items');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigatewayv2/apis/abc%20123/routes',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getHttpRoutes('abc123')).rejects.toThrow(
+      'API Gateway v2 routes request failed with status 503',
+    );
+  });
+});
+
+describe('getHttpRoute', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed route detail with the encoded ids when the request succeeds', async () => {
+    const payload = {
+      routeId: 'route 1',
+      routeKey: 'GET /items',
+      target: 'integrations/int1',
+      authorizationType: 'JWT',
+      authorizerId: 'auth1',
+      authorizationScopes: ['scope.read'],
+      apiKeyRequired: true,
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getHttpRoute('abc 123', 'route 1', controller.signal);
+
+    expect(result.authorizerId).toBe('auth1');
+    expect(result.authorizationScopes).toEqual(['scope.read']);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigatewayv2/apis/abc%20123/routes/route%201',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getHttpRoute('abc123', 'missing')).rejects.toThrow(
+      'API Gateway v2 route request failed with status 404',
+    );
+  });
+});
+
+describe('createHttpRoute', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the route create request and returns the created id', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ routeId: 'newRoute' }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const request = {
+      routeKey: 'GET /items',
+      target: 'integrations/int1',
+      authorizationType: 'NONE',
+      authorizerId: null,
+      authorizationScopes: null,
+    };
+
+    const result = await createHttpRoute('abc 123', request, controller.signal);
+
+    expect(result.routeId).toBe('newRoute');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigatewayv2/apis/abc%20123/routes',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      createHttpRoute('abc123', {
+        routeKey: 'GET /items',
+        target: null,
+        authorizationType: null,
+        authorizerId: null,
+        authorizationScopes: null,
+      }),
+    ).rejects.toThrow('API Gateway v2 route create request failed with status 400');
+  });
+});
+
+describe('updateHttpRoute', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the route update request with the encoded ids', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const request = {
+      routeKey: 'POST /items',
+      target: 'integrations/int2',
+      authorizationType: 'NONE',
+      authorizerId: null,
+      authorizationScopes: null,
+    };
+
+    await updateHttpRoute('abc 123', 'route 1', request, controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigatewayv2/apis/abc%20123/routes/route%201',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      updateHttpRoute('abc123', 'route1', {
+        routeKey: 'POST /items',
+        target: null,
+        authorizationType: null,
+        authorizerId: null,
+        authorizationScopes: null,
+      }),
+    ).rejects.toThrow('API Gateway v2 route update request failed with status 400');
+  });
+});
+
+describe('deleteHttpRoute', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('deletes the route with the encoded ids', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await deleteHttpRoute('abc 123', 'route 1', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigatewayv2/apis/abc%20123/routes/route%201',
+      {
+        method: 'DELETE',
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(deleteHttpRoute('abc123', 'missing')).rejects.toThrow(
+      'API Gateway v2 route delete request failed with status 404',
+    );
+  });
+});
+
+describe('getHttpIntegrations', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed integrations with the encoded id when the request succeeds', async () => {
+    const payload = {
+      integrations: [
+        {
+          integrationId: 'int1',
+          integrationType: 'HTTP_PROXY',
+          integrationMethod: 'GET',
+          integrationUri: 'https://example.test',
+          payloadFormatVersion: '1.0',
+          description: 'proxy',
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getHttpIntegrations('abc 123', controller.signal);
+
+    expect(result.integrations).toHaveLength(1);
+    expect(result.integrations[0].integrationType).toBe('HTTP_PROXY');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigatewayv2/apis/abc%20123/integrations',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getHttpIntegrations('abc123')).rejects.toThrow(
+      'API Gateway v2 integrations request failed with status 503',
+    );
+  });
+});
+
+describe('createHttpIntegration', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the integration create request and returns the created id', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ integrationId: 'newInt' }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const request = {
+      integrationType: 'HTTP_PROXY',
+      integrationMethod: 'GET',
+      integrationUri: 'https://example.test',
+      payloadFormatVersion: '1.0',
+      description: 'proxy',
+    };
+
+    const result = await createHttpIntegration('abc 123', request, controller.signal);
+
+    expect(result.integrationId).toBe('newInt');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigatewayv2/apis/abc%20123/integrations',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      createHttpIntegration('abc123', {
+        integrationType: 'HTTP_PROXY',
+        integrationMethod: null,
+        integrationUri: null,
+        payloadFormatVersion: null,
+        description: null,
+      }),
+    ).rejects.toThrow('API Gateway v2 integration create request failed with status 400');
+  });
+});
+
+describe('getHttpAuthorizers', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed authorizers with the encoded id when the request succeeds', async () => {
+    const payload = {
+      authorizers: [
+        {
+          authorizerId: 'auth1',
+          name: 'jwt-authorizer',
+          authorizerType: 'JWT',
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getHttpAuthorizers('abc 123', controller.signal);
+
+    expect(result.authorizers).toHaveLength(1);
+    expect(result.authorizers[0].name).toBe('jwt-authorizer');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigatewayv2/apis/abc%20123/authorizers',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getHttpAuthorizers('abc123')).rejects.toThrow(
+      'API Gateway v2 authorizers request failed with status 503',
+    );
+  });
+});
+
+describe('getHttpAuthorizer', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed authorizer detail with the encoded ids when the request succeeds', async () => {
+    const payload = {
+      authorizerId: 'auth 1',
+      name: 'jwt-authorizer',
+      authorizerType: 'JWT',
+      identitySource: ['$request.header.Authorization'],
+      jwtIssuer: 'https://issuer.test',
+      jwtAudience: ['audience1'],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getHttpAuthorizer('abc 123', 'auth 1', controller.signal);
+
+    expect(result.jwtIssuer).toBe('https://issuer.test');
+    expect(result.jwtAudience).toEqual(['audience1']);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigatewayv2/apis/abc%20123/authorizers/auth%201',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getHttpAuthorizer('abc123', 'missing')).rejects.toThrow(
+      'API Gateway v2 authorizer request failed with status 404',
+    );
+  });
+});
+
+describe('createHttpAuthorizer', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the authorizer create request and returns the created id', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ authorizerId: 'newAuth' }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const request = {
+      name: 'jwt-authorizer',
+      authorizerType: 'JWT',
+      identitySource: ['$request.header.Authorization'],
+      jwtIssuer: 'https://issuer.test',
+      jwtAudience: ['audience1'],
+    };
+
+    const result = await createHttpAuthorizer('abc 123', request, controller.signal);
+
+    expect(result.authorizerId).toBe('newAuth');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigatewayv2/apis/abc%20123/authorizers',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      createHttpAuthorizer('abc123', {
+        name: 'jwt-authorizer',
+        authorizerType: 'JWT',
+        identitySource: [],
+        jwtIssuer: null,
+        jwtAudience: [],
+      }),
+    ).rejects.toThrow('API Gateway v2 authorizer create request failed with status 400');
+  });
+});
+
+describe('updateHttpAuthorizer', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the authorizer update request with the encoded ids', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const request = {
+      name: 'jwt-authorizer',
+      authorizerType: 'JWT',
+      identitySource: ['$request.header.Authorization'],
+      jwtIssuer: 'https://issuer.test',
+      jwtAudience: ['audience1'],
+    };
+
+    await updateHttpAuthorizer('abc 123', 'auth 1', request, controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigatewayv2/apis/abc%20123/authorizers/auth%201',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      updateHttpAuthorizer('abc123', 'auth1', {
+        name: 'jwt-authorizer',
+        authorizerType: 'JWT',
+        identitySource: [],
+        jwtIssuer: null,
+        jwtAudience: [],
+      }),
+    ).rejects.toThrow('API Gateway v2 authorizer update request failed with status 400');
+  });
+});
+
+describe('deleteHttpAuthorizer', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('deletes the authorizer with the encoded ids', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await deleteHttpAuthorizer('abc 123', 'auth 1', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigatewayv2/apis/abc%20123/authorizers/auth%201',
+      {
+        method: 'DELETE',
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(deleteHttpAuthorizer('abc123', 'missing')).rejects.toThrow(
+      'API Gateway v2 authorizer delete request failed with status 404',
+    );
+  });
+});
+
+describe('getHttpStages', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed stages with the encoded id when the request succeeds', async () => {
+    const payload = {
+      stages: [
+        {
+          stageName: 'dev',
+          autoDeploy: true,
+          deploymentId: 'deploy1',
+          createdDate: '1970-01-01T00:00:00+00:00',
+        },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getHttpStages('abc 123', controller.signal);
+
+    expect(result.stages).toHaveLength(1);
+    expect(result.stages[0].stageName).toBe('dev');
+    expect(result.stages[0].autoDeploy).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigatewayv2/apis/abc%20123/stages',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getHttpStages('abc123')).rejects.toThrow(
+      'API Gateway v2 stages request failed with status 503',
+    );
+  });
+});
+
+describe('getHttpStage', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed stage detail with the encoded ids when the request succeeds', async () => {
+    const payload = {
+      stageName: 'dev',
+      autoDeploy: true,
+      deploymentId: 'deploy1',
+      description: 'Development stage',
+      defaultRouteThrottlingBurstLimit: 100,
+      defaultRouteThrottlingRateLimit: 50,
+      stageVariables: { color: 'blue' },
+      createdDate: '1970-01-01T00:00:00+00:00',
+      lastUpdatedDate: '1970-01-02T00:00:00+00:00',
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getHttpStage('abc 123', 'dev stage', controller.signal);
+
+    expect(result.description).toBe('Development stage');
+    expect(result.defaultRouteThrottlingBurstLimit).toBe(100);
+    expect(result.stageVariables).toEqual({ color: 'blue' });
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigatewayv2/apis/abc%20123/stages/dev%20stage',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getHttpStage('abc123', 'missing')).rejects.toThrow(
+      'API Gateway v2 stage request failed with status 404',
+    );
+  });
+});
+
+describe('createHttpStage', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the stage create request and returns the created name', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ stageName: 'dev' }) });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const request = {
+      stageName: 'dev',
+      autoDeploy: true,
+      description: 'Development stage',
+      defaultRouteThrottlingBurstLimit: 100,
+      defaultRouteThrottlingRateLimit: 50,
+      stageVariables: { color: 'blue' },
+    };
+
+    const result = await createHttpStage('abc 123', request, controller.signal);
+
+    expect(result.stageName).toBe('dev');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigatewayv2/apis/abc%20123/stages',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      createHttpStage('abc123', {
+        stageName: 'dev',
+        autoDeploy: false,
+        description: null,
+        defaultRouteThrottlingBurstLimit: null,
+        defaultRouteThrottlingRateLimit: null,
+        stageVariables: {},
+      }),
+    ).rejects.toThrow('API Gateway v2 stage create request failed with status 400');
+  });
+});
+
+describe('updateHttpStage', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the stage update request with the encoded ids', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const request = {
+      autoDeploy: true,
+      description: 'Development stage',
+      defaultRouteThrottlingBurstLimit: 100,
+      defaultRouteThrottlingRateLimit: 50,
+      stageVariables: { color: 'blue' },
+    };
+
+    await updateHttpStage('abc 123', 'dev stage', request, controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigatewayv2/apis/abc%20123/stages/dev%20stage',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      updateHttpStage('abc123', 'dev', {
+        autoDeploy: false,
+        description: null,
+        defaultRouteThrottlingBurstLimit: null,
+        defaultRouteThrottlingRateLimit: null,
+        stageVariables: {},
+      }),
+    ).rejects.toThrow('API Gateway v2 stage update request failed with status 400');
+  });
+});
+
+describe('deleteHttpStage', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('deletes the stage with the encoded ids', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await deleteHttpStage('abc 123', 'dev stage', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/apigatewayv2/apis/abc%20123/stages/dev%20stage',
+      {
+        method: 'DELETE',
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(deleteHttpStage('abc123', 'missing')).rejects.toThrow(
+      'API Gateway v2 stage delete request failed with status 404',
     );
   });
 });

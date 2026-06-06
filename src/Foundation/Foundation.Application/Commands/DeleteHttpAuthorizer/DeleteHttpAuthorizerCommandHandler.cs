@@ -1,0 +1,77 @@
+using AspNet.KickStarter.CQRS.Abstractions.Commands;
+using AspNet.KickStarter.FunctionalResult;
+using Foundation.Application.Activity;
+using Foundation.Application.ApiGatewayV2;
+using Foundation.Application.Search;
+using Foundation.Application.Streaming;
+using Foundation.Domain.Activity;
+using Foundation.Domain.Streaming;
+using Microsoft.Extensions.Logging;
+
+namespace Foundation.Application.Commands.DeleteHttpAuthorizer;
+
+internal sealed partial class DeleteHttpAuthorizerCommandHandler : ICommandHandler<DeleteHttpAuthorizerCommand>
+{
+    private const string OperationName = "apigatewayv2-delete-authorizer";
+
+    private readonly IApiGatewayV2Client _client;
+    private readonly INotificationPublisher _publisher;
+    private readonly IActivityLog _activityLog;
+    private readonly ISearchRefreshTrigger _searchRefresh;
+    private readonly ILogger _logger;
+
+    public DeleteHttpAuthorizerCommandHandler(
+        IApiGatewayV2Client client,
+        INotificationPublisher publisher,
+        IActivityLog activityLog,
+        ISearchRefreshTrigger searchRefresh,
+        ILogger<DeleteHttpAuthorizerCommandHandler> logger)
+    {
+        _client = client;
+        _publisher = publisher;
+        _activityLog = activityLog;
+        _searchRefresh = searchRefresh;
+        _logger = logger;
+    }
+
+    public async Task<Result> Handle(DeleteHttpAuthorizerCommand request, CancellationToken cancellationToken)
+    {
+        LogHandling(request.AuthorizerId, request.ApiId);
+        var operationId = Guid.NewGuid().ToString();
+
+        await _publisher.PublishAsync(
+            new Notification(operationId, OperationName, OperationState.InProgress,
+                $"Deleting authorizer {request.AuthorizerId}.", DateTimeOffset.UtcNow),
+            cancellationToken);
+
+        var result = await _client.DeleteAuthorizerAsync(request.ApiId, request.AuthorizerId, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            var failure = $"Failed to delete authorizer {request.AuthorizerId}: {result.Error!.Value.Message}";
+            await PublishOutcomeAsync(operationId, OperationState.Failed, failure, cancellationToken);
+            return result.Error!.Value;
+        }
+
+        await PublishOutcomeAsync(operationId, OperationState.Succeeded,
+            $"Deleted authorizer {request.AuthorizerId}.", cancellationToken);
+        _searchRefresh.RequestRefresh();
+
+        LogHandled();
+        return Result.Success();
+    }
+
+    private async Task PublishOutcomeAsync(string operationId, OperationState state, string message, CancellationToken cancellationToken)
+    {
+        await _publisher.PublishAsync(
+            new Notification(operationId, OperationName, state, message, DateTimeOffset.UtcNow),
+            cancellationToken);
+        _activityLog.Append(
+            new ActivityEntry(operationId, OperationName, state, message, DateTimeOffset.UtcNow));
+    }
+
+    [LoggerMessage(LogLevel.Trace, "Deleting API Gateway v2 authorizer {AuthorizerId} for {ApiId}.")]
+    private partial void LogHandling(string authorizerId, string apiId);
+
+    [LoggerMessage(LogLevel.Trace, "API Gateway v2 delete authorizer handled.")]
+    private partial void LogHandled();
+}

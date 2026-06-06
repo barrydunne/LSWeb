@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LambdaEnvironmentTab } from './LambdaEnvironmentTab';
 import { getLambdaEnvironment, updateLambdaEnvironment } from '../../api/client';
@@ -29,7 +29,8 @@ describe('LambdaEnvironmentTab', () => {
   });
 
   afterEach(() => {
-    vi.resetAllMocks();
+    cleanup();
+    vi.clearAllMocks();
   });
 
   it('shows a loading state before the environment arrives', () => {

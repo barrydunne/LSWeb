@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <PackageReference Include="AWSSDK.APIGateway" />
+    <PackageReference Include="AWSSDK.ApiGatewayV2" />
     <PackageReference Include="AWSSDK.CertificateManager" />
     <PackageReference Include="AWSSDK.CloudFormation" />
     <PackageReference Include="AWSSDK.CloudWatchLogs" />

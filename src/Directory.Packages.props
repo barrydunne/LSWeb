@@ -9,6 +9,7 @@
     <PackageVersion Include="AspNet.KickStarter.CQRS" Version="1.5.0" />
     <PackageVersion Include="AspNet.KickStarter.FunctionalResult" Version="1.5.0" />
     <PackageVersion Include="AWSSDK.APIGateway" Version="4.0.5.3" />
+    <PackageVersion Include="AWSSDK.ApiGatewayV2" Version="4.0.6.7" />
     <PackageVersion Include="AWSSDK.CertificateManager" Version="4.0.3.3" />
     <PackageVersion Include="AWSSDK.CloudFormation" Version="4.0.9.4" />
     <PackageVersion Include="AWSSDK.CloudWatchLogs" Version="4.0.26.3" />

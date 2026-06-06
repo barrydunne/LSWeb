@@ -12,6 +12,7 @@ public static class ServiceCatalogue
     [
         new("acm", "Certificate Manager", ServiceCategory.Security, "verified", "/services/acm"),
         new("apigateway", "API Gateway", ServiceCategory.Compute, "globe", "/services/apigateway"),
+        new("apigatewayv2", "API Gateway v2", ServiceCategory.Compute, "globe", "/services/apigatewayv2"),
         new("cloudwatch-logs", "CloudWatch Logs", ServiceCategory.Monitoring, "log", "/services/cloudwatch-logs"),
         new("cognito", "Cognito", ServiceCategory.Security, "users", "/services/cognito"),
         new("dynamodb", "DynamoDB", ServiceCategory.Database, "database", "/services/dynamodb"),

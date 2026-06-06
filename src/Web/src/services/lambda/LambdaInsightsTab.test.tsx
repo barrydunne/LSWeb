@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { LambdaInsightsTab } from './LambdaInsightsTab';
 import { getLambdaInvocationInsights } from '../../api/client';
@@ -39,7 +39,8 @@ function renderTab() {
 
 describe('LambdaInsightsTab', () => {
   afterEach(() => {
-    vi.resetAllMocks();
+    cleanup();
+    vi.clearAllMocks();
   });
 
   it('shows a loading state before insights arrive', () => {

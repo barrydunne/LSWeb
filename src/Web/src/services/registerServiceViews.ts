@@ -26,12 +26,15 @@ const CloudFormationDetailView = lazy(() => import('./cloudformation/CloudFormat
 const EventBridgeListView = lazy(() => import('./eventbridge/EventBridgeListView'));
 const AcmListView = lazy(() => import('./acm/AcmListView'));
 const ApiGatewayListView = lazy(() => import('./apigateway/ApiGatewayListView'));
+const ApiGatewayDetailView = lazy(() => import('./apigateway/ApiGatewayDetailView'));
 const Route53ListView = lazy(() => import('./route53/Route53ListView'));
 const SesListView = lazy(() => import('./ses/SesListView'));
 const SchedulerListView = lazy(() => import('./scheduler/SchedulerListView'));
 const SchedulerDetailView = lazy(() => import('./scheduler/SchedulerDetailView'));
 const CognitoListView = lazy(() => import('./cognito/CognitoListView'));
 const CognitoDetailView = lazy(() => import('./cognito/CognitoDetailView'));
+const ApiGatewayV2ListView = lazy(() => import('./apigatewayv2/ApiGatewayV2ListView'));
+const ApiGatewayV2DetailView = lazy(() => import('./apigatewayv2/ApiGatewayV2DetailView'));
 
 let registered = false;
 
@@ -69,7 +72,10 @@ export function registerServiceViews(): void {
   });
   registerServiceView('eventbridge', { list: EventBridgeListView });
   registerServiceView('acm', { list: AcmListView });
-  registerServiceView('apigateway', { list: ApiGatewayListView });
+  registerServiceView('apigateway', {
+    list: ApiGatewayListView,
+    detail: ApiGatewayDetailView,
+  });
   registerServiceView('route53', { list: Route53ListView });
   registerServiceView('ses', { list: SesListView });
   registerServiceView('scheduler', {
@@ -79,6 +85,10 @@ export function registerServiceViews(): void {
   registerServiceView('cognito', {
     list: CognitoListView,
     detail: CognitoDetailView,
+  });
+  registerServiceView('apigatewayv2', {
+    list: ApiGatewayV2ListView,
+    detail: ApiGatewayV2DetailView,
   });
 }
 

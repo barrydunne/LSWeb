@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { LambdaLayersTab } from './LambdaLayersTab';
 import { getLambdaLayers, resolveReference } from '../../api/client';
@@ -30,7 +30,8 @@ describe('LambdaLayersTab', () => {
   });
 
   afterEach(() => {
-    vi.resetAllMocks();
+    cleanup();
+    vi.clearAllMocks();
   });
 
   it('shows a loading state before layers arrive', () => {

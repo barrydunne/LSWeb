@@ -1,0 +1,47 @@
+using FluentValidation;
+using FluentValidation.Results;
+using Microsoft.Extensions.Logging;
+
+namespace Foundation.Application.Commands.UpdateRestStage;
+
+internal sealed partial class UpdateRestStageCommandValidator
+    : AbstractValidator<UpdateRestStageCommand>
+{
+    private const int MaxStageNameLength = 128;
+    private const string StageNamePattern = "^[\\w-]+$";
+
+    private readonly ILogger _logger;
+
+    public UpdateRestStageCommandValidator(
+        ILogger<UpdateRestStageCommandValidator> logger)
+    {
+        _logger = logger;
+
+        RuleFor(_ => _.RestApiId)
+            .Cascade(CascadeMode.Stop)
+            .NotNull()
+            .NotEmpty();
+
+        RuleFor(_ => _.StageName)
+            .Cascade(CascadeMode.Stop)
+            .NotNull()
+            .NotEmpty()
+            .MaximumLength(MaxStageNameLength)
+            .Matches(StageNamePattern)
+                .WithMessage("Stage name may only contain letters, numbers, underscores and hyphens.");
+    }
+
+    public override async Task<ValidationResult> ValidateAsync(
+        ValidationContext<UpdateRestStageCommand> context,
+        CancellationToken cancellation = default)
+    {
+        var result = await base.ValidateAsync(context, cancellation);
+        if (!result.IsValid)
+            LogValidationFailure(result.ToString());
+
+        return result;
+    }
+
+    [LoggerMessage(LogLevel.Warning, "UpdateRestStageCommand validation failure: {Error}")]
+    private partial void LogValidationFailure(string error);
+}

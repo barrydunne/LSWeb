@@ -3,6 +3,7 @@ using Amazon.APIGateway;
 using Amazon.APIGateway.Model;
 using AspNet.KickStarter.FunctionalResult;
 using Foundation.Application.ApiGateway;
+using Foundation.Domain.ApiGateway;
 using Foundation.Infrastructure.Aws;
 using DomainRestApi = Foundation.Domain.ApiGateway.RestApi;
 using SdkRestApi = Amazon.APIGateway.Model.RestApi;
@@ -50,12 +51,614 @@ internal sealed class ApiGatewayClientAdapter : IApiGatewayClient
             },
             cancellationToken);
 
+    public Task<Result<RestApiDetail>> GetRestApiAsync(
+        string restApiId, CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonAPIGatewayClient, RestApiDetail>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var response = await client.GetRestApiAsync(
+                    new GetRestApiRequest { RestApiId = restApiId },
+                    token);
+
+                return ToDetail(response);
+            },
+            cancellationToken);
+
+    public Task<Result<string>> CreateRestApiAsync(
+        RestApiSpecification specification, CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonAPIGatewayClient, string>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var request = new CreateRestApiRequest
+                {
+                    Name = specification.Name,
+                    Description = specification.Description,
+                    Version = specification.Version,
+                    ApiKeySource = string.IsNullOrEmpty(specification.ApiKeySource)
+                        ? null
+                        : ApiKeySourceType.FindValue(specification.ApiKeySource),
+                };
+
+                if (specification.EndpointConfigurationTypes.Count > 0)
+                {
+                    request.EndpointConfiguration = new EndpointConfiguration
+                    {
+                        Types = [.. specification.EndpointConfigurationTypes],
+                    };
+                }
+
+                var response = await client.CreateRestApiAsync(request, token);
+                return response.Id ?? string.Empty;
+            },
+            cancellationToken);
+
+    public async Task<Result> UpdateRestApiAsync(
+        RestApiSpecification specification, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonAPIGatewayClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var patchOperations = new List<PatchOperation>
+                {
+                    new() { Op = Op.Replace, Path = "/name", Value = specification.Name },
+                    new()
+                    {
+                        Op = Op.Replace,
+                        Path = "/description",
+                        Value = specification.Description ?? string.Empty,
+                    },
+                };
+
+                await client.UpdateRestApiAsync(
+                    new UpdateRestApiRequest
+                    {
+                        RestApiId = specification.Id,
+                        PatchOperations = patchOperations,
+                    },
+                    token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    public async Task<Result> DeleteRestApiAsync(
+        string restApiId, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonAPIGatewayClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                await client.DeleteRestApiAsync(
+                    new DeleteRestApiRequest { RestApiId = restApiId },
+                    token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    public Task<Result<IReadOnlyList<RestResourceSummary>>> ListResourcesAsync(
+        string restApiId, CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonAPIGatewayClient, IReadOnlyList<RestResourceSummary>>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var resources = new List<RestResourceSummary>();
+                string? position = null;
+
+                do
+                {
+                    var response = await client.GetResourcesAsync(
+                        new GetResourcesRequest { RestApiId = restApiId, Position = position },
+                        token);
+
+                    foreach (var item in response.Items ?? [])
+                        resources.Add(ToResourceSummary(item));
+
+                    position = response.Position;
+                }
+                while (!string.IsNullOrEmpty(position));
+
+                return resources;
+            },
+            cancellationToken);
+
+    public Task<Result<string>> CreateResourceAsync(
+        RestResourceSpecification specification, CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonAPIGatewayClient, string>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var response = await client.CreateResourceAsync(
+                    new CreateResourceRequest
+                    {
+                        RestApiId = specification.RestApiId,
+                        ParentId = specification.ParentId,
+                        PathPart = specification.PathPart,
+                    },
+                    token);
+
+                return response.Id ?? string.Empty;
+            },
+            cancellationToken);
+
+    public async Task<Result> DeleteResourceAsync(
+        string restApiId, string resourceId, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonAPIGatewayClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                await client.DeleteResourceAsync(
+                    new DeleteResourceRequest { RestApiId = restApiId, ResourceId = resourceId },
+                    token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    public Task<Result<RestMethodDetail>> GetMethodAsync(
+        string restApiId, string resourceId, string httpMethod, CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonAPIGatewayClient, RestMethodDetail>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var response = await client.GetMethodAsync(
+                    new GetMethodRequest
+                    {
+                        RestApiId = restApiId,
+                        ResourceId = resourceId,
+                        HttpMethod = httpMethod,
+                    },
+                    token);
+
+                return ToMethodDetail(resourceId, response);
+            },
+            cancellationToken);
+
+    public async Task<Result> PutMethodAsync(
+        RestMethodSpecification specification, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonAPIGatewayClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                await client.PutMethodAsync(
+                    new PutMethodRequest
+                    {
+                        RestApiId = specification.RestApiId,
+                        ResourceId = specification.ResourceId,
+                        HttpMethod = specification.HttpMethod,
+                        AuthorizationType = specification.AuthorizationType,
+                        AuthorizerId = string.IsNullOrEmpty(specification.AuthorizerId)
+                            ? null
+                            : specification.AuthorizerId,
+                        ApiKeyRequired = specification.ApiKeyRequired,
+                        AuthorizationScopes = specification.AuthorizationScopes.Count > 0
+                            ? [.. specification.AuthorizationScopes]
+                            : null,
+                    },
+                    token);
+
+                await client.PutIntegrationAsync(
+                    new PutIntegrationRequest
+                    {
+                        RestApiId = specification.RestApiId,
+                        ResourceId = specification.ResourceId,
+                        HttpMethod = specification.HttpMethod,
+                        Type = IntegrationType.MOCK,
+                        RequestTemplates = new Dictionary<string, string>
+                        {
+                            ["application/json"] = "{\"statusCode\": 200}",
+                        },
+                    },
+                    token);
+
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    public async Task<Result> DeleteMethodAsync(
+        string restApiId, string resourceId, string httpMethod, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonAPIGatewayClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                await client.DeleteMethodAsync(
+                    new DeleteMethodRequest
+                    {
+                        RestApiId = restApiId,
+                        ResourceId = resourceId,
+                        HttpMethod = httpMethod,
+                    },
+                    token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    public Task<Result<IReadOnlyList<RestAuthorizerSummary>>> ListAuthorizersAsync(
+        string restApiId, CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonAPIGatewayClient, IReadOnlyList<RestAuthorizerSummary>>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var authorizers = new List<RestAuthorizerSummary>();
+                string? position = null;
+
+                do
+                {
+                    var response = await client.GetAuthorizersAsync(
+                        new GetAuthorizersRequest { RestApiId = restApiId, Position = position },
+                        token);
+
+                    foreach (var item in response.Items ?? [])
+                        authorizers.Add(ToAuthorizerSummary(item));
+
+                    position = response.Position;
+                }
+                while (!string.IsNullOrEmpty(position));
+
+                return authorizers;
+            },
+            cancellationToken);
+
+    public Task<Result<RestAuthorizerDetail>> GetAuthorizerAsync(
+        string restApiId, string authorizerId, CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonAPIGatewayClient, RestAuthorizerDetail>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var response = await client.GetAuthorizerAsync(
+                    new GetAuthorizerRequest { RestApiId = restApiId, AuthorizerId = authorizerId },
+                    token);
+
+                return ToAuthorizerDetail(response.Id, response.Name, response.Type,
+                    response.ProviderARNs, response.IdentitySource, response.AuthType);
+            },
+            cancellationToken);
+
+    public Task<Result<string>> CreateAuthorizerAsync(
+        RestAuthorizerSpecification specification, CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonAPIGatewayClient, string>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var response = await client.CreateAuthorizerAsync(
+                    new CreateAuthorizerRequest
+                    {
+                        RestApiId = specification.RestApiId,
+                        Name = specification.Name,
+                        Type = AuthorizerType.COGNITO_USER_POOLS,
+                        ProviderARNs = [.. specification.ProviderARNs],
+                        IdentitySource = string.IsNullOrEmpty(specification.IdentitySource)
+                            ? "method.request.header.Authorization"
+                            : specification.IdentitySource,
+                    },
+                    token);
+
+                return response.Id ?? string.Empty;
+            },
+            cancellationToken);
+
+    public async Task<Result> UpdateAuthorizerAsync(
+        RestAuthorizerSpecification specification, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonAPIGatewayClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var patchOperations = new List<PatchOperation>
+                {
+                    new() { Op = Op.Replace, Path = "/name", Value = specification.Name },
+                    new()
+                    {
+                        Op = Op.Replace,
+                        Path = "/providerARNs",
+                        Value = string.Join(',', specification.ProviderARNs),
+                    },
+                };
+
+                if (!string.IsNullOrEmpty(specification.IdentitySource))
+                    patchOperations.Add(new PatchOperation
+                    {
+                        Op = Op.Replace,
+                        Path = "/identitySource",
+                        Value = specification.IdentitySource,
+                    });
+
+                await client.UpdateAuthorizerAsync(
+                    new UpdateAuthorizerRequest
+                    {
+                        RestApiId = specification.RestApiId,
+                        AuthorizerId = specification.AuthorizerId,
+                        PatchOperations = patchOperations,
+                    },
+                    token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    public async Task<Result> DeleteAuthorizerAsync(
+        string restApiId, string authorizerId, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonAPIGatewayClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                await client.DeleteAuthorizerAsync(
+                    new DeleteAuthorizerRequest { RestApiId = restApiId, AuthorizerId = authorizerId },
+                    token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    public Task<Result<IReadOnlyList<RestStageSummary>>> ListStagesAsync(
+        string restApiId, CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonAPIGatewayClient, IReadOnlyList<RestStageSummary>>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var response = await client.GetStagesAsync(
+                    new GetStagesRequest { RestApiId = restApiId }, token);
+
+                return response.Item is { Count: > 0 } stages
+                    ? [.. stages.Select(ToStageSummary)]
+                    : (IReadOnlyList<RestStageSummary>)[];
+            },
+            cancellationToken);
+
+    public Task<Result<RestStageDetail>> GetStageAsync(
+        string restApiId, string stageName, CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonAPIGatewayClient, RestStageDetail>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var response = await client.GetStageAsync(
+                    new GetStageRequest { RestApiId = restApiId, StageName = stageName }, token);
+
+                return ToStageDetail(response);
+            },
+            cancellationToken);
+
+    public Task<Result<IReadOnlyList<RestDeploymentSummary>>> ListDeploymentsAsync(
+        string restApiId, CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonAPIGatewayClient, IReadOnlyList<RestDeploymentSummary>>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var deployments = new List<RestDeploymentSummary>();
+                string? position = null;
+                do
+                {
+                    var response = await client.GetDeploymentsAsync(
+                        new GetDeploymentsRequest { RestApiId = restApiId, Position = position },
+                        token);
+
+                    if (response.Items is { Count: > 0 } items)
+                        foreach (var item in items)
+                            deployments.Add(ToDeploymentSummary(item));
+
+                    position = response.Position;
+                }
+                while (!string.IsNullOrEmpty(position));
+
+                return deployments;
+            },
+            cancellationToken);
+
+    public Task<Result<string>> CreateDeploymentAsync(
+        RestDeploymentSpecification specification, CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonAPIGatewayClient, string>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var response = await client.CreateDeploymentAsync(
+                    new CreateDeploymentRequest
+                    {
+                        RestApiId = specification.RestApiId,
+                        StageName = string.IsNullOrWhiteSpace(specification.StageName)
+                            ? null
+                            : specification.StageName,
+                        Description = string.IsNullOrWhiteSpace(specification.Description)
+                            ? null
+                            : specification.Description,
+                    },
+                    token);
+
+                return response.Id ?? string.Empty;
+            },
+            cancellationToken);
+
+    public Task<Result<string>> CreateStageAsync(
+        RestStageSpecification specification, CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonAPIGatewayClient, string>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var response = await client.CreateStageAsync(
+                    new CreateStageRequest
+                    {
+                        RestApiId = specification.RestApiId,
+                        StageName = specification.StageName,
+                        DeploymentId = specification.DeploymentId,
+                        Description = string.IsNullOrWhiteSpace(specification.Description)
+                            ? null
+                            : specification.Description,
+                        Variables = specification.Variables.Count > 0
+                            ? new Dictionary<string, string>(specification.Variables)
+                            : null,
+                    },
+                    token);
+
+                return response.StageName ?? specification.StageName;
+            },
+            cancellationToken);
+
+    public async Task<Result> UpdateStageAsync(
+        RestStageSpecification specification, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonAPIGatewayClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var patchOperations = new List<PatchOperation>
+                {
+                    new()
+                    {
+                        Op = Op.Replace,
+                        Path = "/description",
+                        Value = specification.Description ?? string.Empty,
+                    },
+                };
+
+                foreach (var variable in specification.Variables)
+                    patchOperations.Add(new PatchOperation
+                    {
+                        Op = Op.Replace,
+                        Path = $"/variables/{variable.Key}",
+                        Value = variable.Value,
+                    });
+
+                await client.UpdateStageAsync(
+                    new UpdateStageRequest
+                    {
+                        RestApiId = specification.RestApiId,
+                        StageName = specification.StageName,
+                        PatchOperations = patchOperations,
+                    },
+                    token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    public async Task<Result> DeleteStageAsync(
+        string restApiId, string stageName, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonAPIGatewayClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                await client.DeleteStageAsync(
+                    new DeleteStageRequest { RestApiId = restApiId, StageName = stageName },
+                    token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    private static RestStageSummary ToStageSummary(Stage item)
+        => new(
+            item.StageName ?? string.Empty,
+            item.DeploymentId ?? string.Empty,
+            item.CreatedDate is { } created
+                ? new DateTimeOffset(created.ToUniversalTime(), TimeSpan.Zero)
+                : null);
+
+    private static RestStageDetail ToStageDetail(GetStageResponse response)
+        => new(
+            response.StageName ?? string.Empty,
+            response.DeploymentId ?? string.Empty,
+            string.IsNullOrWhiteSpace(response.Description) ? null : response.Description,
+            response.CacheClusterEnabled ?? false,
+            response.Variables is { Count: > 0 } variables
+                ? new Dictionary<string, string>(variables)
+                : new Dictionary<string, string>(),
+            response.CreatedDate is { } created
+                ? new DateTimeOffset(created.ToUniversalTime(), TimeSpan.Zero)
+                : null,
+            response.LastUpdatedDate is { } updated
+                ? new DateTimeOffset(updated.ToUniversalTime(), TimeSpan.Zero)
+                : null);
+
+    private static RestDeploymentSummary ToDeploymentSummary(Deployment item)
+        => new(
+            item.Id ?? string.Empty,
+            string.IsNullOrWhiteSpace(item.Description) ? null : item.Description,
+            item.CreatedDate is { } created
+                ? new DateTimeOffset(created.ToUniversalTime(), TimeSpan.Zero)
+                : null);
+
+    private static RestAuthorizerSummary ToAuthorizerSummary(Authorizer item)
+        => new(
+            item.Id ?? string.Empty,
+            item.Name ?? string.Empty,
+            item.Type?.Value ?? string.Empty);
+
+    private static RestAuthorizerDetail ToAuthorizerDetail(
+        string? id, string? name, AuthorizerType? type,
+        List<string>? providerArns, string? identitySource, string? authType)
+        => new(
+            id ?? string.Empty,
+            name ?? string.Empty,
+            type?.Value ?? string.Empty,
+            providerArns ?? [],
+            string.IsNullOrWhiteSpace(identitySource) ? null : identitySource,
+            string.IsNullOrWhiteSpace(authType) ? null : authType);
+
+    private static RestResourceSummary ToResourceSummary(Resource item)
+        => new(
+            item.Id ?? string.Empty,
+            string.IsNullOrWhiteSpace(item.ParentId) ? null : item.ParentId,
+            string.IsNullOrWhiteSpace(item.PathPart) ? null : item.PathPart,
+            item.Path ?? string.Empty,
+            item.ResourceMethods is { Count: > 0 } methods
+                ? [.. methods.Keys]
+                : []);
+
+    private static RestMethodDetail ToMethodDetail(string resourceId, GetMethodResponse response)
+        => new(
+            resourceId,
+            response.HttpMethod ?? string.Empty,
+            string.IsNullOrWhiteSpace(response.AuthorizationType) ? "NONE" : response.AuthorizationType,
+            string.IsNullOrWhiteSpace(response.AuthorizerId) ? null : response.AuthorizerId,
+            response.ApiKeyRequired ?? false,
+            response.AuthorizationScopes ?? []);
+
     private static DomainRestApi ToRestApi(SdkRestApi item)
         => new(
             item.Id ?? string.Empty,
             item.Name ?? string.Empty,
             string.IsNullOrWhiteSpace(item.Description) ? null : item.Description,
             item.CreatedDate is { } created
+                ? new DateTimeOffset(created.ToUniversalTime(), TimeSpan.Zero)
+                : null);
+
+    private static RestApiDetail ToDetail(GetRestApiResponse response)
+        => new(
+            response.Id ?? string.Empty,
+            response.Name ?? string.Empty,
+            string.IsNullOrWhiteSpace(response.Description) ? null : response.Description,
+            string.IsNullOrWhiteSpace(response.Version) ? null : response.Version,
+            string.IsNullOrWhiteSpace(response.ApiKeySource) ? null : response.ApiKeySource,
+            response.EndpointConfiguration?.Types?.ToList() ?? [],
+            response.BinaryMediaTypes ?? [],
+            response.CreatedDate is { } created
                 ? new DateTimeOffset(created.ToUniversalTime(), TimeSpan.Zero)
                 : null);
 }

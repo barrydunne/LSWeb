@@ -1,0 +1,87 @@
+using AspNet.KickStarter.CQRS.Abstractions.Commands;
+using AspNet.KickStarter.FunctionalResult;
+using Foundation.Application.Activity;
+using Foundation.Application.ApiGateway;
+using Foundation.Application.Search;
+using Foundation.Application.Streaming;
+using Foundation.Domain.Activity;
+using Foundation.Domain.ApiGateway;
+using Foundation.Domain.Streaming;
+using Microsoft.Extensions.Logging;
+
+namespace Foundation.Application.Commands.UpdateRestAuthorizer;
+
+internal sealed partial class UpdateRestAuthorizerCommandHandler
+    : ICommandHandler<UpdateRestAuthorizerCommand>
+{
+    private const string OperationName = "apigateway-update-authorizer";
+
+    private readonly IApiGatewayClient _client;
+    private readonly INotificationPublisher _publisher;
+    private readonly IActivityLog _activityLog;
+    private readonly ISearchRefreshTrigger _searchRefresh;
+    private readonly ILogger _logger;
+
+    public UpdateRestAuthorizerCommandHandler(
+        IApiGatewayClient client,
+        INotificationPublisher publisher,
+        IActivityLog activityLog,
+        ISearchRefreshTrigger searchRefresh,
+        ILogger<UpdateRestAuthorizerCommandHandler> logger)
+    {
+        _client = client;
+        _publisher = publisher;
+        _activityLog = activityLog;
+        _searchRefresh = searchRefresh;
+        _logger = logger;
+    }
+
+    public async Task<Result> Handle(
+        UpdateRestAuthorizerCommand request, CancellationToken cancellationToken)
+    {
+        LogHandling(request.AuthorizerId, request.RestApiId);
+        var operationId = Guid.NewGuid().ToString();
+
+        await _publisher.PublishAsync(
+            new Notification(operationId, OperationName, OperationState.InProgress,
+                $"Updating authorizer {request.Name}.", DateTimeOffset.UtcNow),
+            cancellationToken);
+
+        var specification = new RestAuthorizerSpecification(
+            request.RestApiId,
+            request.AuthorizerId,
+            request.Name,
+            request.Type,
+            request.ProviderARNs,
+            request.IdentitySource);
+        var result = await _client.UpdateAuthorizerAsync(specification, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            var failure = $"Failed to update authorizer {request.Name}: {result.Error!.Value.Message}";
+            await PublishOutcomeAsync(operationId, OperationState.Failed, failure, cancellationToken);
+            return result.Error!.Value;
+        }
+
+        await PublishOutcomeAsync(operationId, OperationState.Succeeded,
+            $"Updated authorizer {request.Name}.", cancellationToken);
+        _searchRefresh.RequestRefresh();
+
+        LogHandled();
+        return Result.Success();
+    }
+
+    private async Task PublishOutcomeAsync(string operationId, OperationState state, string message, CancellationToken cancellationToken)
+    {
+        await _publisher.PublishAsync(
+            new Notification(operationId, OperationName, state, message, DateTimeOffset.UtcNow),
+            cancellationToken);
+        _activityLog.Append(
+            new ActivityEntry(operationId, OperationName, state, message, DateTimeOffset.UtcNow));
+    }
+
+    [LoggerMessage(LogLevel.Trace, "Updating API Gateway REST API authorizer {AuthorizerId} on {RestApiId}.")]
+    private partial void LogHandling(string authorizerId, string restApiId);
+
+    [LoggerMessage(LogLevel.Trace, "API Gateway update REST API authorizer handled.")]
+    private partial void LogHandled();
+}

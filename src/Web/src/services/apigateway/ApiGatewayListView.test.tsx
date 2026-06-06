@@ -1,13 +1,19 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { ApiGatewayListView } from './ApiGatewayListView';
-import { getApiGatewayRestApis } from '../../api/client';
+import {
+  getApiGatewayRestApis,
+  createApiGatewayRestApi,
+  deleteApiGatewayRestApi,
+} from '../../api/client';
 import type { ApiGatewayRestApiListResult } from '../../api/client';
 
 vi.mock('../../api/client');
 
 const getApiGatewayRestApisMock = vi.mocked(getApiGatewayRestApis);
+const createApiGatewayRestApiMock = vi.mocked(createApiGatewayRestApi);
+const deleteApiGatewayRestApiMock = vi.mocked(deleteApiGatewayRestApi);
 
 const result: ApiGatewayRestApiListResult = {
   restApis: [
@@ -43,9 +49,12 @@ function renderView() {
 describe('ApiGatewayListView', () => {
   beforeEach(() => {
     getApiGatewayRestApisMock.mockResolvedValue(result);
+    createApiGatewayRestApiMock.mockResolvedValue({ id: 'new-id' });
+    deleteApiGatewayRestApiMock.mockResolvedValue();
   });
 
   afterEach(() => {
+    cleanup();
     vi.clearAllMocks();
   });
 
@@ -117,5 +126,152 @@ describe('ApiGatewayListView', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('links each REST API name to its detail route', async () => {
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-list-view')).toBeInTheDocument(),
+    );
+
+    const names = screen.getAllByTestId('apigateway-list-name');
+    expect(names[0]).toHaveAttribute('href', '/services/apigateway/api-1');
+  });
+
+  it('creates a REST API from the form and refreshes the list', async () => {
+    createApiGatewayRestApiMock.mockResolvedValue({ id: 'new123' });
+
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-list-view')).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByTestId('apigateway-create-toggle'));
+
+    fireEvent.change(screen.getByTestId('apigateway-create-name'), {
+      target: { value: 'new-api' },
+    });
+    fireEvent.change(screen.getByTestId('apigateway-create-description'), {
+      target: { value: 'my api' },
+    });
+    fireEvent.change(screen.getByTestId('apigateway-create-version'), {
+      target: { value: '1.0' },
+    });
+    fireEvent.change(screen.getByTestId('apigateway-create-endpoint-type'), {
+      target: { value: 'EDGE' },
+    });
+
+    fireEvent.click(screen.getByTestId('apigateway-create-submit'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-create-status')).toBeInTheDocument(),
+    );
+
+    expect(createApiGatewayRestApiMock).toHaveBeenCalledWith({
+      name: 'new-api',
+      description: 'my api',
+      version: '1.0',
+      apiKeySource: null,
+      endpointConfigurationTypes: ['EDGE'],
+    });
+    await waitFor(() =>
+      expect(getApiGatewayRestApisMock).toHaveBeenCalledTimes(2),
+    );
+    expect(screen.queryByTestId('apigateway-create-form')).not.toBeInTheDocument();
+  });
+
+  it('sends null for blank optional fields when creating a REST API', async () => {
+    createApiGatewayRestApiMock.mockResolvedValue({ id: 'new123' });
+
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-list-view')).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByTestId('apigateway-create-toggle'));
+    fireEvent.change(screen.getByTestId('apigateway-create-name'), {
+      target: { value: 'minimal' },
+    });
+    fireEvent.click(screen.getByTestId('apigateway-create-submit'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-create-status')).toBeInTheDocument(),
+    );
+
+    expect(createApiGatewayRestApiMock).toHaveBeenCalledWith({
+      name: 'minimal',
+      description: null,
+      version: null,
+      apiKeySource: null,
+      endpointConfigurationTypes: ['REGIONAL'],
+    });
+  });
+
+  it('hides the create form when the toggle is clicked twice', async () => {
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-list-view')).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByTestId('apigateway-create-toggle'));
+    expect(screen.getByTestId('apigateway-create-form')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('apigateway-create-toggle'));
+    expect(screen.queryByTestId('apigateway-create-form')).not.toBeInTheDocument();
+  });
+
+  it('shows an error when REST API creation fails', async () => {
+    createApiGatewayRestApiMock.mockRejectedValue(new Error('boom'));
+
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-list-view')).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByTestId('apigateway-create-toggle'));
+    fireEvent.click(screen.getByTestId('apigateway-create-submit'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-create-error')).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId('apigateway-create-form')).toBeInTheDocument();
+  });
+
+  it('deletes a REST API after confirmation and refreshes the list', async () => {
+    deleteApiGatewayRestApiMock.mockResolvedValue();
+
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-list-view')).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getAllByTestId('confirm-trigger')[0]);
+    fireEvent.click(screen.getByTestId('confirm-accept'));
+
+    await waitFor(() => expect(deleteApiGatewayRestApiMock).toHaveBeenCalledWith('api-1'));
+    await waitFor(() => expect(getApiGatewayRestApisMock).toHaveBeenCalledTimes(2));
+  });
+
+  it('shows an error when REST API deletion fails', async () => {
+    deleteApiGatewayRestApiMock.mockRejectedValue(new Error('boom'));
+
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-list-view')).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getAllByTestId('confirm-trigger')[0]);
+    fireEvent.click(screen.getByTestId('confirm-accept'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-list-error')).toBeInTheDocument(),
+    );
   });
 });

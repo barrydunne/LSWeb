@@ -4318,3 +4318,214 @@ export async function deleteScheduleGroup(name: string, signal?: AbortSignal): P
     throw new Error(`EventBridge Scheduler schedule group delete request failed with status ${response.status}`);
   }
 }
+
+export interface UserPoolSummaryItem {
+  id: string;
+  name: string;
+  creationDate: string | null;
+}
+
+export interface UserPoolListResult {
+  userPools: UserPoolSummaryItem[];
+}
+
+export async function getUserPools(signal?: AbortSignal): Promise<UserPoolListResult> {
+  const response = await fetch('/api/services/cognito/user-pools', { signal });
+  if (!response.ok) {
+    throw new Error(`Cognito user pools request failed with status ${response.status}`);
+  }
+  return (await response.json()) as UserPoolListResult;
+}
+
+export interface UserPoolDetailResult {
+  id: string;
+  name: string;
+  arn: string | null;
+  mfaConfiguration: string | null;
+  estimatedNumberOfUsers: number | null;
+  usernameAttributes: string[];
+  autoVerifiedAttributes: string[];
+  creationDate: string | null;
+  lastModifiedDate: string | null;
+}
+
+export async function getUserPool(
+  id: string,
+  signal?: AbortSignal,
+): Promise<UserPoolDetailResult> {
+  const response = await fetch(
+    `/api/services/cognito/user-pools/${encodeURIComponent(id)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`Cognito user pool request failed with status ${response.status}`);
+  }
+  return (await response.json()) as UserPoolDetailResult;
+}
+
+export interface UserPoolCreateRequest {
+  name: string;
+  mfaConfiguration: string | null;
+  usernameAttributes: string[];
+  autoVerifiedAttributes: string[];
+}
+
+export interface UserPoolCreatedResult {
+  id: string;
+}
+
+export async function createUserPool(
+  request: UserPoolCreateRequest,
+  signal?: AbortSignal,
+): Promise<UserPoolCreatedResult> {
+  const response = await fetch('/api/services/cognito/user-pools', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`Cognito user pool create request failed with status ${response.status}`);
+  }
+  return (await response.json()) as UserPoolCreatedResult;
+}
+
+export async function deleteUserPool(id: string, signal?: AbortSignal): Promise<void> {
+  const response = await fetch(`/api/services/cognito/user-pools/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`Cognito user pool delete request failed with status ${response.status}`);
+  }
+}
+
+export interface UserPoolClientSummaryItem {
+  clientId: string;
+  clientName: string;
+  userPoolId: string;
+}
+
+export interface UserPoolClientListResult {
+  clients: UserPoolClientSummaryItem[];
+}
+
+export async function getUserPoolClients(
+  poolId: string,
+  signal?: AbortSignal,
+): Promise<UserPoolClientListResult> {
+  const response = await fetch(
+    `/api/services/cognito/user-pools/${encodeURIComponent(poolId)}/clients`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`Cognito user pool clients request failed with status ${response.status}`);
+  }
+  return (await response.json()) as UserPoolClientListResult;
+}
+
+export interface UserPoolClientDetailResult {
+  clientId: string;
+  clientName: string;
+  userPoolId: string;
+  clientSecret: string | null;
+  generateSecret: boolean;
+  explicitAuthFlows: string[];
+  allowedOAuthFlows: string[];
+  allowedOAuthScopes: string[];
+  callbackURLs: string[];
+  allowedOAuthFlowsUserPoolClient: boolean;
+  creationDate: string | null;
+  lastModifiedDate: string | null;
+}
+
+export async function getUserPoolClient(
+  poolId: string,
+  clientId: string,
+  signal?: AbortSignal,
+): Promise<UserPoolClientDetailResult> {
+  const response = await fetch(
+    `/api/services/cognito/user-pools/${encodeURIComponent(poolId)}/clients/${encodeURIComponent(clientId)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`Cognito user pool client request failed with status ${response.status}`);
+  }
+  return (await response.json()) as UserPoolClientDetailResult;
+}
+
+export interface UserPoolClientCreateRequest {
+  clientName: string;
+  generateSecret: boolean;
+  explicitAuthFlows: string[];
+  allowedOAuthFlows: string[];
+  allowedOAuthScopes: string[];
+  callbackURLs: string[];
+  allowedOAuthFlowsUserPoolClient: boolean;
+}
+
+export async function createUserPoolClient(
+  poolId: string,
+  request: UserPoolClientCreateRequest,
+  signal?: AbortSignal,
+): Promise<UserPoolClientDetailResult> {
+  const response = await fetch(
+    `/api/services/cognito/user-pools/${encodeURIComponent(poolId)}/clients`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Cognito user pool client create request failed with status ${response.status}`);
+  }
+  return (await response.json()) as UserPoolClientDetailResult;
+}
+
+export interface UserPoolClientUpdateRequest {
+  clientName: string;
+  explicitAuthFlows: string[];
+  allowedOAuthFlows: string[];
+  allowedOAuthScopes: string[];
+  callbackURLs: string[];
+  allowedOAuthFlowsUserPoolClient: boolean;
+}
+
+export async function updateUserPoolClient(
+  poolId: string,
+  clientId: string,
+  request: UserPoolClientUpdateRequest,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/cognito/user-pools/${encodeURIComponent(poolId)}/clients/${encodeURIComponent(clientId)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Cognito user pool client update request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteUserPoolClient(
+  poolId: string,
+  clientId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/cognito/user-pools/${encodeURIComponent(poolId)}/clients/${encodeURIComponent(clientId)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Cognito user pool client delete request failed with status ${response.status}`);
+  }
+}

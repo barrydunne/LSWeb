@@ -18,6 +18,7 @@
     <PackageReference Include="AWSSDK.CertificateManager" />
     <PackageReference Include="AWSSDK.CloudFormation" />
     <PackageReference Include="AWSSDK.CloudWatchLogs" />
+    <PackageReference Include="AWSSDK.CognitoIdentityProvider" />
     <PackageReference Include="AWSSDK.Core" />
     <PackageReference Include="AWSSDK.DynamoDBv2" />
     <PackageReference Include="AWSSDK.EventBridge" />

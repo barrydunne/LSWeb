@@ -5,6 +5,7 @@ using Foundation.Application.Capabilities;
 using Foundation.Application.CertificateManager;
 using Foundation.Application.CloudFormation;
 using Foundation.Application.CloudWatchLogs;
+using Foundation.Application.Cognito;
 using Foundation.Application.Configuration;
 using Foundation.Application.Connectivity;
 using Foundation.Application.Diagnostics;
@@ -33,6 +34,7 @@ using Foundation.Infrastructure.Capabilities;
 using Foundation.Infrastructure.CertificateManager;
 using Foundation.Infrastructure.CloudFormation;
 using Foundation.Infrastructure.CloudWatchLogs;
+using Foundation.Infrastructure.Cognito;
 using Foundation.Infrastructure.Configuration;
 using Foundation.Infrastructure.Connectivity;
 using Foundation.Infrastructure.Diagnostics;
@@ -127,6 +129,8 @@ public static class DependencyInjection
             .AddSingleton<IResourceSource, StepFunctionsResourceSource>()
             .AddSingleton<ISchedulerClient, SchedulerClientAdapter>()
             .AddSingleton<IResourceSource, SchedulerResourceSource>()
+            .AddSingleton<ICognitoClient, CognitoClientAdapter>()
+            .AddSingleton<IResourceSource, CognitoResourceSource>()
             .AddSingleton<ICloudFormationClient, CloudFormationClientAdapter>()
             .AddSingleton<IResourceSource, CloudFormationResourceSource>()
             .AddSingleton<IEventBridgeClient, EventBridgeClientAdapter>()

@@ -30,6 +30,8 @@ const Route53ListView = lazy(() => import('./route53/Route53ListView'));
 const SesListView = lazy(() => import('./ses/SesListView'));
 const SchedulerListView = lazy(() => import('./scheduler/SchedulerListView'));
 const SchedulerDetailView = lazy(() => import('./scheduler/SchedulerDetailView'));
+const CognitoListView = lazy(() => import('./cognito/CognitoListView'));
+const CognitoDetailView = lazy(() => import('./cognito/CognitoDetailView'));
 
 let registered = false;
 
@@ -73,6 +75,10 @@ export function registerServiceViews(): void {
   registerServiceView('scheduler', {
     list: SchedulerListView,
     detail: SchedulerDetailView,
+  });
+  registerServiceView('cognito', {
+    list: CognitoListView,
+    detail: CognitoDetailView,
   });
 }
 

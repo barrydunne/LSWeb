@@ -17,6 +17,7 @@ internal sealed partial class BackendHealthProbe : IBackendHealthProbe
     private static readonly Dictionary<string, string> _serviceKeyMap = new(StringComparer.OrdinalIgnoreCase)
     {
         ["logs"] = "cloudwatch-logs",
+        ["cognito-idp"] = "cognito",
         ["dynamodb"] = "dynamodb",
         ["iam"] = "iam",
         ["lambda"] = "lambda",

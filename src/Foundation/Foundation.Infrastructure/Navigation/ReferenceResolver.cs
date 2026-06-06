@@ -22,6 +22,8 @@ internal sealed class ReferenceResolver : IReferenceResolver
             ["iam"] = "iam",
             ["logs"] = "cloudwatch-logs",
             ["cloudwatch-logs"] = "cloudwatch-logs",
+            ["cognito-idp"] = "cognito",
+            ["cognito"] = "cognito",
             ["secretsmanager"] = "secrets-manager",
             ["secrets-manager"] = "secrets-manager",
             ["ssm"] = "ssm-parameter-store",

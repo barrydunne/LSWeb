@@ -42,6 +42,10 @@ describe('registerServiceViews', () => {
 
     const eventbridge = getServiceView('eventbridge');
     expect(eventbridge?.list).toBeDefined();
+
+    const cognito = getServiceView('cognito');
+    expect(cognito?.list).toBeDefined();
+    expect(cognito?.detail).toBeDefined();
   });
 
   it('is idempotent and does not re-register after the first call', () => {

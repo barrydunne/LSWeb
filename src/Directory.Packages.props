@@ -12,6 +12,7 @@
     <PackageVersion Include="AWSSDK.CertificateManager" Version="4.0.3.3" />
     <PackageVersion Include="AWSSDK.CloudFormation" Version="4.0.9.4" />
     <PackageVersion Include="AWSSDK.CloudWatchLogs" Version="4.0.26.3" />
+    <PackageVersion Include="AWSSDK.CognitoIdentityProvider" Version="4.0.6.2" />
     <PackageVersion Include="AWSSDK.Core" Version="4.0.9.2" />
     <PackageVersion Include="AWSSDK.DynamoDBv2" Version="4.0.21.2" />
     <PackageVersion Include="AWSSDK.EventBridge" Version="4.0.6.6" />

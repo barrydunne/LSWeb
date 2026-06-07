@@ -10,6 +10,8 @@ import {
   type ResolvedReferenceResult,
 } from '../api/client';
 import { ResourceLink } from '../components/ResourceLink';
+import { SeedTemplatesPanel } from '../components/SeedTemplatesPanel';
+import { SnapshotPanel } from '../components/SnapshotPanel';
 
 type HomeState =
   | { kind: 'loading' }
@@ -176,6 +178,10 @@ export function HomePage() {
       <Text data-testid="home-subtitle" style={{ fontSize: 14, opacity: 0.8 }}>
         Jump straight to a service or pick up where you left off.
       </Text>
+
+      <SeedTemplatesPanel />
+
+      <SnapshotPanel />
 
       <input
         data-testid="home-search-input"

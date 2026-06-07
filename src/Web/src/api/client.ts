@@ -5627,3 +5627,121 @@ export async function deleteHttpStage(
     throw new Error(`API Gateway v2 stage delete request failed with status ${response.status}`);
   }
 }
+
+export interface SeedResourceItem {
+  serviceKey: string;
+  resourceType: string;
+  name: string;
+}
+
+export interface SeedTemplateItem {
+  id: string;
+  name: string;
+  description: string;
+  resources: SeedResourceItem[];
+}
+
+export interface SeedTemplatesResult {
+  templates: SeedTemplateItem[];
+}
+
+export async function getSeedTemplates(signal?: AbortSignal): Promise<SeedTemplatesResult> {
+  const response = await fetch('/api/seed/templates', { signal });
+  if (!response.ok) {
+    throw new Error(`Seed templates request failed with status ${response.status}`);
+  }
+  return (await response.json()) as SeedTemplatesResult;
+}
+
+export interface SeedResourceResultItem {
+  serviceKey: string;
+  resourceType: string;
+  name: string;
+  succeeded: boolean;
+  error: string | null;
+}
+
+export interface SeedOutcomeResult {
+  operationId: string;
+  templateId: string;
+  totalCount: number;
+  succeededCount: number;
+  failedCount: number;
+  overallState: string;
+  items: SeedResourceResultItem[];
+}
+
+export async function applySeedTemplate(
+  templateId: string,
+  signal?: AbortSignal,
+): Promise<SeedOutcomeResult> {
+  const response = await fetch(
+    `/api/seed/templates/${encodeURIComponent(templateId)}/apply`,
+    { method: 'POST', signal },
+  );
+  if (!response.ok) {
+    throw new Error(`Seed apply request failed with status ${response.status}`);
+  }
+  return (await response.json()) as SeedOutcomeResult;
+}
+
+export interface SnapshotResourceData {
+  serviceKey: string;
+  resourceType: string;
+  resourceId: string;
+  resourceName: string;
+  data: string;
+}
+
+export interface WorkspaceSnapshot {
+  id: string;
+  exportedAt: string;
+  resources: Record<string, SnapshotResourceData[]>;
+}
+
+export interface SnapshotExportResult {
+  snapshotId: string;
+  exportedAt: string;
+  services: string[];
+  totalResources: number;
+}
+
+export async function exportWorkspaceSnapshot(signal?: AbortSignal): Promise<SnapshotExportResult> {
+  const response = await fetch('/api/snapshot/export', { signal });
+  if (!response.ok) {
+    throw new Error(`Snapshot export request failed with status ${response.status}`);
+  }
+  return (await response.json()) as SnapshotExportResult;
+}
+
+export interface SnapshotFailureItem {
+  service: string;
+  resourceId: string;
+  error: string;
+}
+
+export interface SnapshotImportResult {
+  operationId: string;
+  operationType: string;
+  completedAt: string;
+  totalResources: number;
+  successCount: number;
+  failureCount: number;
+  failures: SnapshotFailureItem[];
+}
+
+export async function importWorkspaceSnapshot(
+  snapshot: WorkspaceSnapshot,
+  signal?: AbortSignal,
+): Promise<SnapshotImportResult> {
+  const response = await fetch('/api/snapshot/import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(snapshot),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`Snapshot import request failed with status ${response.status}`);
+  }
+  return (await response.json()) as SnapshotImportResult;
+}

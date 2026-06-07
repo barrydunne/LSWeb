@@ -7,6 +7,7 @@ import {
   getCatalogue,
   getRecentlyViewed,
   resolveReference,
+  getSeedTemplates,
   type CatalogueServiceItem,
 } from '../api/client';
 
@@ -15,6 +16,7 @@ vi.mock('../api/client');
 const getCatalogueMock = vi.mocked(getCatalogue);
 const getRecentlyViewedMock = vi.mocked(getRecentlyViewed);
 const resolveReferenceMock = vi.mocked(resolveReference);
+const getSeedTemplatesMock = vi.mocked(getSeedTemplates);
 
 function service(overrides: Partial<CatalogueServiceItem> & { key: string }): CatalogueServiceItem {
   return {
@@ -43,6 +45,7 @@ describe('HomePage', () => {
     getCatalogueMock.mockResolvedValue({ services: [] });
     getRecentlyViewedMock.mockResolvedValue({ references: [] });
     resolveReferenceMock.mockResolvedValue({ serviceKey: 'sqs', resourceId: 'orders', route: '/services/sqs/orders' });
+    getSeedTemplatesMock.mockResolvedValue({ templates: [] });
   });
 
   afterEach(() => {

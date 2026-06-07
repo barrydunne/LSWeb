@@ -18,6 +18,8 @@ import {
   addFavourite,
   removeFavourite,
   executeBulkAction,
+  getSeedTemplates,
+  applySeedTemplate,
   getLambdaFunctions,
   getLambdaFunction,
   getLambdaEnvironment,
@@ -9382,6 +9384,113 @@ describe('deleteHttpStage', () => {
 
     await expect(deleteHttpStage('abc123', 'missing')).rejects.toThrow(
       'API Gateway v2 stage delete request failed with status 404',
+    );
+  });
+});
+
+describe('getSeedTemplates', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('fetches and returns the available templates', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        templates: [
+          {
+            id: 'messaging-starter',
+            name: 'Messaging starter',
+            description: 'An SQS queue and an SNS topic.',
+            resources: [
+              { serviceKey: 'sqs', resourceType: 'Queue', name: 'seed-orders-queue' },
+              { serviceKey: 'sns', resourceType: 'Topic', name: 'seed-orders-topic' },
+            ],
+          },
+        ],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getSeedTemplates();
+
+    expect(result.templates).toHaveLength(1);
+    expect(result.templates[0].id).toBe('messaging-starter');
+    expect(result.templates[0].resources[1].name).toBe('seed-orders-topic');
+    expect(fetchMock).toHaveBeenCalledWith('/api/seed/templates', { signal: undefined });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(getSeedTemplates()).rejects.toThrow(
+      'Seed templates request failed with status 500',
+    );
+  });
+});
+
+describe('applySeedTemplate', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts to the apply endpoint and returns the outcome', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        operationId: 'op-1',
+        templateId: 'messaging-starter',
+        totalCount: 2,
+        succeededCount: 1,
+        failedCount: 1,
+        overallState: 'Failed',
+        items: [
+          { serviceKey: 'sqs', resourceType: 'Queue', name: 'seed-orders-queue', succeeded: true, error: null },
+          { serviceKey: 'sns', resourceType: 'Topic', name: 'seed-orders-topic', succeeded: false, error: 'boom' },
+        ],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await applySeedTemplate('messaging-starter');
+
+    expect(result.succeededCount).toBe(1);
+    expect(result.failedCount).toBe(1);
+    expect(result.items[1].error).toBe('boom');
+    expect(fetchMock).toHaveBeenCalledWith('/api/seed/templates/messaging-starter/apply', {
+      method: 'POST',
+      signal: undefined,
+    });
+  });
+
+  it('encodes the template id in the request path', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        operationId: 'op-2',
+        templateId: 'a/b',
+        totalCount: 0,
+        succeededCount: 0,
+        failedCount: 0,
+        overallState: 'Succeeded',
+        items: [],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await applySeedTemplate('a/b');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/seed/templates/a%2Fb/apply', {
+      method: 'POST',
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(applySeedTemplate('messaging-starter')).rejects.toThrow(
+      'Seed apply request failed with status 500',
     );
   });
 });

@@ -2,6 +2,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using AspNet.KickStarter.CQRS;
 using FluentValidation;
+using Foundation.Application.Seed;
+using Foundation.Application.Snapshot;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace Foundation.Application;
@@ -21,5 +23,8 @@ public static class DependencyInjection
         => services
             .AddMediatR(_ => _.RegisterServicesFromAssembly(Assembly.GetExecutingAssembly()))
             .AddValidationPipelineBehavior()
-            .AddValidatorsFromAssembly(Assembly.GetExecutingAssembly(), includeInternalTypes: true);
+            .AddValidatorsFromAssembly(Assembly.GetExecutingAssembly(), includeInternalTypes: true)
+            .AddSingleton<ISeedTemplateCatalogue, SeedTemplateCatalogue>()
+            .AddSingleton<IWorkspaceSnapshotExporter, WorkspaceSnapshotExporter>()
+            .AddSingleton<IWorkspaceSnapshotImporter, WorkspaceSnapshotImporter>();
 }

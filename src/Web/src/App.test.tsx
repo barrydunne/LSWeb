@@ -11,6 +11,7 @@ import {
   getLiveness,
   getRecentlyViewed,
   getSearchState,
+  getSeedTemplates,
 } from './api/client';
 import { subscribeToNotifications } from './api/notifications';
 
@@ -27,7 +28,7 @@ const getRecentlyViewedMock = vi.mocked(getRecentlyViewed);
 const getFavouritesMock = vi.mocked(getFavourites);
 const getDiagnosticsMock = vi.mocked(getDiagnostics);
 const subscribeToNotificationsMock = vi.mocked(subscribeToNotifications);
-
+const getSeedTemplatesMock = vi.mocked(getSeedTemplates);
 describe('App', () => {
   beforeEach(() => {
     getConnectivityMock.mockResolvedValue({
@@ -55,6 +56,7 @@ describe('App', () => {
       revealAllowed: false,
     });
     subscribeToNotificationsMock.mockResolvedValue({ stop: vi.fn().mockResolvedValue(undefined) });
+    getSeedTemplatesMock.mockResolvedValue({ templates: [] });
   });
 
   afterEach(() => {

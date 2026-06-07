@@ -41,7 +41,16 @@ internal sealed class S3ClientAdapter : IS3Client
             ServiceKey,
             async (client, token) =>
             {
-                await client.PutBucketAsync(new PutBucketRequest { BucketName = bucketName }, token);
+                var request = new PutBucketRequest { BucketName = bucketName };
+
+                // Every region other than us-east-1 requires an explicit LocationConstraint;
+                // without it the SDK/LocalStack rejects the call with IllegalLocationConstraintException.
+                var region = client.Config.AuthenticationRegion;
+                if (!string.IsNullOrEmpty(region)
+                    && !string.Equals(region, "us-east-1", StringComparison.OrdinalIgnoreCase))
+                    request.BucketRegionName = region;
+
+                await client.PutBucketAsync(request, token);
                 return true;
             },
             cancellationToken);

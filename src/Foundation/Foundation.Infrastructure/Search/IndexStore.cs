@@ -8,7 +8,7 @@ namespace Foundation.Infrastructure.Search;
 /// with a single atomic reference assignment, so readers never block and never observe a partially
 /// built index. Seeded with an empty snapshot until the first rebuild completes.
 /// </summary>
-internal sealed class IndexStore : ISearchIndexProvider
+internal sealed class IndexStore : ISearchIndexProvider, ISearchIndexStore
 {
     private volatile SearchIndexState _current = SearchIndexState.Empty;
 

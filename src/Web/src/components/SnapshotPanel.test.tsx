@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SnapshotPanel } from './SnapshotPanel';
@@ -68,6 +68,7 @@ describe('SnapshotPanel', () => {
   });
 
   it('imports snapshot from file', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     const mockImport = vi.fn().mockResolvedValue({
       operationId: 'imp-123',
       operationType: 'Import',
@@ -101,6 +102,8 @@ describe('SnapshotPanel', () => {
     await waitFor(() => {
       expect(mockImport).toHaveBeenCalledOnce();
     });
+
+    confirmSpy.mockRestore();
   });
 
   it('shows error message on export failure', async () => {
@@ -118,7 +121,3 @@ describe('SnapshotPanel', () => {
     });
   });
 });
-
-function cleanup() {
-  // Cleanup RTL
-}

@@ -108,7 +108,7 @@ public class GetParameterValueQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenStringParameter_ReturnsValueUnmaskedAndNotSensitive()
+    public async Task Handle_WhenStringParameterAndRevealNotRequested_ReturnsValueMaskedAndSensitive()
     {
         // Arrange
         ConfigValue? captured = null;
@@ -119,7 +119,7 @@ public class GetParameterValueQueryHandlerTests
         _redaction.CanReveal.Returns(false);
         _redaction
             .Resolve(Arg.Do<ConfigValue>(value => captured = value), Arg.Any<bool>())
-            .Returns(call => call.Arg<ConfigValue>().Value);
+            .Returns(call => call.Arg<ConfigValue>().Display);
         var sut = CreateSut();
 
         // Act
@@ -129,11 +129,11 @@ public class GetParameterValueQueryHandlerTests
 
         // Assert
         result.IsSuccess.Should().BeTrue();
-        result.Value.Value.Should().Be("enabled");
-        result.Value.IsSensitive.Should().BeFalse();
+        result.Value.Value.Should().Be(ConfigValue.Mask);
+        result.Value.IsSensitive.Should().BeTrue();
         result.Value.RevealAllowed.Should().BeFalse();
         captured.Should().NotBeNull();
-        captured!.IsSensitive.Should().BeFalse();
+        captured!.IsSensitive.Should().BeTrue();
         captured.Source.Should().Be(ConfigSource.Default);
     }
 

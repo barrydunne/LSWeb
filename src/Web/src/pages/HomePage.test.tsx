@@ -192,6 +192,16 @@ describe('HomePage', () => {
     await waitFor(() => expect(screen.getAllByRole('link').length).toBeGreaterThan(0));
   });
 
+  it('renders quick start templates below recent destinations', async () => {
+    renderHome();
+
+    await waitFor(() => expect(screen.getByTestId('home-recent-heading')).toBeInTheDocument());
+    const recentHeading = screen.getByTestId('home-recent-heading');
+    const templatesHeading = screen.getByRole('heading', { name: 'Quick start templates' });
+
+    expect(recentHeading.compareDocumentPosition(templatesHeading)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+  });
+
   it('shows the recent placeholder when there are no recently-viewed resources', async () => {
     getRecentlyViewedMock.mockResolvedValue({ references: [] });
 

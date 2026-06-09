@@ -9,8 +9,6 @@ namespace Foundation.Application.Queries.GetParameterHistory;
 
 internal sealed partial class GetParameterHistoryQueryHandler : IQueryHandler<GetParameterHistoryQuery, GetParameterHistoryQueryResult>
 {
-    private const string SecureStringType = "SecureString";
-
     private readonly ISsmClient _client;
     private readonly IRedactionService _redaction;
     private readonly ILogger _logger;
@@ -37,7 +35,7 @@ internal sealed partial class GetParameterHistoryQueryHandler : IQueryHandler<Ge
         var entries = history.Value.Entries
             .Select(entry =>
             {
-                var isSensitive = string.Equals(entry.Type, SecureStringType, StringComparison.Ordinal);
+                var isSensitive = true;
                 var value = _redaction.Resolve(
                     new ConfigValue(history.Value.Name, entry.Value, ConfigSource.Default, isSensitive),
                     request.Reveal);

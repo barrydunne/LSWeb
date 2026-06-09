@@ -9,8 +9,6 @@ namespace Foundation.Application.Queries.GetParameterValue;
 
 internal sealed partial class GetParameterValueQueryHandler : IQueryHandler<GetParameterValueQuery, GetParameterValueQueryResult>
 {
-    private const string SecureStringType = "SecureString";
-
     private readonly ISsmClient _client;
     private readonly IRedactionService _redaction;
     private readonly ILogger _logger;
@@ -34,7 +32,7 @@ internal sealed partial class GetParameterValueQueryHandler : IQueryHandler<GetP
             return failure;
         }
 
-        var isSensitive = string.Equals(parameter.Value.Type, SecureStringType, StringComparison.Ordinal);
+        var isSensitive = true;
         var value = _redaction.Resolve(
             new ConfigValue(parameter.Value.Name, parameter.Value.Value, ConfigSource.Default, isSensitive),
             request.Reveal);

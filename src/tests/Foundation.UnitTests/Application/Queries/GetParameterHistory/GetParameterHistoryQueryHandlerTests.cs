@@ -92,7 +92,7 @@ public class GetParameterHistoryQueryHandlerTests
     }
 
     [Fact]
-    public async Task Handle_WhenStringParameter_ReturnsValuesUnmaskedAndNotSensitive()
+    public async Task Handle_WhenStringParameterAndRevealNotRequested_ReturnsValuesMaskedAndSensitive()
     {
         // Arrange
         ConfigValue? captured = null;
@@ -104,7 +104,7 @@ public class GetParameterHistoryQueryHandlerTests
         _redaction.CanReveal.Returns(false);
         _redaction
             .Resolve(Arg.Do<ConfigValue>(value => captured = value), Arg.Any<bool>())
-            .Returns(call => call.Arg<ConfigValue>().Value);
+            .Returns(call => call.Arg<ConfigValue>().Display);
         var sut = CreateSut();
 
         // Act
@@ -114,11 +114,11 @@ public class GetParameterHistoryQueryHandlerTests
 
         // Assert
         result.IsSuccess.Should().BeTrue();
-        result.Value.Entries[0].Value.Should().Be("enabled");
-        result.Value.Entries[0].IsSensitive.Should().BeFalse();
+        result.Value.Entries[0].Value.Should().Be(ConfigValue.Mask);
+        result.Value.Entries[0].IsSensitive.Should().BeTrue();
         result.Value.RevealAllowed.Should().BeFalse();
         captured.Should().NotBeNull();
-        captured!.IsSensitive.Should().BeFalse();
+        captured!.IsSensitive.Should().BeTrue();
         captured.Source.Should().Be(ConfigSource.Default);
     }
 

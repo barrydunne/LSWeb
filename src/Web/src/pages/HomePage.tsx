@@ -179,8 +179,6 @@ export function HomePage() {
         Jump straight to a service or pick up where you left off.
       </Text>
 
-      <SeedTemplatesPanel />
-
       <SnapshotPanel />
 
       <input
@@ -268,6 +266,8 @@ export function HomePage() {
           Your recently viewed resources will appear here.
         </Text>
       )}
+
+      <SeedTemplatesPanel />
     </section>
   );
 }

@@ -28,6 +28,7 @@ using Foundation.Application.Sqs;
 using Foundation.Application.Ssm;
 using Foundation.Application.StepFunctions;
 using Foundation.Application.Streaming;
+using Foundation.Domain.Search;
 using Foundation.Infrastructure.Activity;
 using Foundation.Infrastructure.ApiGateway;
 using Foundation.Infrastructure.ApiGatewayV2;
@@ -153,6 +154,7 @@ public static class DependencyInjection
             .AddSingleton<IHealthStatusProvider>(_ => _.GetRequiredService<HealthStatusStore>())
             .AddSingleton<IndexStore>()
             .AddSingleton<ISearchIndexProvider>(_ => _.GetRequiredService<IndexStore>())
+            .AddSingleton<ISearchIndexStore>(_ => _.GetRequiredService<IndexStore>())
             .AddSingleton<SearchIndexCoordinator>()
             .AddSingleton<ISearchIndexSignals>(_ => _.GetRequiredService<SearchIndexCoordinator>())
             .AddSingleton<ISearchRefreshTrigger>(_ => _.GetRequiredService<SearchIndexCoordinator>())

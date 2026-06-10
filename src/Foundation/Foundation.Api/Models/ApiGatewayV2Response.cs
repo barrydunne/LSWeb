@@ -84,18 +84,67 @@ public sealed record HttpApiCreateRequest(
 /// <param name="Description">The description of the API, or <see langword="null"/> for none.</param>
 /// <param name="Version">The version identifier of the API, or <see langword="null"/> for none.</param>
 /// <param name="RouteSelectionExpression">The route selection expression of the API, or <see langword="null"/> to use the backend default.</param>
+/// <param name="CorsConfiguration">The CORS configuration to apply, or <see langword="null"/> to leave the CORS configuration unchanged.</param>
 public sealed record HttpApiUpdateRequest(
     string Name,
     string ProtocolType,
     string? Description,
     string? Version,
-    string? RouteSelectionExpression);
+    string? RouteSelectionExpression,
+    HttpApiCorsRequest? CorsConfiguration = null);
+
+/// <summary>
+/// The cross-origin resource sharing (CORS) configuration to apply to an Amazon API Gateway v2 API.
+/// </summary>
+/// <param name="AllowCredentials">Whether credentials are allowed in CORS requests, or <see langword="null"/> when not specified.</param>
+/// <param name="AllowHeaders">The headers that are allowed in CORS requests.</param>
+/// <param name="AllowMethods">The HTTP methods that are allowed in CORS requests.</param>
+/// <param name="AllowOrigins">The origins that are allowed to make CORS requests.</param>
+/// <param name="ExposeHeaders">The headers that are exposed to the browser in CORS responses.</param>
+/// <param name="MaxAge">The number of seconds a browser may cache the CORS preflight response, or <see langword="null"/> when not specified.</param>
+public sealed record HttpApiCorsRequest(
+    bool? AllowCredentials,
+    IReadOnlyList<string> AllowHeaders,
+    IReadOnlyList<string> AllowMethods,
+    IReadOnlyList<string> AllowOrigins,
+    IReadOnlyList<string> ExposeHeaders,
+    int? MaxAge);
 
 /// <summary>
 /// The result of creating an Amazon API Gateway v2 API.
 /// </summary>
 /// <param name="ApiId">The unique identifier of the created API.</param>
 public sealed record HttpApiCreatedResponse(string ApiId);
+
+/// <summary>
+/// A request to invoke an Amazon API Gateway v2 route to verify its authorization behaviour.
+/// </summary>
+/// <param name="Stage">The stage to invoke (for example <c>$default</c> or a named stage).</param>
+/// <param name="Method">The HTTP method to use (for example <c>GET</c> or <c>POST</c>).</param>
+/// <param name="Path">The request path to invoke (for example <c>/items</c>).</param>
+/// <param name="Token">An optional bearer token to send, or <see langword="null"/> to send an unauthenticated request.</param>
+/// <param name="Body">An optional request body, or <see langword="null"/> to send no body.</param>
+public sealed record HttpRouteTestRequest(
+    string Stage,
+    string Method,
+    string Path,
+    string? Token,
+    string? Body);
+
+/// <summary>
+/// The outcome of invoking an Amazon API Gateway v2 route.
+/// </summary>
+/// <param name="StatusCode">The HTTP status code returned by the invocation.</param>
+/// <param name="Authorized">Whether the request was authorized; <see langword="false"/> when the status code was 401 or 403.</param>
+/// <param name="LatencyMilliseconds">The round-trip latency of the invocation in milliseconds.</param>
+/// <param name="Headers">The response headers returned by the invocation.</param>
+/// <param name="Body">The response body returned by the invocation.</param>
+public sealed record HttpRouteInvocationResponse(
+    int StatusCode,
+    bool Authorized,
+    long LatencyMilliseconds,
+    IReadOnlyDictionary<string, string> Headers,
+    string Body);
 
 /// <summary>
 /// A list of Amazon API Gateway v2 route summaries.
@@ -203,6 +252,21 @@ public sealed record HttpIntegrationSummaryResponse(
 /// <param name="PayloadFormatVersion">The payload format version of the integration, or <see langword="null"/> to use the backend default.</param>
 /// <param name="Description">The description of the integration, or <see langword="null"/> for none.</param>
 public sealed record HttpIntegrationCreateRequest(
+    string IntegrationType,
+    string? IntegrationMethod,
+    string? IntegrationUri,
+    string? PayloadFormatVersion,
+    string? Description);
+
+/// <summary>
+/// A request to update an Amazon API Gateway v2 integration.
+/// </summary>
+/// <param name="IntegrationType">The type of the integration (for example <c>HTTP_PROXY</c>, <c>AWS_PROXY</c>, or <c>MOCK</c>).</param>
+/// <param name="IntegrationMethod">The HTTP method used to call the integration target, or <see langword="null"/> when not applicable.</param>
+/// <param name="IntegrationUri">The URI of the integration target, or <see langword="null"/> when not applicable.</param>
+/// <param name="PayloadFormatVersion">The payload format version of the integration, or <see langword="null"/> to use the backend default.</param>
+/// <param name="Description">The description of the integration, or <see langword="null"/> for none.</param>
+public sealed record HttpIntegrationUpdateRequest(
     string IntegrationType,
     string? IntegrationMethod,
     string? IntegrationUri,

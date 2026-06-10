@@ -278,6 +278,29 @@ public class ApiGatewayV2ControllerTests
     }
 
     [Fact]
+    public async Task TestInvokeRoute_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
+    {
+        // Arrange
+        var client = _fixture.CreateClient();
+        var request = new HttpRouteTestRequest(
+            "$default",
+            "GET",
+            "/items",
+            null,
+            null);
+
+        // Act
+        var response = await client.PostAsJsonAsync(
+            "/api/services/apigatewayv2/apis/missing-api/routes/test-invoke",
+            request,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().NotBe(HttpStatusCode.NotFound);
+        response.StatusCode.Should().NotBe(HttpStatusCode.MethodNotAllowed);
+    }
+
+    [Fact]
     public async Task ListIntegrations_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
     {
         // Arrange

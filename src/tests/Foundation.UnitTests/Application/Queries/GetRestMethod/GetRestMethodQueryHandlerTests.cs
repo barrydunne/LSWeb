@@ -17,7 +17,15 @@ public class GetRestMethodQueryHandlerTests
     public async Task Handle_WhenClientSucceeds_ReturnsMethod()
     {
         // Arrange
-        var method = new RestMethodDetail("res-2", "GET", "NONE", null, false, []);
+        var method = new RestMethodDetail(
+            "res-2",
+            "GET",
+            "NONE",
+            null,
+            false,
+            [],
+            "MOCK",
+            null);
         _client
             .GetMethodAsync("api-1", "res-2", "GET", Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<Result<RestMethodDetail>>(method));
@@ -31,6 +39,7 @@ public class GetRestMethodQueryHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.Value.Method.HttpMethod.Should().Be("GET");
         result.Value.Method.ResourceId.Should().Be("res-2");
+        result.Value.Method.IntegrationType.Should().Be("MOCK");
     }
 
     [Fact]

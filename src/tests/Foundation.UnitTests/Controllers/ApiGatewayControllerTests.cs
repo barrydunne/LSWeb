@@ -1,22 +1,26 @@
 using AspNet.KickStarter.FunctionalResult;
 using Foundation.Api.Controllers;
 using Foundation.Api.Models;
+using Foundation.Application.Commands.ConfigureRestCors;
 using Foundation.Application.Commands.CreateRestApi;
 using Foundation.Application.Commands.CreateRestAuthorizer;
 using Foundation.Application.Commands.CreateRestDeployment;
 using Foundation.Application.Commands.CreateRestResource;
 using Foundation.Application.Commands.CreateRestStage;
+using Foundation.Application.Commands.CreateRestTokenAuthorizer;
 using Foundation.Application.Commands.DeleteRestApi;
 using Foundation.Application.Commands.DeleteRestAuthorizer;
 using Foundation.Application.Commands.DeleteRestMethod;
 using Foundation.Application.Commands.DeleteRestResource;
 using Foundation.Application.Commands.DeleteRestStage;
 using Foundation.Application.Commands.PutRestMethod;
+using Foundation.Application.Commands.TestInvokeRestMethod;
 using Foundation.Application.Commands.UpdateRestApi;
 using Foundation.Application.Commands.UpdateRestAuthorizer;
 using Foundation.Application.Commands.UpdateRestStage;
 using Foundation.Application.Queries.GetRestApi;
 using Foundation.Application.Queries.GetRestAuthorizer;
+using Foundation.Application.Queries.GetRestCors;
 using Foundation.Application.Queries.GetRestMethod;
 using Foundation.Application.Queries.GetRestStage;
 using Foundation.Application.Queries.ListRestApis;
@@ -391,7 +395,7 @@ public class ApiGatewayControllerTests
     {
         // Arrange
         var method = new RestMethodDetail(
-            "res-2", "GET", "COGNITO_USER_POOLS", "auth-9", true, ["scope-a"]);
+            "res-2", "GET", "COGNITO_USER_POOLS", "auth-9", true, ["scope-a"], "AWS_PROXY", "arn:aws:lambda:eu-west-1:000000000000:function:orders");
         _sender
             .Send(Arg.Any<GetRestMethodQuery>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<Result<GetRestMethodQueryResult>>(
@@ -410,6 +414,8 @@ public class ApiGatewayControllerTests
         ok.Value!.AuthorizerId.Should().Be("auth-9");
         ok.Value!.ApiKeyRequired.Should().BeTrue();
         ok.Value!.AuthorizationScopes.Should().Equal("scope-a");
+        ok.Value!.IntegrationType.Should().Be("AWS_PROXY");
+        ok.Value!.IntegrationUri.Should().Be("arn:aws:lambda:eu-west-1:000000000000:function:orders");
     }
 
     [Fact]
@@ -437,7 +443,7 @@ public class ApiGatewayControllerTests
         _sender
             .Send(Arg.Any<PutRestMethodCommand>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result.Success()));
-        var request = new RestMethodPutRequest("NONE", null, false, null);
+        var request = new RestMethodPutRequest("NONE", null, false, null, "MOCK", null);
         var sut = CreateSut();
 
         // Act
@@ -451,7 +457,9 @@ public class ApiGatewayControllerTests
                 command.RestApiId == "api-1"
                 && command.ResourceId == "res-2"
                 && command.HttpMethod == "GET"
-                && command.AuthorizationScopes.Count == 0),
+                && command.AuthorizationScopes.Count == 0
+                && command.IntegrationType == "MOCK"
+                && command.IntegrationUri == null),
             Arg.Any<CancellationToken>());
     }
 
@@ -463,7 +471,7 @@ public class ApiGatewayControllerTests
             .Send(Arg.Any<PutRestMethodCommand>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result.Success()));
         var request = new RestMethodPutRequest(
-            "COGNITO_USER_POOLS", "auth-9", true, ["scope-a", "scope-b"]);
+            "COGNITO_USER_POOLS", "auth-9", true, ["scope-a", "scope-b"], "HTTP_PROXY", "https://example.com/items");
         var sut = CreateSut();
 
         // Act
@@ -475,7 +483,9 @@ public class ApiGatewayControllerTests
                 command.AuthorizationType == "COGNITO_USER_POOLS"
                 && command.AuthorizerId == "auth-9"
                 && command.ApiKeyRequired
-                && command.AuthorizationScopes.Count == 2),
+                && command.AuthorizationScopes.Count == 2
+                && command.IntegrationType == "HTTP_PROXY"
+                && command.IntegrationUri == "https://example.com/items"),
             Arg.Any<CancellationToken>());
     }
 
@@ -486,7 +496,7 @@ public class ApiGatewayControllerTests
         _sender
             .Send(Arg.Any<PutRestMethodCommand>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<Result>(new Error("boom")));
-        var request = new RestMethodPutRequest("NONE", null, false, null);
+        var request = new RestMethodPutRequest("NONE", null, false, null, "MOCK", null);
         var sut = CreateSut();
 
         // Act
@@ -533,6 +543,226 @@ public class ApiGatewayControllerTests
         // Act
         var result = await sut.DeleteRestMethod(
             "api-1", "res-2", "GET", TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task TestInvokeRestMethod_WhenCommandSucceeds_ReturnsOkWithResponse()
+    {
+        // Arrange
+        var invocationResult = new RestMethodTestInvocationResult(
+            200,
+            34,
+            new Dictionary<string, string> { ["Content-Type"] = "application/json" },
+            "{\"ok\":true}",
+            "execution log");
+        _sender
+            .Send(Arg.Any<TestInvokeRestMethodCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<RestMethodTestInvocationResult>>(invocationResult));
+        var request = new RestMethodTestInvokeRequest(
+            "/orders",
+            new Dictionary<string, string> { ["Content-Type"] = "application/json" },
+            new Dictionary<string, string> { ["debug"] = "true" },
+            "{\"orderId\":\"123\"}",
+            new Dictionary<string, string> { ["env"] = "local" });
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.TestInvokeRestMethod(
+            "api-1",
+            "res-2",
+            "POST",
+            request,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        var ok = result.Should().BeOfType<Ok<RestMethodTestInvokeResponse>>().Subject;
+        ok.Value!.StatusCode.Should().Be(200);
+        ok.Value!.LatencyMilliseconds.Should().Be(34);
+        ok.Value!.Headers.Should().ContainKey("Content-Type");
+        ok.Value!.Body.Should().Be("{\"ok\":true}");
+        ok.Value!.Log.Should().Be("execution log");
+        await _sender.Received(1).Send(
+            Arg.Is<TestInvokeRestMethodCommand>(command =>
+                command.RestApiId == "api-1"
+                && command.ResourceId == "res-2"
+                && command.HttpMethod == "POST"
+                && command.PathWithQueryString == "/orders"
+                && command.Headers.ContainsKey("Content-Type")
+                && command.QueryStringParameters.ContainsKey("debug")
+                && command.StageVariables.ContainsKey("env")),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task TestInvokeRestMethod_WhenCollectionsNull_PassesEmptyCollections()
+    {
+        // Arrange
+        var invocationResult = new RestMethodTestInvocationResult(
+            200,
+            10,
+            new Dictionary<string, string>(),
+            string.Empty,
+            null);
+        _sender
+            .Send(Arg.Any<TestInvokeRestMethodCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<RestMethodTestInvocationResult>>(invocationResult));
+        var request = new RestMethodTestInvokeRequest(
+            "/orders",
+            null,
+            null,
+            null,
+            null);
+        var sut = CreateSut();
+
+        // Act
+        await sut.TestInvokeRestMethod(
+            "api-1",
+            "res-2",
+            "GET",
+            request,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        await _sender.Received(1).Send(
+            Arg.Is<TestInvokeRestMethodCommand>(command =>
+                command.Headers.Count == 0
+                && command.QueryStringParameters.Count == 0
+                && command.StageVariables.Count == 0),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task TestInvokeRestMethod_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<TestInvokeRestMethodCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<RestMethodTestInvocationResult>>(new Error("boom")));
+        var request = new RestMethodTestInvokeRequest("/orders", null, null, null, null);
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.TestInvokeRestMethod(
+            "api-1",
+            "res-2",
+            "GET",
+            request,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task GetRestCors_WhenQuerySucceeds_ReturnsOkWithPolicy()
+    {
+        // Arrange
+        var configuration = new RestCorsConfiguration(
+            "res-2", true, ["*"], ["GET", "POST"], ["Content-Type"]);
+        _sender
+            .Send(Arg.Any<GetRestCorsQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<GetRestCorsQueryResult>>(
+                new GetRestCorsQueryResult(configuration)));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.GetRestCors(
+            "api-1", "res-2", TestContext.Current.CancellationToken);
+
+        // Assert
+        var ok = result.Should().BeOfType<Ok<RestCorsResponse>>().Subject;
+        ok.Value!.ResourceId.Should().Be("res-2");
+        ok.Value!.Enabled.Should().BeTrue();
+        ok.Value!.AllowOrigins.Should().ContainSingle().Which.Should().Be("*");
+        ok.Value!.AllowMethods.Should().BeEquivalentTo("GET", "POST");
+        ok.Value!.AllowHeaders.Should().ContainSingle().Which.Should().Be("Content-Type");
+    }
+
+    [Fact]
+    public async Task GetRestCors_WhenQueryFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<GetRestCorsQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<GetRestCorsQueryResult>>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.GetRestCors(
+            "api-1", "res-2", TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task ConfigureRestCors_WhenCommandSucceeds_ReturnsNoContent()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<ConfigureRestCorsCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var request = new RestCorsConfigureRequest(["*"], ["GET"], ["Content-Type"]);
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.ConfigureRestCors(
+            "api-1", "res-2", request, TestContext.Current.CancellationToken);
+
+        // Assert
+        result.Should().BeOfType<NoContent>();
+        await _sender.Received(1).Send(
+            Arg.Is<ConfigureRestCorsCommand>(command =>
+                command.RestApiId == "api-1"
+                && command.ResourceId == "res-2"
+                && command.AllowOrigins.Count == 1
+                && command.AllowMethods.Count == 1
+                && command.AllowHeaders.Count == 1),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ConfigureRestCors_WhenCollectionsNull_PassesEmptyCollections()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<ConfigureRestCorsCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var request = new RestCorsConfigureRequest(null, null, null);
+        var sut = CreateSut();
+
+        // Act
+        await sut.ConfigureRestCors(
+            "api-1", "res-2", request, TestContext.Current.CancellationToken);
+
+        // Assert
+        await _sender.Received(1).Send(
+            Arg.Is<ConfigureRestCorsCommand>(command =>
+                command.AllowOrigins.Count == 0
+                && command.AllowMethods.Count == 0
+                && command.AllowHeaders.Count == 0),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ConfigureRestCors_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<ConfigureRestCorsCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var request = new RestCorsConfigureRequest(["*"], ["GET"], ["Content-Type"]);
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.ConfigureRestCors(
+            "api-1", "res-2", request, TestContext.Current.CancellationToken);
 
         // Assert
         var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
@@ -689,6 +919,64 @@ public class ApiGatewayControllerTests
 
         // Act
         var result = await sut.CreateRestAuthorizer(
+            "api-1", request, TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task CreateRestTokenAuthorizer_WhenCommandSucceeds_ReturnsCreatedWithId()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<CreateRestTokenAuthorizerCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<string>>("auth-7"));
+        var request = new RestTokenAuthorizerCreateRequest(
+            "jwt-authorizer",
+            "https://issuer.example.com",
+            "api://default",
+            "method.request.header.Authorization",
+            "arn:aws:apigateway:eu-west-1:lambda:path/invocations");
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.CreateRestTokenAuthorizer(
+            "api-1", request, TestContext.Current.CancellationToken);
+
+        // Assert
+        var created = result.Should().BeOfType<Created<RestAuthorizerCreatedResponse>>().Subject;
+        created.Value!.Id.Should().Be("auth-7");
+        created.Location.Should().Be("/api/services/apigateway/restapis/api-1/authorizers/auth-7");
+        await _sender.Received(1).Send(
+            Arg.Is<CreateRestTokenAuthorizerCommand>(command =>
+                command.RestApiId == "api-1"
+                && command.Name == "jwt-authorizer"
+                && command.Issuer == "https://issuer.example.com"
+                && command.Audience == "api://default"
+                && command.IdentitySource == "method.request.header.Authorization"
+                && command.AuthorizerUri == "arn:aws:apigateway:eu-west-1:lambda:path/invocations"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CreateRestTokenAuthorizer_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<CreateRestTokenAuthorizerCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<string>>(new Error("boom")));
+        var request = new RestTokenAuthorizerCreateRequest(
+            "jwt-authorizer",
+            "https://issuer.example.com",
+            "api://default",
+            "method.request.header.Authorization",
+            "arn:aws:apigateway:eu-west-1:lambda:path/invocations");
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.CreateRestTokenAuthorizer(
             "api-1", request, TestContext.Current.CancellationToken);
 
         // Assert

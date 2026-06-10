@@ -8,7 +8,6 @@ import {
   type SnapshotImportResult,
   type WorkspaceSnapshot,
 } from '../api/client';
-import { NotificationCenter } from './NotificationCenter';
 
 type ExportState =
   | { kind: 'idle' }
@@ -43,21 +42,20 @@ const buttonDisabledStyle: CSSProperties = {
   cursor: 'not-allowed',
 };
 
-const buttonDangerStyle: CSSProperties = {
-  ...buttonStyle,
-  border: '1px solid #da3633',
-  background: '#da3633',
-};
-
 const messageStyle: CSSProperties = {
   fontSize: 13,
   opacity: 0.8,
 };
 
-function snapshotFilename(): string {
-  const now = new Date();
-  return `workspace-snapshot-${now.toISOString().split('T')[0]}-${now.getTime()}.json`;
-}
+const headingStyle: CSSProperties = {
+  fontSize: 14,
+  fontWeight: 600,
+};
+
+const descriptionStyle: CSSProperties = {
+  fontSize: 13,
+  opacity: 0.85,
+};
 
 export function SnapshotPanel() {
   const [exportState, setExportState] = useState<ExportState>({ kind: 'idle' });
@@ -72,21 +70,13 @@ export function SnapshotPanel() {
       .then((result) => {
         setLastExport(result);
         setExportState({ kind: 'idle' });
-        // TODO: Trigger the actual snapshot download after retrieving full snapshot data
-        NotificationCenter.show({
-          title: 'Snapshot Exported',
-          message: `${result.totalResources} resource(s) captured`,
-          type: 'success',
-        });
+        // TODO: Trigger the actual snapshot download and show success notification
+        console.log(`Snapshot exported: ${result.totalResources} resource(s) captured`);
       })
       .catch((err) => {
         const error = err instanceof Error ? err.message : 'Failed to export snapshot';
         setExportState({ kind: 'error', error });
-        NotificationCenter.show({
-          title: 'Export Failed',
-          message: error,
-          type: 'error',
-        });
+        console.error(`Export failed: ${error}`);
       });
   };
 
@@ -113,29 +103,21 @@ export function SnapshotPanel() {
           .then((result) => {
             setLastImport(result);
             setImportState({ kind: 'idle' });
-            NotificationCenter.show({
-              title: 'Snapshot Imported',
-              message: `${result.successCount} of ${result.totalResources} resource(s) created`,
-              type: result.failureCount === 0 ? 'success' : 'warning',
-            });
+            console.log(
+              `Snapshot imported: ${result.successCount} of ${result.totalResources} resource(s) created${
+                result.failureCount > 0 ? ` (${result.failureCount} failed)` : ''
+              }`,
+            );
           })
           .catch((err) => {
             const error = err instanceof Error ? err.message : 'Failed to import snapshot';
             setImportState({ kind: 'error', error });
-            NotificationCenter.show({
-              title: 'Import Failed',
-              message: error,
-              type: 'error',
-            });
+            console.error(`Import failed: ${error}`);
           });
-      } catch (err) {
-        const error = err instanceof Error ? err.message : 'Invalid snapshot file format';
+      } catch {
+        const error = 'Invalid snapshot file format';
         setImportState({ kind: 'error', error });
-        NotificationCenter.show({
-          title: 'Import Failed',
-          message: error,
-          type: 'error',
-        });
+        console.error(`Import error: ${error}`);
       }
     };
     reader.readAsText(file);
@@ -148,12 +130,12 @@ export function SnapshotPanel() {
 
   return (
     <div style={sectionStyle}>
-      <Heading as="h3" sx={{ fontSize: 14, fontWeight: 600 }}>
+      <Heading as="h3" style={headingStyle}>
         Workspace Snapshot
       </Heading>
 
       <div style={sectionStyle}>
-        <Text as="p" sx={{ fontSize: 13, opacity: 0.85 }}>
+        <Text as="p" style={descriptionStyle}>
           Export your current workspace configuration as a snapshot file, or import a previously saved snapshot to
           restore resources.
         </Text>
@@ -187,27 +169,27 @@ export function SnapshotPanel() {
         </div>
 
         {exportState.kind === 'error' && (
-          <Text as="p" sx={messageStyle}>
+          <Text as="p" style={messageStyle}>
             Export error: {exportState.error}
           </Text>
         )}
 
         {importState.kind === 'error' && (
-          <Text as="p" sx={messageStyle}>
+          <Text as="p" style={messageStyle}>
             Import error: {importState.error}
           </Text>
         )}
 
         {lastExport && (
-          <Text as="p" sx={messageStyle}>
+          <Text as="p" style={messageStyle}>
             Last export: {lastExport.totalResources} resource(s) from {lastExport.services.length} service(s)
           </Text>
         )}
 
         {lastImport && (
-          <Text as="p" sx={messageStyle}>
+          <Text as="p" style={messageStyle}>
             Last import: {lastImport.successCount} of {lastImport.totalResources} resource(s)
-            {lastImport.failureCount > 0 && ` ({lastImport.failureCount} failed)`}
+            {lastImport.failureCount > 0 && ` (${lastImport.failureCount} failed)`}
           </Text>
         )}
       </div>

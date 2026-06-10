@@ -7,10 +7,13 @@ using Foundation.Application.Commands.CreateHttpRoute;
 using Foundation.Application.Commands.CreateHttpStage;
 using Foundation.Application.Commands.DeleteHttpApi;
 using Foundation.Application.Commands.DeleteHttpAuthorizer;
+using Foundation.Application.Commands.DeleteHttpIntegration;
 using Foundation.Application.Commands.DeleteHttpRoute;
 using Foundation.Application.Commands.DeleteHttpStage;
+using Foundation.Application.Commands.TestHttpRoute;
 using Foundation.Application.Commands.UpdateHttpApi;
 using Foundation.Application.Commands.UpdateHttpAuthorizer;
+using Foundation.Application.Commands.UpdateHttpIntegration;
 using Foundation.Application.Commands.UpdateHttpRoute;
 using Foundation.Application.Commands.UpdateHttpStage;
 using Foundation.Application.Queries.GetHttpApi;
@@ -22,6 +25,7 @@ using Foundation.Application.Queries.ListHttpAuthorizers;
 using Foundation.Application.Queries.ListHttpIntegrations;
 using Foundation.Application.Queries.ListHttpRoutes;
 using Foundation.Application.Queries.ListHttpStages;
+using Foundation.Domain.ApiGatewayV2;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -141,13 +145,25 @@ public partial class ApiGatewayV2Controller : ControllerBase
                 request.ProtocolType,
                 request.Description,
                 request.Version,
-                request.RouteSelectionExpression),
+                request.RouteSelectionExpression,
+                ToCorsConfiguration(request.CorsConfiguration)),
             cancellationToken);
         LogUpdateApiHandled(result.IsSuccess);
         return result.Match(
             () => Results.NoContent(),
             error => error.AsHttpResult());
     }
+
+    private static HttpApiCorsConfiguration? ToCorsConfiguration(HttpApiCorsRequest? cors)
+        => cors is null
+            ? null
+            : new HttpApiCorsConfiguration(
+                cors.AllowCredentials,
+                cors.AllowHeaders,
+                cors.AllowMethods,
+                cors.AllowOrigins,
+                cors.ExposeHeaders,
+                cors.MaxAge);
 
     /// <summary>
     /// Deletes an Amazon API Gateway v2 API by its identifier. This action cannot be undone.
@@ -164,6 +180,46 @@ public partial class ApiGatewayV2Controller : ControllerBase
         LogDeleteApiHandled(result.IsSuccess);
         return result.Match(
             () => Results.NoContent(),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Invokes a route of an Amazon API Gateway v2 API to verify its authorization behaviour.
+    /// </summary>
+    /// <remarks>
+    /// The route is invoked over HTTP with and without a bearer token so the caller can observe
+    /// whether unauthenticated requests are rejected and authenticated requests are forwarded to the
+    /// integration, all without using external command-line tooling.
+    /// </remarks>
+    /// <param name="apiId">The identifier of the API the route belongs to.</param>
+    /// <param name="request">The invocation request describing the stage, method, path and token.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 200 result carrying the invocation outcome.</returns>
+    [HttpPost("apis/{apiId}/routes/test-invoke")]
+    [ProducesResponseType(typeof(HttpRouteInvocationResponse), StatusCodes.Status200OK)]
+    public async Task<IResult> TestInvokeRoute(
+        string apiId,
+        [FromBody] HttpRouteTestRequest request,
+        CancellationToken cancellationToken)
+    {
+        LogHandlingTestInvokeRoute(request.Method, request.Path, apiId);
+        var result = await _sender.Send(
+            new TestHttpRouteCommand(
+                apiId,
+                request.Stage,
+                request.Method,
+                request.Path,
+                request.Token,
+                request.Body),
+            cancellationToken);
+        LogTestInvokeRouteHandled(result.IsSuccess);
+        return result.Match(
+            invocation => Results.Ok(new HttpRouteInvocationResponse(
+                invocation.StatusCode,
+                invocation.Authorized,
+                invocation.LatencyMilliseconds,
+                invocation.Headers,
+                invocation.Body)),
             error => error.AsHttpResult());
     }
 
@@ -344,6 +400,55 @@ public partial class ApiGatewayV2Controller : ControllerBase
             integrationId => Results.Created(
                 $"/api/services/apigatewayv2/apis/{Uri.EscapeDataString(apiId)}/integrations/{Uri.EscapeDataString(integrationId)}",
                 new HttpIntegrationCreatedResponse(integrationId)),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Updates an existing integration on an Amazon API Gateway v2 API.
+    /// </summary>
+    /// <param name="apiId">The identifier of the API the integration belongs to.</param>
+    /// <param name="integrationId">The unique identifier of the integration to update.</param>
+    /// <param name="request">The integration configuration to apply.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 204 result on success.</returns>
+    [HttpPut("apis/{apiId}/integrations/{integrationId}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IResult> UpdateIntegration(
+        string apiId, string integrationId, [FromBody] HttpIntegrationUpdateRequest request, CancellationToken cancellationToken)
+    {
+        LogHandlingUpdateIntegration(integrationId, apiId);
+        var result = await _sender.Send(
+            new UpdateHttpIntegrationCommand(
+                apiId,
+                integrationId,
+                request.IntegrationType,
+                request.IntegrationMethod,
+                request.IntegrationUri,
+                request.PayloadFormatVersion,
+                request.Description),
+            cancellationToken);
+        LogUpdateIntegrationHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.NoContent(),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Deletes an integration from an Amazon API Gateway v2 API. This action cannot be undone.
+    /// </summary>
+    /// <param name="apiId">The identifier of the API the integration belongs to.</param>
+    /// <param name="integrationId">The unique identifier of the integration to delete.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 204 result on success.</returns>
+    [HttpDelete("apis/{apiId}/integrations/{integrationId}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IResult> DeleteIntegration(string apiId, string integrationId, CancellationToken cancellationToken)
+    {
+        LogHandlingDeleteIntegration(integrationId, apiId);
+        var result = await _sender.Send(new DeleteHttpIntegrationCommand(apiId, integrationId), cancellationToken);
+        LogDeleteIntegrationHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.NoContent(),
             error => error.AsHttpResult());
     }
 
@@ -674,6 +779,12 @@ public partial class ApiGatewayV2Controller : ControllerBase
     [LoggerMessage(LogLevel.Trace, "API Gateway v2 API delete request handled. Success: {Success}")]
     private partial void LogDeleteApiHandled(bool success);
 
+    [LoggerMessage(LogLevel.Trace, "Handling API Gateway v2 route test invoke request for {Method} {Path} on {ApiId}.")]
+    private partial void LogHandlingTestInvokeRoute(string method, string path, string apiId);
+
+    [LoggerMessage(LogLevel.Trace, "API Gateway v2 route test invoke request handled. Success: {Success}")]
+    private partial void LogTestInvokeRouteHandled(bool success);
+
     [LoggerMessage(LogLevel.Trace, "Handling API Gateway v2 route list request for {ApiId}.")]
     private partial void LogHandlingListRoutes(string apiId);
 
@@ -715,6 +826,18 @@ public partial class ApiGatewayV2Controller : ControllerBase
 
     [LoggerMessage(LogLevel.Trace, "API Gateway v2 integration create request handled. Success: {Success}")]
     private partial void LogCreateIntegrationHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling API Gateway v2 integration update request for {IntegrationId} in {ApiId}.")]
+    private partial void LogHandlingUpdateIntegration(string integrationId, string apiId);
+
+    [LoggerMessage(LogLevel.Trace, "API Gateway v2 integration update request handled. Success: {Success}")]
+    private partial void LogUpdateIntegrationHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling API Gateway v2 integration delete request for {IntegrationId} in {ApiId}.")]
+    private partial void LogHandlingDeleteIntegration(string integrationId, string apiId);
+
+    [LoggerMessage(LogLevel.Trace, "API Gateway v2 integration delete request handled. Success: {Success}")]
+    private partial void LogDeleteIntegrationHandled(bool success);
 
     [LoggerMessage(LogLevel.Trace, "Handling API Gateway v2 authorizer list request for {ApiId}.")]
     private partial void LogHandlingListAuthorizers(string apiId);

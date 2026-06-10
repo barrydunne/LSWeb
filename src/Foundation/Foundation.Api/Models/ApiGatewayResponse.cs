@@ -117,13 +117,17 @@ public sealed record RestResourceCreatedResponse(string Id);
 /// <param name="AuthorizerId">The identifier of the authorizer applied to the method, or <c>null</c> when none is set.</param>
 /// <param name="ApiKeyRequired">Whether an API key is required to call the method.</param>
 /// <param name="AuthorizationScopes">The authorization scopes required by the method, when applicable.</param>
+/// <param name="IntegrationType">The integration type configured for backend forwarding.</param>
+/// <param name="IntegrationUri">The integration URI/ARN configured for backend forwarding, or <c>null</c> when none is set.</param>
 public sealed record RestMethodDetailResponse(
     string ResourceId,
     string HttpMethod,
     string AuthorizationType,
     string? AuthorizerId,
     bool ApiKeyRequired,
-    IReadOnlyList<string> AuthorizationScopes);
+    IReadOnlyList<string> AuthorizationScopes,
+    string IntegrationType,
+    string? IntegrationUri);
 
 /// <summary>
 /// The payload used to create or replace an HTTP method on an API Gateway REST API resource.
@@ -132,11 +136,45 @@ public sealed record RestMethodDetailResponse(
 /// <param name="AuthorizerId">The identifier of the authorizer to apply, or <c>null</c> when none is required.</param>
 /// <param name="ApiKeyRequired">Whether an API key is required to call the method.</param>
 /// <param name="AuthorizationScopes">The authorization scopes required by the method, when applicable.</param>
+/// <param name="IntegrationType">The integration type for backend forwarding (for example <c>MOCK</c>, <c>HTTP</c> or <c>AWS_PROXY</c>).</param>
+/// <param name="IntegrationUri">The integration URI/ARN to target, or <c>null</c> when the selected integration type does not require one.</param>
 public sealed record RestMethodPutRequest(
     string AuthorizationType,
     string? AuthorizerId,
     bool ApiKeyRequired,
-    IReadOnlyList<string>? AuthorizationScopes);
+    IReadOnlyList<string>? AuthorizationScopes,
+    string IntegrationType,
+    string? IntegrationUri);
+
+/// <summary>
+/// The payload used to test invoke an HTTP method on an API Gateway REST API resource.
+/// </summary>
+/// <param name="PathWithQueryString">The request path and optional query string, for example <c>/orders?id=1</c>.</param>
+/// <param name="Headers">The request headers to include.</param>
+/// <param name="QueryStringParameters">Additional query string parameters to include.</param>
+/// <param name="Body">The optional request body.</param>
+/// <param name="StageVariables">The optional stage variables used during invocation.</param>
+public sealed record RestMethodTestInvokeRequest(
+    string PathWithQueryString,
+    IReadOnlyDictionary<string, string>? Headers,
+    IReadOnlyDictionary<string, string>? QueryStringParameters,
+    string? Body,
+    IReadOnlyDictionary<string, string>? StageVariables);
+
+/// <summary>
+/// The result of testing an HTTP method invocation on an API Gateway REST API resource.
+/// </summary>
+/// <param name="StatusCode">The returned HTTP status code.</param>
+/// <param name="LatencyMilliseconds">The invocation latency in milliseconds.</param>
+/// <param name="Headers">The returned response headers.</param>
+/// <param name="Body">The returned response body.</param>
+/// <param name="Log">The execution log output, or <c>null</c> when unavailable.</param>
+public sealed record RestMethodTestInvokeResponse(
+    int StatusCode,
+    int LatencyMilliseconds,
+    IReadOnlyDictionary<string, string> Headers,
+    string Body,
+    string? Log);
 
 /// <summary>
 /// The collection of authorizers configured on an API Gateway REST API.
@@ -185,6 +223,21 @@ public sealed record RestAuthorizerCreateRequest(
     string Type,
     IReadOnlyList<string>? ProviderARNs,
     string? IdentitySource);
+
+/// <summary>
+/// The payload used to create an OAuth/JWT token authorizer on an API Gateway REST API.
+/// </summary>
+/// <param name="Name">The name of the authorizer.</param>
+/// <param name="Issuer">The OIDC issuer the tokens are expected to originate from.</param>
+/// <param name="Audience">The audience the tokens are expected to be issued for.</param>
+/// <param name="IdentitySource">The request location the bearer token is read from.</param>
+/// <param name="AuthorizerUri">The invocation URI of the function that validates the bearer token.</param>
+public sealed record RestTokenAuthorizerCreateRequest(
+    string Name,
+    string Issuer,
+    string Audience,
+    string IdentitySource,
+    string AuthorizerUri);
 
 /// <summary>
 /// The payload used to update a Cognito user pool authorizer on an API Gateway REST API.
@@ -302,3 +355,29 @@ public sealed record RestDeploymentCreateRequest(
 /// </summary>
 /// <param name="Id">The identifier of the newly created deployment.</param>
 public sealed record RestDeploymentCreatedResponse(string Id);
+
+/// <summary>
+/// The CORS policy configured on an API Gateway REST API resource.
+/// </summary>
+/// <param name="ResourceId">The identifier of the resource the policy applies to.</param>
+/// <param name="Enabled">Whether a CORS preflight (OPTIONS) policy is configured on the resource.</param>
+/// <param name="AllowOrigins">The origins the policy allows.</param>
+/// <param name="AllowMethods">The HTTP methods the policy allows.</param>
+/// <param name="AllowHeaders">The request headers the policy allows.</param>
+public sealed record RestCorsResponse(
+    string ResourceId,
+    bool Enabled,
+    IReadOnlyList<string> AllowOrigins,
+    IReadOnlyList<string> AllowMethods,
+    IReadOnlyList<string> AllowHeaders);
+
+/// <summary>
+/// The payload used to configure the CORS policy on an API Gateway REST API resource.
+/// </summary>
+/// <param name="AllowOrigins">The origins to allow.</param>
+/// <param name="AllowMethods">The HTTP methods to allow.</param>
+/// <param name="AllowHeaders">The request headers to allow.</param>
+public sealed record RestCorsConfigureRequest(
+    IReadOnlyList<string>? AllowOrigins,
+    IReadOnlyList<string>? AllowMethods,
+    IReadOnlyList<string>? AllowHeaders);

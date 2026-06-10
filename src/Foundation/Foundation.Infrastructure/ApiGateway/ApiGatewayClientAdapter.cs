@@ -220,7 +220,23 @@ internal sealed class ApiGatewayClientAdapter : IApiGatewayClient
                     },
                     token);
 
-                return ToMethodDetail(resourceId, response);
+                GetIntegrationResponse? integrationResponse = null;
+                try
+                {
+                    integrationResponse = await client.GetIntegrationAsync(
+                        new GetIntegrationRequest
+                        {
+                            RestApiId = restApiId,
+                            ResourceId = resourceId,
+                            HttpMethod = httpMethod,
+                        },
+                        token);
+                }
+                catch (NotFoundException)
+                {
+                }
+
+                return ToMethodDetail(resourceId, response, integrationResponse);
             },
             cancellationToken);
 
@@ -254,11 +270,17 @@ internal sealed class ApiGatewayClientAdapter : IApiGatewayClient
                         RestApiId = specification.RestApiId,
                         ResourceId = specification.ResourceId,
                         HttpMethod = specification.HttpMethod,
-                        Type = IntegrationType.MOCK,
-                        RequestTemplates = new Dictionary<string, string>
-                        {
-                            ["application/json"] = "{\"statusCode\": 200}",
-                        },
+                        Type = IntegrationType.FindValue(specification.IntegrationType),
+                        Uri = string.IsNullOrWhiteSpace(specification.IntegrationUri)
+                            ? null
+                            : specification.IntegrationUri,
+                        IntegrationHttpMethod = ResolveIntegrationHttpMethod(specification),
+                        RequestTemplates = specification.IntegrationType == IntegrationType.MOCK.Value
+                            ? new Dictionary<string, string>
+                            {
+                                ["application/json"] = "{\"statusCode\": 200}",
+                            }
+                            : null,
                     },
                     token);
 
@@ -289,6 +311,193 @@ internal sealed class ApiGatewayClientAdapter : IApiGatewayClient
             cancellationToken);
 
         return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    public Task<Result<RestCorsConfiguration>> GetCorsAsync(
+        string restApiId, string resourceId, CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonAPIGatewayClient, RestCorsConfiguration>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                try
+                {
+                    var response = await client.GetIntegrationResponseAsync(
+                        new GetIntegrationResponseRequest
+                        {
+                            RestApiId = restApiId,
+                            ResourceId = resourceId,
+                            HttpMethod = "OPTIONS",
+                            StatusCode = "200",
+                        },
+                        token);
+
+                    var parameters = response.ResponseParameters
+                        ?? new Dictionary<string, string>();
+                    return new RestCorsConfiguration(
+                        resourceId,
+                        true,
+                        ReadCorsValues(parameters, "Access-Control-Allow-Origin"),
+                        ReadCorsValues(parameters, "Access-Control-Allow-Methods"),
+                        ReadCorsValues(parameters, "Access-Control-Allow-Headers"));
+                }
+                catch (NotFoundException)
+                {
+                    return new RestCorsConfiguration(resourceId, false, [], [], []);
+                }
+            },
+            cancellationToken);
+
+    public async Task<Result> ConfigureCorsAsync(
+        RestCorsSpecification specification, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonAPIGatewayClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                try
+                {
+                    await client.DeleteMethodAsync(
+                        new DeleteMethodRequest
+                        {
+                            RestApiId = specification.RestApiId,
+                            ResourceId = specification.ResourceId,
+                            HttpMethod = "OPTIONS",
+                        },
+                        token);
+                }
+                catch (NotFoundException)
+                {
+                }
+
+                var allowOrigin = string.Join(",", specification.AllowOrigins);
+                var allowMethods = string.Join(",", specification.AllowMethods);
+                var allowHeaders = string.Join(",", specification.AllowHeaders);
+
+                await client.PutMethodAsync(
+                    new PutMethodRequest
+                    {
+                        RestApiId = specification.RestApiId,
+                        ResourceId = specification.ResourceId,
+                        HttpMethod = "OPTIONS",
+                        AuthorizationType = "NONE",
+                    },
+                    token);
+
+                await client.PutMethodResponseAsync(
+                    new PutMethodResponseRequest
+                    {
+                        RestApiId = specification.RestApiId,
+                        ResourceId = specification.ResourceId,
+                        HttpMethod = "OPTIONS",
+                        StatusCode = "200",
+                        ResponseParameters = new Dictionary<string, bool>
+                        {
+                            ["method.response.header.Access-Control-Allow-Origin"] = false,
+                            ["method.response.header.Access-Control-Allow-Methods"] = false,
+                            ["method.response.header.Access-Control-Allow-Headers"] = false,
+                        },
+                    },
+                    token);
+
+                await client.PutIntegrationAsync(
+                    new PutIntegrationRequest
+                    {
+                        RestApiId = specification.RestApiId,
+                        ResourceId = specification.ResourceId,
+                        HttpMethod = "OPTIONS",
+                        Type = IntegrationType.MOCK,
+                        RequestTemplates = new Dictionary<string, string>
+                        {
+                            ["application/json"] = "{\"statusCode\": 200}",
+                        },
+                    },
+                    token);
+
+                await client.PutIntegrationResponseAsync(
+                    new PutIntegrationResponseRequest
+                    {
+                        RestApiId = specification.RestApiId,
+                        ResourceId = specification.ResourceId,
+                        HttpMethod = "OPTIONS",
+                        StatusCode = "200",
+                        ResponseParameters = new Dictionary<string, string>
+                        {
+                            ["method.response.header.Access-Control-Allow-Origin"] = $"'{allowOrigin}'",
+                            ["method.response.header.Access-Control-Allow-Methods"] = $"'{allowMethods}'",
+                            ["method.response.header.Access-Control-Allow-Headers"] = $"'{allowHeaders}'",
+                        },
+                    },
+                    token);
+
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    private static IReadOnlyList<string> ReadCorsValues(
+        Dictionary<string, string> parameters, string headerName)
+    {
+        var key = $"method.response.header.{headerName}";
+        if (!parameters.TryGetValue(key, out var raw) || string.IsNullOrWhiteSpace(raw))
+            return [];
+
+        var trimmed = raw.Trim().Trim('\'');
+        return trimmed.Length == 0
+            ? []
+            : [.. trimmed.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
+    }
+
+    public Task<Result<RestMethodTestInvocationResult>> TestInvokeMethodAsync(
+        RestMethodTestInvocationSpecification specification,
+        CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonAPIGatewayClient, RestMethodTestInvocationResult>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var response = await client.TestInvokeMethodAsync(
+                    new TestInvokeMethodRequest
+                    {
+                        RestApiId = specification.RestApiId,
+                        ResourceId = specification.ResourceId,
+                        HttpMethod = specification.HttpMethod,
+                        PathWithQueryString = BuildPathWithQueryString(specification),
+                        Body = specification.Body,
+                        Headers = specification.Headers.Count > 0
+                            ? new Dictionary<string, string>(specification.Headers)
+                            : null,
+                        MultiValueHeaders = null,
+                        StageVariables = specification.StageVariables.Count > 0
+                            ? new Dictionary<string, string>(specification.StageVariables)
+                            : null,
+                    },
+                    token);
+
+                return new RestMethodTestInvocationResult(
+                    response.Status ?? 0,
+                    (int)(response.Latency ?? 0L),
+                    response.Headers is { Count: > 0 } headers
+                        ? new Dictionary<string, string>(headers)
+                        : new Dictionary<string, string>(),
+                    response.Body ?? string.Empty,
+                    string.IsNullOrWhiteSpace(response.Log) ? null : response.Log);
+            },
+            cancellationToken);
+
+    private static string BuildPathWithQueryString(RestMethodTestInvocationSpecification specification)
+    {
+        if (specification.QueryStringParameters.Count == 0)
+            return specification.PathWithQueryString;
+
+        var queryString = string.Join(
+            '&',
+            specification.QueryStringParameters.Select(pair =>
+                $"{Uri.EscapeDataString(pair.Key)}={Uri.EscapeDataString(pair.Value)}"));
+
+        return specification.PathWithQueryString.Contains('?')
+            ? $"{specification.PathWithQueryString}&{queryString}"
+            : $"{specification.PathWithQueryString}?{queryString}";
     }
 
     public Task<Result<IReadOnlyList<RestAuthorizerSummary>>> ListAuthorizersAsync(
@@ -348,6 +557,29 @@ internal sealed class ApiGatewayClientAdapter : IApiGatewayClient
                         IdentitySource = string.IsNullOrEmpty(specification.IdentitySource)
                             ? "method.request.header.Authorization"
                             : specification.IdentitySource,
+                    },
+                    token);
+
+                return response.Id ?? string.Empty;
+            },
+            cancellationToken);
+
+    public Task<Result<string>> CreateTokenAuthorizerAsync(
+        RestTokenAuthorizerSpecification specification, CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonAPIGatewayClient, string>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var response = await client.CreateAuthorizerAsync(
+                    new CreateAuthorizerRequest
+                    {
+                        RestApiId = specification.RestApiId,
+                        Name = specification.Name,
+                        Type = AuthorizerType.TOKEN,
+                        AuthType = "oauth2",
+                        AuthorizerUri = specification.AuthorizerUri,
+                        IdentitySource = specification.IdentitySource,
+                        IdentityValidationExpression = "^Bearer [-0-9a-zA-Z._~+/]+=*$",
                     },
                     token);
 
@@ -631,14 +863,35 @@ internal sealed class ApiGatewayClientAdapter : IApiGatewayClient
                 ? [.. methods.Keys]
                 : []);
 
-    private static RestMethodDetail ToMethodDetail(string resourceId, GetMethodResponse response)
+    private static RestMethodDetail ToMethodDetail(
+        string resourceId,
+        GetMethodResponse response,
+        GetIntegrationResponse? integration)
         => new(
             resourceId,
             response.HttpMethod ?? string.Empty,
             string.IsNullOrWhiteSpace(response.AuthorizationType) ? "NONE" : response.AuthorizationType,
             string.IsNullOrWhiteSpace(response.AuthorizerId) ? null : response.AuthorizerId,
             response.ApiKeyRequired ?? false,
-            response.AuthorizationScopes ?? []);
+            response.AuthorizationScopes ?? [],
+            integration?.Type?.Value ?? IntegrationType.MOCK.Value,
+            string.IsNullOrWhiteSpace(integration?.Uri) ? null : integration.Uri);
+
+    private static string? ResolveIntegrationHttpMethod(RestMethodSpecification specification)
+    {
+        if (specification.IntegrationType == IntegrationType.MOCK.Value)
+            return null;
+
+        if (specification.IntegrationType == IntegrationType.AWS.Value
+            || specification.IntegrationType == IntegrationType.AWS_PROXY.Value)
+            return "POST";
+
+        if (specification.IntegrationType == IntegrationType.HTTP.Value
+            || specification.IntegrationType == IntegrationType.HTTP_PROXY.Value)
+            return specification.HttpMethod == "ANY" ? "GET" : specification.HttpMethod;
+
+        return null;
+    }
 
     private static DomainRestApi ToRestApi(SdkRestApi item)
         => new(

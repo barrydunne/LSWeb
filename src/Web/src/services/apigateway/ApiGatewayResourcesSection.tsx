@@ -6,15 +6,18 @@ import {
   deleteApiGatewayRestResource,
   getApiGatewayRestMethod,
   getApiGatewayRestResources,
+  getApiGatewayRestAuthorizers,
   putApiGatewayRestMethod,
 } from '../../api/client';
 import type {
   ApiGatewayRestMethodDetailResult,
   ApiGatewayRestResourceItem,
+  ApiGatewayRestAuthorizerItem,
 } from '../../api/client';
 
 const HTTP_METHODS = ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'HEAD', 'OPTIONS', 'ANY'];
 const AUTHORIZATION_TYPES = ['NONE', 'AWS_IAM', 'CUSTOM', 'COGNITO_USER_POOLS'];
+const INTEGRATION_TYPES = ['MOCK', 'HTTP', 'HTTP_PROXY', 'AWS', 'AWS_PROXY'];
 
 const sectionStyle: CSSProperties = {
   display: 'flex',
@@ -77,6 +80,10 @@ function rootResourceId(resources: ApiGatewayRestResourceItem[]): string {
   return root?.id ?? '';
 }
 
+function authTypeSupportsAuthorizer(authType: string): boolean {
+  return authType === 'COGNITO_USER_POOLS' || authType === 'CUSTOM';
+}
+
 interface ApiGatewayResourcesSectionProps {
   restApiId: string;
 }
@@ -92,9 +99,16 @@ export function ApiGatewayResourcesSection({ restApiId }: ApiGatewayResourcesSec
   const [methodResourceId, setMethodResourceId] = useState('');
   const [newHttpMethod, setNewHttpMethod] = useState('GET');
   const [newAuthType, setNewAuthType] = useState('NONE');
+  const [newAuthorizerId, setNewAuthorizerId] = useState<string | null>(null);
+  const [newIntegrationType, setNewIntegrationType] = useState('MOCK');
+  const [newIntegrationUri, setNewIntegrationUri] = useState('');
   const [methodError, setMethodError] = useState(false);
 
   const [methodDetail, setMethodDetail] = useState<ApiGatewayRestMethodDetailResult | null>(null);
+  const [authorizers, setAuthorizers] = useState<ApiGatewayRestAuthorizerItem[]>([]);
+  const [authorizersLoading, setAuthorizersLoading] = useState(false);
+  const [editingAuthorizerId, setEditingAuthorizerId] = useState<string | null | 'LOADING'>(null);
+  const [methodSaving, setMethodSaving] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -104,6 +118,50 @@ export function ApiGatewayResourcesSection({ restApiId }: ApiGatewayResourcesSec
       .catch(() => setState({ kind: 'error' }));
     return () => controller.abort();
   }, [restApiId, reloadToken]);
+
+  // Load authorizers when needed (viewing method detail or auth type requires it)
+  useEffect(() => {
+    if (methodDetail === null || !authTypeSupportsAuthorizer(methodDetail.authorizationType)) {
+      setAuthorizers([]);
+      return;
+    }
+
+    setAuthorizersLoading(true);
+    const controller = new AbortController();
+    getApiGatewayRestAuthorizers(restApiId, controller.signal)
+      .then((result) => {
+        setAuthorizers(result.authorizers);
+        setAuthorizersLoading(false);
+      })
+      .catch(() => {
+        setAuthorizers([]);
+        setAuthorizersLoading(false);
+      });
+    return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restApiId, methodDetail?.authorizationType]);
+
+  // Also load authorizers for method creation form when auth type supports it
+  useEffect(() => {
+    if (methodResourceId === '' || !authTypeSupportsAuthorizer(newAuthType)) {
+      setAuthorizers([]);
+      return;
+    }
+
+    setAuthorizersLoading(true);
+    const controller = new AbortController();
+    getApiGatewayRestAuthorizers(restApiId, controller.signal)
+      .then((result) => {
+        setAuthorizers(result.authorizers);
+        setAuthorizersLoading(false);
+      })
+      .catch(() => {
+        setAuthorizers([]);
+        setAuthorizersLoading(false);
+      });
+    return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restApiId, newAuthType]);
 
   const refresh = useCallback(() => {
     setReloadToken((token) => token + 1);
@@ -134,11 +192,19 @@ export function ApiGatewayResourcesSection({ restApiId }: ApiGatewayResourcesSec
     setMethodError(false);
     putApiGatewayRestMethod(restApiId, resourceId, newHttpMethod, {
       authorizationType: newAuthType,
-      authorizerId: null,
+      authorizerId: newAuthorizerId,
       apiKeyRequired: false,
       authorizationScopes: [],
+      integrationType: newIntegrationType,
+      integrationUri:
+        newIntegrationType === 'MOCK' || newIntegrationUri.trim() === ''
+          ? null
+          : newIntegrationUri.trim(),
     })
-      .then(refresh)
+      .then(() => {
+        setNewAuthorizerId(null);
+        refresh();
+      })
       .catch(() => setMethodError(true));
   };
 
@@ -153,9 +219,38 @@ export function ApiGatewayResourcesSection({ restApiId }: ApiGatewayResourcesSec
 
   const handleViewMethod = (resourceId: string, httpMethod: string) => {
     setMethodDetail(null);
+    setEditingAuthorizerId('LOADING');
     getApiGatewayRestMethod(restApiId, resourceId, httpMethod)
-      .then((detail) => setMethodDetail(detail))
-      .catch(() => setMethodDetail(null));
+      .then((detail) => {
+        setMethodDetail(detail);
+        setEditingAuthorizerId(detail.authorizerId);
+      })
+      .catch(() => {
+        setMethodDetail(null);
+        setEditingAuthorizerId(null);
+      });
+  };
+
+  const handleSaveAuthorizerBinding = () => {
+    const detail = methodDetail!;
+
+    setMethodSaving(true);
+    putApiGatewayRestMethod(restApiId, detail.resourceId, detail.httpMethod, {
+      authorizationType: detail.authorizationType,
+      authorizerId: editingAuthorizerId,
+      apiKeyRequired: detail.apiKeyRequired,
+      authorizationScopes: detail.authorizationScopes,
+      integrationType: detail.integrationType,
+      integrationUri: detail.integrationUri,
+    })
+      .then(() => {
+        setMethodDetail(null);
+        setMethodSaving(false);
+        refresh();
+      })
+      .catch(() => {
+        setMethodSaving(false);
+      });
   };
 
   if (state.kind === 'loading') {
@@ -264,6 +359,10 @@ export function ApiGatewayResourcesSection({ restApiId }: ApiGatewayResourcesSec
               onChange={(event) => {
                 setMethodResourceId(resource.id);
                 setNewAuthType(event.target.value);
+                // Reset authorizer when auth type changes
+                if (!authTypeSupportsAuthorizer(event.target.value)) {
+                  setNewAuthorizerId(null);
+                }
               }}
             >
               {AUTHORIZATION_TYPES.map((authType) => (
@@ -272,6 +371,50 @@ export function ApiGatewayResourcesSection({ restApiId }: ApiGatewayResourcesSec
                 </option>
               ))}
             </select>
+            {methodResourceId === resource.id && authTypeSupportsAuthorizer(newAuthType) ? (
+              <select
+                data-testid={`apigateway-method-authorizer-${resource.id}`}
+                style={inputStyle}
+                value={newAuthorizerId ?? ''}
+                onChange={(event) => {
+                  setMethodResourceId(resource.id);
+                  setNewAuthorizerId(event.target.value === '' ? null : event.target.value);
+                }}
+              >
+                <option value="">(none)</option>
+                {authorizers.map((authorizer) => (
+                  <option key={authorizer.id} value={authorizer.id}>
+                    {authorizer.name}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+            <select
+              data-testid={`apigateway-method-integration-type-${resource.id}`}
+              style={inputStyle}
+              value={methodResourceId === resource.id ? newIntegrationType : 'MOCK'}
+              onChange={(event) => {
+                setMethodResourceId(resource.id);
+                setNewIntegrationType(event.target.value);
+              }}
+            >
+              {INTEGRATION_TYPES.map((integrationType) => (
+                <option key={integrationType} value={integrationType}>
+                  {integrationType}
+                </option>
+              ))}
+            </select>
+            <input
+              type="text"
+              data-testid={`apigateway-method-integration-uri-${resource.id}`}
+              style={inputStyle}
+              placeholder="integration URI"
+              value={methodResourceId === resource.id ? newIntegrationUri : ''}
+              onChange={(event) => {
+                setMethodResourceId(resource.id);
+                setNewIntegrationUri(event.target.value);
+              }}
+            />
             <button
               type="button"
               data-testid={`apigateway-method-add-${resource.id}`}
@@ -286,9 +429,65 @@ export function ApiGatewayResourcesSection({ restApiId }: ApiGatewayResourcesSec
 
       {methodDetail !== null ? (
         <div data-testid="apigateway-method-detail" style={resourceRowStyle}>
-          <span style={valueStyle}>
-            {methodDetail.httpMethod} &middot; {methodDetail.authorizationType}
-          </span>
+          <div style={inlineStyle}>
+            <span style={valueStyle}>
+              {methodDetail.httpMethod} &middot; {methodDetail.authorizationType}
+              {authTypeSupportsAuthorizer(methodDetail.authorizationType) && methodDetail.authorizerId
+                ? ` (${methodDetail.authorizerId})`
+                : ''}
+            </span>
+            <button
+              type="button"
+              data-testid="apigateway-method-detail-close"
+              style={buttonStyle}
+              onClick={() => {
+                setMethodDetail(null);
+                setEditingAuthorizerId(null);
+              }}
+            >
+              Close
+            </button>
+          </div>
+
+          {methodDetail.integrationUri !== null ? (
+            <span style={valueStyle}>Integration: {methodDetail.integrationUri}</span>
+          ) : null}
+
+          {authTypeSupportsAuthorizer(methodDetail.authorizationType) ? (
+            <div style={{ ...inlineStyle, flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
+              <span style={labelStyle}>Authorizer</span>
+              {authorizersLoading ? (
+                <span style={messageStyle}>Loading authorizers…</span>
+              ) : (
+                <select
+                  data-testid="apigateway-method-detail-authorizer"
+                  style={inputStyle}
+                  value={editingAuthorizerId === null ? '' : editingAuthorizerId}
+                  onChange={(event) => {
+                    setEditingAuthorizerId(event.target.value === '' ? null : event.target.value);
+                  }}
+                >
+                  <option value="">(none)</option>
+                  {authorizers.map((authorizer) => (
+                    <option key={authorizer.id} value={authorizer.id}>
+                      {authorizer.name} ({authorizer.id})
+                    </option>
+                  ))}
+                </select>
+              )}
+              {editingAuthorizerId !== methodDetail.authorizerId && editingAuthorizerId !== 'LOADING' ? (
+                <button
+                  type="button"
+                  data-testid="apigateway-method-detail-save-authorizer"
+                  style={buttonStyle}
+                  disabled={methodSaving}
+                  onClick={handleSaveAuthorizerBinding}
+                >
+                  {methodSaving ? 'Saving…' : 'Save'}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ) : null}
 

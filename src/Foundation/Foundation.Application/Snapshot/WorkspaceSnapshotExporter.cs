@@ -11,7 +11,7 @@ namespace Foundation.Application.Snapshot;
 /// </summary>
 internal sealed partial class WorkspaceSnapshotExporter : IWorkspaceSnapshotExporter
 {
-    private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = false };
+    private static readonly JsonSerializerOptions _jsonOptions = new() { WriteIndented = false };
 
     private readonly ISearchIndexStore _searchIndex;
     private readonly ILogger<WorkspaceSnapshotExporter> _logger;
@@ -60,7 +60,7 @@ internal sealed partial class WorkspaceSnapshotExporter : IWorkspaceSnapshotExpo
                 "Resource",  // Type is not yet available from SearchEntry
                 entry.ResourceId,
                 entry.DisplayName,
-                JsonSerializer.Serialize(metadata, JsonOptions));
+                JsonSerializer.Serialize(metadata, _jsonOptions));
 
             serviceList.Add(serialized);
         }

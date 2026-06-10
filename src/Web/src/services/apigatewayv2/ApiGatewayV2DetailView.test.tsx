@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { ApiGatewayV2DetailView } from './ApiGatewayV2DetailView';
 import {
   getHttpApi,
@@ -10,6 +10,8 @@ import {
   deleteHttpRoute,
   getHttpIntegrations,
   createHttpIntegration,
+  updateHttpIntegration,
+  deleteHttpIntegration,
   getHttpAuthorizers,
   createHttpAuthorizer,
   updateHttpAuthorizer,
@@ -37,6 +39,8 @@ const updateHttpRouteMock = vi.mocked(updateHttpRoute);
 const deleteHttpRouteMock = vi.mocked(deleteHttpRoute);
 const getHttpIntegrationsMock = vi.mocked(getHttpIntegrations);
 const createHttpIntegrationMock = vi.mocked(createHttpIntegration);
+const updateHttpIntegrationMock = vi.mocked(updateHttpIntegration);
+const deleteHttpIntegrationMock = vi.mocked(deleteHttpIntegration);
 const getHttpAuthorizersMock = vi.mocked(getHttpAuthorizers);
 const createHttpAuthorizerMock = vi.mocked(createHttpAuthorizer);
 const updateHttpAuthorizerMock = vi.mocked(updateHttpAuthorizer);
@@ -108,7 +112,8 @@ describe('ApiGatewayV2DetailView', () => {
   });
 
   afterEach(() => {
-    vi.resetAllMocks();
+    cleanup();
+    vi.clearAllMocks();
   });
 
   it('shows a loading state before the API arrives', () => {
@@ -271,6 +276,7 @@ describe('ApiGatewayV2DetailView', () => {
       target: { value: '$request.path' },
     });
 
+    const detailLoadsBeforeSave = getHttpApiMock.mock.calls.length;
     fireEvent.click(screen.getByTestId('apigatewayv2-edit-submit'));
 
     await waitFor(() => expect(screen.getByTestId('apigatewayv2-edit-status')).toBeInTheDocument());
@@ -281,9 +287,128 @@ describe('ApiGatewayV2DetailView', () => {
       description: null,
       version: '2.0',
       routeSelectionExpression: '$request.path',
+      corsConfiguration: {
+        allowCredentials: true,
+        allowHeaders: ['content-type'],
+        allowMethods: ['GET', 'POST'],
+        allowOrigins: ['*'],
+        exposeHeaders: [],
+        maxAge: 600,
+      },
     });
-    expect(getHttpApiMock).toHaveBeenCalledTimes(2);
+    expect(getHttpApiMock.mock.calls.length).toBeGreaterThan(detailLoadsBeforeSave);
     expect(screen.queryByTestId('apigatewayv2-edit-form')).not.toBeInTheDocument();
+  });
+
+  it('edits the CORS policy from the form', async () => {
+    updateHttpApiMock.mockResolvedValue();
+
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('apigatewayv2-detail-view')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('apigatewayv2-edit-toggle'));
+
+    fireEvent.change(screen.getByTestId('apigatewayv2-edit-cors-origins'), {
+      target: { value: 'https://app.test, https://admin.test' },
+    });
+    fireEvent.change(screen.getByTestId('apigatewayv2-edit-cors-methods'), {
+      target: { value: 'GET, OPTIONS' },
+    });
+    fireEvent.change(screen.getByTestId('apigatewayv2-edit-cors-headers'), {
+      target: { value: 'authorization' },
+    });
+    fireEvent.change(screen.getByTestId('apigatewayv2-edit-cors-expose'), {
+      target: { value: 'x-trace' },
+    });
+    fireEvent.change(screen.getByTestId('apigatewayv2-edit-cors-max-age'), {
+      target: { value: '120' },
+    });
+    fireEvent.click(screen.getByTestId('apigatewayv2-edit-cors-credentials'));
+
+    fireEvent.click(screen.getByTestId('apigatewayv2-edit-submit'));
+
+    await waitFor(() => expect(screen.getByTestId('apigatewayv2-edit-status')).toBeInTheDocument());
+
+    expect(updateHttpApiMock).toHaveBeenCalledWith('abc123', {
+      name: 'orders',
+      protocolType: 'HTTP',
+      description: 'order service',
+      version: '1.0',
+      routeSelectionExpression: '$request.method',
+      corsConfiguration: {
+        allowCredentials: false,
+        allowHeaders: ['authorization'],
+        allowMethods: ['GET', 'OPTIONS'],
+        allowOrigins: ['https://app.test', 'https://admin.test'],
+        exposeHeaders: ['x-trace'],
+        maxAge: 120,
+      },
+    });
+  });
+
+  it('disables the CORS policy when the toggle is cleared', async () => {
+    updateHttpApiMock.mockResolvedValue();
+
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('apigatewayv2-detail-view')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('apigatewayv2-edit-toggle'));
+
+    expect(screen.getByTestId('apigatewayv2-edit-cors-fields')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('apigatewayv2-edit-cors-enabled'));
+    expect(screen.queryByTestId('apigatewayv2-edit-cors-fields')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('apigatewayv2-edit-submit'));
+
+    await waitFor(() => expect(screen.getByTestId('apigatewayv2-edit-status')).toBeInTheDocument());
+
+    expect(updateHttpApiMock).toHaveBeenCalledWith('abc123', {
+      name: 'orders',
+      protocolType: 'HTTP',
+      description: 'order service',
+      version: '1.0',
+      routeSelectionExpression: '$request.method',
+      corsConfiguration: null,
+    });
+  });
+
+  it('enables a new CORS policy when none is configured', async () => {
+    getHttpApiMock.mockResolvedValue({ ...detailResult, corsConfiguration: null });
+    updateHttpApiMock.mockResolvedValue();
+
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('apigatewayv2-detail-view')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('apigatewayv2-edit-toggle'));
+
+    expect(screen.queryByTestId('apigatewayv2-edit-cors-fields')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('apigatewayv2-edit-cors-enabled'));
+    fireEvent.change(screen.getByTestId('apigatewayv2-edit-cors-origins'), {
+      target: { value: '*' },
+    });
+
+    fireEvent.click(screen.getByTestId('apigatewayv2-edit-submit'));
+
+    await waitFor(() => expect(screen.getByTestId('apigatewayv2-edit-status')).toBeInTheDocument());
+
+    expect(updateHttpApiMock).toHaveBeenCalledWith('abc123', {
+      name: 'orders',
+      protocolType: 'HTTP',
+      description: 'order service',
+      version: '1.0',
+      routeSelectionExpression: '$request.method',
+      corsConfiguration: {
+        allowCredentials: false,
+        allowHeaders: [],
+        allowMethods: [],
+        allowOrigins: ['*'],
+        exposeHeaders: [],
+        maxAge: null,
+      },
+    });
   });
 
   it('shows an error when the update fails', async () => {
@@ -341,6 +466,64 @@ describe('ApiGatewayV2DetailView', () => {
     );
   });
 
+  it('marks a route without an enforced authorizer as public', async () => {
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigatewayv2-route-route1')).toBeInTheDocument(),
+    );
+
+    const badge = within(screen.getByTestId('apigatewayv2-route-route1')).getByTestId(
+      'apigatewayv2-route-protection',
+    );
+    expect(badge).toHaveTextContent('Public');
+  });
+
+  it('marks a route with an enforced authorizer as protected', async () => {
+    getHttpRoutesMock.mockResolvedValue({
+      routes: [
+        { routeId: 'route1', routeKey: 'GET /secure', target: null, authorizationType: 'JWT' },
+      ],
+    });
+
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigatewayv2-route-route1')).toBeInTheDocument(),
+    );
+
+    const badge = within(screen.getByTestId('apigatewayv2-route-route1')).getByTestId(
+      'apigatewayv2-route-protection',
+    );
+    expect(badge).toHaveTextContent('Protected');
+  });
+
+  it('treats blank and missing authorization types as public', async () => {
+    getHttpRoutesMock.mockResolvedValue({
+      routes: [
+        { routeId: 'route1', routeKey: 'GET /a', target: null, authorizationType: '' },
+        { routeId: 'route2', routeKey: 'GET /b', target: null, authorizationType: null },
+      ],
+    });
+
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigatewayv2-route-route2')).toBeInTheDocument(),
+    );
+
+    expect(
+      within(screen.getByTestId('apigatewayv2-route-route1')).getByTestId(
+        'apigatewayv2-route-protection',
+      ),
+    ).toHaveTextContent('Public');
+    expect(
+      within(screen.getByTestId('apigatewayv2-route-route2')).getByTestId(
+        'apigatewayv2-route-protection',
+      ),
+    ).toHaveTextContent('Public');
+  });
+
   it('creates a route from the form and refreshes the lists', async () => {
     createHttpRouteMock.mockResolvedValue({ routeId: 'route2' });
 
@@ -359,6 +542,11 @@ describe('ApiGatewayV2DetailView', () => {
     fireEvent.change(screen.getByTestId('apigatewayv2-route-new-auth'), {
       target: { value: 'JWT' },
     });
+    await waitFor(() =>
+      expect(screen.getByTestId('apigatewayv2-route-new-authorizer')).toHaveTextContent(
+        'jwt-authorizer',
+      ),
+    );
     fireEvent.change(screen.getByTestId('apigatewayv2-route-new-authorizer'), {
       target: { value: 'auth1' },
     });
@@ -457,6 +645,11 @@ describe('ApiGatewayV2DetailView', () => {
     fireEvent.change(screen.getByTestId('apigatewayv2-route-edit-auth'), {
       target: { value: 'JWT' },
     });
+    await waitFor(() =>
+      expect(screen.getByTestId('apigatewayv2-route-edit-authorizer')).toHaveTextContent(
+        'jwt-authorizer',
+      ),
+    );
     fireEvent.change(screen.getByTestId('apigatewayv2-route-edit-authorizer'), {
       target: { value: 'auth1' },
     });
@@ -688,11 +881,15 @@ describe('ApiGatewayV2DetailView', () => {
       expect(screen.getByTestId('apigatewayv2-integration-create-form')).toBeInTheDocument(),
     );
 
+    fireEvent.change(screen.getByTestId('apigatewayv2-integration-new-type'), {
+      target: { value: 'MOCK' },
+    });
+
     fireEvent.click(screen.getByTestId('apigatewayv2-integration-new-submit'));
 
     await waitFor(() =>
       expect(createHttpIntegrationMock).toHaveBeenCalledWith('abc123', {
-        integrationType: 'HTTP_PROXY',
+        integrationType: 'MOCK',
         integrationMethod: null,
         integrationUri: null,
         payloadFormatVersion: null,
@@ -711,11 +908,256 @@ describe('ApiGatewayV2DetailView', () => {
       expect(screen.getByTestId('apigatewayv2-integration-create-form')).toBeInTheDocument(),
     );
 
+    fireEvent.change(screen.getByTestId('apigatewayv2-integration-new-uri'), {
+      target: { value: 'https://orders.test' },
+    });
+
     fireEvent.click(screen.getByTestId('apigatewayv2-integration-new-submit'));
 
     await waitFor(() =>
       expect(screen.getByTestId('apigatewayv2-integration-new-error')).toBeInTheDocument(),
     );
+  });
+
+  it('blocks creating an integration without a URI for a non-MOCK type', async () => {
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigatewayv2-integration-create-form')).toBeInTheDocument(),
+    );
+
+    expect(screen.getByTestId('apigatewayv2-integration-new-validation')).toBeInTheDocument();
+    expect(screen.getByTestId('apigatewayv2-integration-new-submit')).toBeDisabled();
+
+    fireEvent.change(screen.getByTestId('apigatewayv2-integration-new-uri'), {
+      target: { value: 'https://orders.test' },
+    });
+
+    expect(
+      screen.queryByTestId('apigatewayv2-integration-new-validation'),
+    ).not.toBeInTheDocument();
+    expect(screen.getByTestId('apigatewayv2-integration-new-submit')).not.toBeDisabled();
+  });
+
+  it('updates an integration from the edit form and refreshes the lists', async () => {
+    updateHttpIntegrationMock.mockResolvedValue(undefined);
+
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigatewayv2-integration-int1')).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByTestId('apigatewayv2-integration-edit-toggle'));
+
+    fireEvent.change(screen.getByTestId('apigatewayv2-integration-edit-type'), {
+      target: { value: 'HTTP' },
+    });
+    fireEvent.change(screen.getByTestId('apigatewayv2-integration-edit-method'), {
+      target: { value: 'POST' },
+    });
+    fireEvent.change(screen.getByTestId('apigatewayv2-integration-edit-uri'), {
+      target: { value: 'https://orders.test/v2' },
+    });
+    fireEvent.change(screen.getByTestId('apigatewayv2-integration-edit-payload'), {
+      target: { value: '2.0' },
+    });
+    fireEvent.change(screen.getByTestId('apigatewayv2-integration-edit-description'), {
+      target: { value: 'updated proxy' },
+    });
+
+    fireEvent.click(screen.getByTestId('apigatewayv2-integration-edit-submit'));
+
+    await waitFor(() =>
+      expect(updateHttpIntegrationMock).toHaveBeenCalledWith('abc123', 'int1', {
+        integrationType: 'HTTP',
+        integrationMethod: 'POST',
+        integrationUri: 'https://orders.test/v2',
+        payloadFormatVersion: '2.0',
+        description: 'updated proxy',
+      }),
+    );
+    await waitFor(() => expect(getHttpIntegrationsMock).toHaveBeenCalledTimes(2));
+  });
+
+  it('seeds the edit form with empty strings for null integration fields', async () => {
+    getHttpIntegrationsMock.mockResolvedValue({
+      integrations: [
+        {
+          integrationId: 'int1',
+          integrationType: 'MOCK',
+          integrationMethod: null,
+          integrationUri: null,
+          payloadFormatVersion: null,
+          description: null,
+        },
+      ],
+    });
+
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigatewayv2-integration-int1')).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByTestId('apigatewayv2-integration-edit-toggle'));
+
+    expect(screen.getByTestId('apigatewayv2-integration-edit-method')).toHaveValue('');
+    expect(screen.getByTestId('apigatewayv2-integration-edit-uri')).toHaveValue('');
+    expect(screen.getByTestId('apigatewayv2-integration-edit-payload')).toHaveValue('');
+    expect(screen.getByTestId('apigatewayv2-integration-edit-description')).toHaveValue('');
+  });
+
+  it('blocks saving an integration edit without a URI for a non-MOCK type', async () => {
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigatewayv2-integration-int1')).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByTestId('apigatewayv2-integration-edit-toggle'));
+
+    fireEvent.change(screen.getByTestId('apigatewayv2-integration-edit-uri'), {
+      target: { value: '' },
+    });
+
+    expect(
+      screen.getByTestId('apigatewayv2-integration-edit-validation'),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId('apigatewayv2-integration-edit-submit')).toBeDisabled();
+  });
+
+  it('cancels an integration edit', async () => {
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigatewayv2-integration-int1')).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByTestId('apigatewayv2-integration-edit-toggle'));
+    expect(screen.getByTestId('apigatewayv2-integration-edit-form')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('apigatewayv2-integration-edit-cancel'));
+
+    expect(
+      screen.queryByTestId('apigatewayv2-integration-edit-form'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows an error when updating an integration fails', async () => {
+    updateHttpIntegrationMock.mockRejectedValue(new Error('boom'));
+
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigatewayv2-integration-int1')).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByTestId('apigatewayv2-integration-edit-toggle'));
+    fireEvent.click(screen.getByTestId('apigatewayv2-integration-edit-submit'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigatewayv2-integration-edit-error')).toBeInTheDocument(),
+    );
+  });
+
+  it('deletes an integration after confirmation and refreshes the lists', async () => {
+    deleteHttpIntegrationMock.mockResolvedValue(undefined);
+
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigatewayv2-integration-int1')).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByTestId('apigatewayv2-integration-delete-toggle'));
+    fireEvent.click(screen.getByTestId('apigatewayv2-integration-delete-confirm-yes'));
+
+    await waitFor(() =>
+      expect(deleteHttpIntegrationMock).toHaveBeenCalledWith('abc123', 'int1'),
+    );
+    await waitFor(() => expect(getHttpIntegrationsMock).toHaveBeenCalledTimes(2));
+  });
+
+  it('cancels an integration delete confirmation', async () => {
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigatewayv2-integration-int1')).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByTestId('apigatewayv2-integration-delete-toggle'));
+    expect(
+      screen.getByTestId('apigatewayv2-integration-delete-confirm'),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('apigatewayv2-integration-delete-confirm-no'));
+
+    expect(
+      screen.queryByTestId('apigatewayv2-integration-delete-confirm'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows an error when deleting an integration fails', async () => {
+    deleteHttpIntegrationMock.mockRejectedValue(new Error('boom'));
+
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigatewayv2-integration-int1')).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByTestId('apigatewayv2-integration-delete-toggle'));
+    fireEvent.click(screen.getByTestId('apigatewayv2-integration-delete-confirm-yes'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigatewayv2-integration-delete-error')).toBeInTheDocument(),
+    );
+  });
+
+  it('reflects the bound integration in the route summary', async () => {
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigatewayv2-route-integration')).toBeInTheDocument(),
+    );
+
+    expect(screen.getByTestId('apigatewayv2-route-integration')).toHaveTextContent(
+      'Integration: HTTP_PROXY → https://example.test',
+    );
+  });
+
+  it('omits the URI arrow in the route summary when the integration has no URI', async () => {
+    getHttpIntegrationsMock.mockResolvedValue({
+      integrations: [{ ...integrationSummary, integrationUri: null }],
+    });
+
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigatewayv2-route-integration')).toBeInTheDocument(),
+    );
+
+    expect(screen.getByTestId('apigatewayv2-route-integration')).toHaveTextContent(
+      'Integration: HTTP_PROXY',
+    );
+    expect(screen.getByTestId('apigatewayv2-route-integration')).not.toHaveTextContent('→');
+  });
+
+  it('omits the route integration line when the target has no matching integration', async () => {
+    getHttpRoutesMock.mockResolvedValue({
+      routes: [{ ...routeSummary, target: 'integrations/missing' }],
+    });
+
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigatewayv2-route-route1')).toBeInTheDocument(),
+    );
+
+    expect(
+      screen.queryByTestId('apigatewayv2-route-integration'),
+    ).not.toBeInTheDocument();
   });
 
   it('renders the authorizers for the API', async () => {
@@ -795,9 +1237,57 @@ describe('ApiGatewayV2DetailView', () => {
     await waitFor(() => expect(getHttpAuthorizersMock).toHaveBeenCalledTimes(2));
   });
 
-  it('creates an authorizer with a null issuer when blank', async () => {
-    createHttpAuthorizerMock.mockResolvedValue({ authorizerId: 'auth2' });
+  it('builds the JWT issuer from a Cognito user pool when guided values are supplied', async () => {
+    renderView();
 
+    await waitFor(() =>
+      expect(screen.getByTestId('apigatewayv2-authorizer-create-form')).toBeInTheDocument(),
+    );
+
+    fireEvent.change(screen.getByTestId('apigatewayv2-authorizer-new-cognito-region'), {
+      target: { value: 'eu-west-1' },
+    });
+    fireEvent.change(screen.getByTestId('apigatewayv2-authorizer-new-cognito-pool'), {
+      target: { value: 'eu-west-1_abc123' },
+    });
+    fireEvent.click(screen.getByTestId('apigatewayv2-authorizer-new-cognito-apply'));
+
+    expect(screen.getByTestId('apigatewayv2-authorizer-new-issuer')).toHaveValue(
+      'https://cognito-idp.eu-west-1.amazonaws.com/eu-west-1_abc123',
+    );
+  });
+
+  it('does not build a Cognito issuer when the region is blank', async () => {
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigatewayv2-authorizer-create-form')).toBeInTheDocument(),
+    );
+
+    fireEvent.change(screen.getByTestId('apigatewayv2-authorizer-new-cognito-pool'), {
+      target: { value: 'eu-west-1_abc123' },
+    });
+    fireEvent.click(screen.getByTestId('apigatewayv2-authorizer-new-cognito-apply'));
+
+    expect(screen.getByTestId('apigatewayv2-authorizer-new-issuer')).toHaveValue('');
+  });
+
+  it('does not build a Cognito issuer when the user pool id is blank', async () => {
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigatewayv2-authorizer-create-form')).toBeInTheDocument(),
+    );
+
+    fireEvent.change(screen.getByTestId('apigatewayv2-authorizer-new-cognito-region'), {
+      target: { value: 'eu-west-1' },
+    });
+    fireEvent.click(screen.getByTestId('apigatewayv2-authorizer-new-cognito-apply'));
+
+    expect(screen.getByTestId('apigatewayv2-authorizer-new-issuer')).toHaveValue('');
+  });
+
+  it('blocks creating an authorizer when the JWT config is incomplete', async () => {
     renderView();
 
     await waitFor(() =>
@@ -808,18 +1298,81 @@ describe('ApiGatewayV2DetailView', () => {
       target: { value: 'orders-authorizer' },
     });
 
-    fireEvent.click(screen.getByTestId('apigatewayv2-authorizer-new-submit'));
+    expect(screen.getByTestId('apigatewayv2-authorizer-new-validation')).toHaveTextContent(
+      'A valid JWT issuer URL is required.',
+    );
+    expect(screen.getByTestId('apigatewayv2-authorizer-new-submit')).toBeDisabled();
+    expect(createHttpAuthorizerMock).not.toHaveBeenCalled();
+  });
+
+  it('requires an authorizer name before the config can be completed', async () => {
+    renderView();
 
     await waitFor(() =>
-      expect(createHttpAuthorizerMock).toHaveBeenCalledWith('abc123', {
-        name: 'orders-authorizer',
-        authorizerType: 'JWT',
-        identitySource: ['$request.header.Authorization'],
-        jwtIssuer: null,
-        jwtAudience: [],
-      }),
+      expect(screen.getByTestId('apigatewayv2-authorizer-create-form')).toBeInTheDocument(),
     );
-    await waitFor(() => expect(getHttpAuthorizersMock).toHaveBeenCalledTimes(2));
+
+    expect(screen.getByTestId('apigatewayv2-authorizer-new-validation')).toHaveTextContent(
+      'Authorizer name is required.',
+    );
+  });
+
+  it('requires at least one identity source', async () => {
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigatewayv2-authorizer-create-form')).toBeInTheDocument(),
+    );
+
+    fireEvent.change(screen.getByTestId('apigatewayv2-authorizer-new-name'), {
+      target: { value: 'orders-authorizer' },
+    });
+    fireEvent.change(screen.getByTestId('apigatewayv2-authorizer-new-identity'), {
+      target: { value: '' },
+    });
+
+    expect(screen.getByTestId('apigatewayv2-authorizer-new-validation')).toHaveTextContent(
+      'At least one identity source is required.',
+    );
+  });
+
+  it('rejects a JWT issuer that is not a valid URL', async () => {
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigatewayv2-authorizer-create-form')).toBeInTheDocument(),
+    );
+
+    fireEvent.change(screen.getByTestId('apigatewayv2-authorizer-new-name'), {
+      target: { value: 'orders-authorizer' },
+    });
+    fireEvent.change(screen.getByTestId('apigatewayv2-authorizer-new-issuer'), {
+      target: { value: 'not a url' },
+    });
+
+    expect(screen.getByTestId('apigatewayv2-authorizer-new-validation')).toHaveTextContent(
+      'A valid JWT issuer URL is required.',
+    );
+  });
+
+  it('requires at least one JWT audience', async () => {
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigatewayv2-authorizer-create-form')).toBeInTheDocument(),
+    );
+
+    fireEvent.change(screen.getByTestId('apigatewayv2-authorizer-new-name'), {
+      target: { value: 'orders-authorizer' },
+    });
+    fireEvent.change(screen.getByTestId('apigatewayv2-authorizer-new-issuer'), {
+      target: { value: 'https://issuer.test' },
+    });
+
+    expect(screen.getByTestId('apigatewayv2-authorizer-new-validation')).toHaveTextContent(
+      'At least one JWT audience is required.',
+    );
+    expect(screen.getByTestId('apigatewayv2-authorizer-new-submit')).toBeDisabled();
   });
 
   it('disables the add-authorizer button when the name is blank', async () => {
@@ -843,6 +1396,12 @@ describe('ApiGatewayV2DetailView', () => {
 
     fireEvent.change(screen.getByTestId('apigatewayv2-authorizer-new-name'), {
       target: { value: 'orders-authorizer' },
+    });
+    fireEvent.change(screen.getByTestId('apigatewayv2-authorizer-new-issuer'), {
+      target: { value: 'https://issuer.test' },
+    });
+    fireEvent.change(screen.getByTestId('apigatewayv2-authorizer-new-audience'), {
+      target: { value: 'audience1' },
     });
     fireEvent.click(screen.getByTestId('apigatewayv2-authorizer-new-submit'));
 

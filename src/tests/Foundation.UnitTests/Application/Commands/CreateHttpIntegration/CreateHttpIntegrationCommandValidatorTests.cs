@@ -10,8 +10,9 @@ public class CreateHttpIntegrationCommandValidatorTests
 
     private static CreateHttpIntegrationCommand Valid(
         string apiId = "abc123",
-        string integrationType = "HTTP_PROXY")
-        => new(apiId, integrationType, "GET", "https://example.test", "1.0", "proxy");
+        string integrationType = "HTTP_PROXY",
+        string? integrationUri = "https://example.test")
+        => new(apiId, integrationType, "GET", integrationUri, "1.0", "proxy");
 
     [Theory]
     [InlineData("AWS")]
@@ -51,5 +52,22 @@ public class CreateHttpIntegrationCommandValidatorTests
             Valid(integrationType: "GRPC"), TestContext.Current.CancellationToken);
         result.IsValid.Should().BeFalse();
         result.Errors.Should().Contain(_ => _.PropertyName == nameof(CreateHttpIntegrationCommand.IntegrationType));
+    }
+
+    [Fact]
+    public async Task ValidateAsync_WhenUriMissingForNonMockType_ReturnsErrorForIntegrationUri()
+    {
+        var result = await _sut.ValidateAsync(
+            Valid(integrationType: "HTTP_PROXY", integrationUri: null), TestContext.Current.CancellationToken);
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(_ => _.PropertyName == nameof(CreateHttpIntegrationCommand.IntegrationUri));
+    }
+
+    [Fact]
+    public async Task ValidateAsync_WhenUriMissingForMockType_IsValid()
+    {
+        var result = await _sut.ValidateAsync(
+            Valid(integrationType: "MOCK", integrationUri: null), TestContext.Current.CancellationToken);
+        result.IsValid.Should().BeTrue();
     }
 }

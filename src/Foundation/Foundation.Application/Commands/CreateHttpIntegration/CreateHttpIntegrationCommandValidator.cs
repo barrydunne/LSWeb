@@ -26,6 +26,11 @@ internal sealed partial class CreateHttpIntegrationCommandValidator : AbstractVa
             .NotEmpty()
             .Must(integrationType => _allowedIntegrationTypes.Contains(integrationType))
                 .WithMessage("Integration type must be AWS, AWS_PROXY, HTTP, HTTP_PROXY, or MOCK.");
+
+        RuleFor(_ => _.IntegrationUri)
+            .NotEmpty()
+                .WithMessage("Integration URI is required unless the integration type is MOCK.")
+            .When(_ => _.IntegrationType != "MOCK", ApplyConditionTo.CurrentValidator);
     }
 
     public override async Task<ValidationResult> ValidateAsync(

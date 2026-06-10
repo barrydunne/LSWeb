@@ -51,7 +51,8 @@ internal sealed partial class UpdateHttpApiCommandHandler : ICommandHandler<Upda
             request.ProtocolType,
             request.Description,
             request.Version,
-            request.RouteSelectionExpression);
+            request.RouteSelectionExpression,
+            request.CorsConfiguration);
         var result = await _client.UpdateApiAsync(specification, cancellationToken);
         if (!result.IsSuccess)
         {

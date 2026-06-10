@@ -12,6 +12,9 @@ internal sealed partial class PutRestMethodCommandValidator : AbstractValidator<
     private static readonly string[] _allowedAuthorizationTypes =
         ["NONE", "AWS_IAM", "CUSTOM", "COGNITO_USER_POOLS"];
 
+    private static readonly string[] _allowedIntegrationTypes =
+        ["MOCK", "HTTP", "HTTP_PROXY", "AWS", "AWS_PROXY"];
+
     private readonly ILogger _logger;
 
     public PutRestMethodCommandValidator(ILogger<PutRestMethodCommandValidator> logger)
@@ -44,6 +47,19 @@ internal sealed partial class PutRestMethodCommandValidator : AbstractValidator<
 
         RuleFor(_ => _.AuthorizationScopes)
             .NotNull();
+
+        RuleFor(_ => _.IntegrationType)
+            .Cascade(CascadeMode.Stop)
+            .NotNull()
+            .NotEmpty()
+            .Must(type => _allowedIntegrationTypes.Contains(type))
+                .WithMessage("Integration type must be one of MOCK, HTTP, HTTP_PROXY, AWS or AWS_PROXY.");
+
+        RuleFor(_ => _.IntegrationUri)
+            .Cascade(CascadeMode.Stop)
+            .Must(uri => !string.IsNullOrWhiteSpace(uri))
+                .When(_ => _.IntegrationType != "MOCK")
+                .WithMessage("Integration URI is required when integration type is not MOCK.");
     }
 
     public override async Task<ValidationResult> ValidateAsync(

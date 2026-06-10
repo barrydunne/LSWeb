@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { ApiGatewayAuthorizersSection } from './ApiGatewayAuthorizersSection';
 import {
   createApiGatewayRestAuthorizer,
+  createApiGatewayRestTokenAuthorizer,
   deleteApiGatewayRestAuthorizer,
   getApiGatewayRestAuthorizer,
   getApiGatewayRestAuthorizers,
@@ -20,6 +21,7 @@ vi.mock('../../api/client');
 const getAuthorizersMock = vi.mocked(getApiGatewayRestAuthorizers);
 const getAuthorizerMock = vi.mocked(getApiGatewayRestAuthorizer);
 const createAuthorizerMock = vi.mocked(createApiGatewayRestAuthorizer);
+const createTokenAuthorizerMock = vi.mocked(createApiGatewayRestTokenAuthorizer);
 const deleteAuthorizerMock = vi.mocked(deleteApiGatewayRestAuthorizer);
 const getUserPoolsMock = vi.mocked(getUserPools);
 const getUserPoolMock = vi.mocked(getUserPool);
@@ -66,6 +68,7 @@ describe('ApiGatewayAuthorizersSection', () => {
       lastModifiedDate: null,
     });
     createAuthorizerMock.mockResolvedValue({ id: 'auth9' });
+    createTokenAuthorizerMock.mockResolvedValue({ id: 'auth7' });
     deleteAuthorizerMock.mockResolvedValue();
   });
 
@@ -283,6 +286,220 @@ describe('ApiGatewayAuthorizersSection', () => {
 
     await waitFor(() =>
       expect(screen.getByTestId('apigateway-authorizer-add-error')).toBeInTheDocument(),
+    );
+  });
+
+  it('creates a token authorizer from the guided form', async () => {
+    const user = userEvent.setup();
+    renderSection();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-token-authorizer-add')).toBeInTheDocument(),
+    );
+    await user.type(screen.getByTestId('apigateway-token-authorizer-name'), 'jwt-authorizer');
+    await user.type(
+      screen.getByTestId('apigateway-token-authorizer-issuer'),
+      'https://issuer.example.com',
+    );
+    await user.type(screen.getByTestId('apigateway-token-authorizer-audience'), 'api://default');
+    await user.clear(screen.getByTestId('apigateway-token-authorizer-identity'));
+    await user.type(
+      screen.getByTestId('apigateway-token-authorizer-identity'),
+      'method.request.header.Auth',
+    );
+    await user.type(
+      screen.getByTestId('apigateway-token-authorizer-uri'),
+      'arn:aws:apigateway:eu-west-1:lambda:path/invocations',
+    );
+    await user.click(screen.getByTestId('apigateway-token-authorizer-add'));
+
+    await waitFor(() => expect(createTokenAuthorizerMock).toHaveBeenCalled());
+    expect(createTokenAuthorizerMock).toHaveBeenCalledWith('api-1', {
+      name: 'jwt-authorizer',
+      issuer: 'https://issuer.example.com',
+      audience: 'api://default',
+      identitySource: 'method.request.header.Auth',
+      authorizerUri: 'arn:aws:apigateway:eu-west-1:lambda:path/invocations',
+    });
+    expect(getAuthorizersMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('rejects a token authorizer with no name', async () => {
+    const user = userEvent.setup();
+    renderSection();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-token-authorizer-add')).toBeInTheDocument(),
+    );
+    await user.click(screen.getByTestId('apigateway-token-authorizer-add'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-token-authorizer-error')).toHaveTextContent(
+        'Name is required.',
+      ),
+    );
+    expect(createTokenAuthorizerMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a token authorizer with a non-absolute issuer', async () => {
+    const user = userEvent.setup();
+    renderSection();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-token-authorizer-add')).toBeInTheDocument(),
+    );
+    await user.type(screen.getByTestId('apigateway-token-authorizer-name'), 'jwt-authorizer');
+    await user.click(screen.getByTestId('apigateway-token-authorizer-add'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-token-authorizer-error')).toHaveTextContent(
+        'Issuer must be an absolute https URL.',
+      ),
+    );
+    expect(createTokenAuthorizerMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a token authorizer with a non-https issuer', async () => {
+    const user = userEvent.setup();
+    renderSection();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-token-authorizer-add')).toBeInTheDocument(),
+    );
+    await user.type(screen.getByTestId('apigateway-token-authorizer-name'), 'jwt-authorizer');
+    await user.type(
+      screen.getByTestId('apigateway-token-authorizer-issuer'),
+      'http://issuer.example.com',
+    );
+    await user.click(screen.getByTestId('apigateway-token-authorizer-add'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-token-authorizer-error')).toHaveTextContent(
+        'Issuer must be an absolute https URL.',
+      ),
+    );
+    expect(createTokenAuthorizerMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a token authorizer with no audience', async () => {
+    const user = userEvent.setup();
+    renderSection();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-token-authorizer-add')).toBeInTheDocument(),
+    );
+    await user.type(screen.getByTestId('apigateway-token-authorizer-name'), 'jwt-authorizer');
+    await user.type(
+      screen.getByTestId('apigateway-token-authorizer-issuer'),
+      'https://issuer.example.com',
+    );
+    await user.click(screen.getByTestId('apigateway-token-authorizer-add'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-token-authorizer-error')).toHaveTextContent(
+        'Audience is required.',
+      ),
+    );
+    expect(createTokenAuthorizerMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a token authorizer with an identity source that is not a request value', async () => {
+    const user = userEvent.setup();
+    renderSection();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-token-authorizer-add')).toBeInTheDocument(),
+    );
+    await user.type(screen.getByTestId('apigateway-token-authorizer-name'), 'jwt-authorizer');
+    await user.type(
+      screen.getByTestId('apigateway-token-authorizer-issuer'),
+      'https://issuer.example.com',
+    );
+    await user.type(screen.getByTestId('apigateway-token-authorizer-audience'), 'api://default');
+    await user.clear(screen.getByTestId('apigateway-token-authorizer-identity'));
+    await user.type(screen.getByTestId('apigateway-token-authorizer-identity'), 'header.Auth');
+    await user.click(screen.getByTestId('apigateway-token-authorizer-add'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-token-authorizer-error')).toHaveTextContent(
+        'Identity source must reference a request value',
+      ),
+    );
+    expect(createTokenAuthorizerMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a token authorizer with an identity source that is only the prefix', async () => {
+    const user = userEvent.setup();
+    renderSection();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-token-authorizer-add')).toBeInTheDocument(),
+    );
+    await user.type(screen.getByTestId('apigateway-token-authorizer-name'), 'jwt-authorizer');
+    await user.type(
+      screen.getByTestId('apigateway-token-authorizer-issuer'),
+      'https://issuer.example.com',
+    );
+    await user.type(screen.getByTestId('apigateway-token-authorizer-audience'), 'api://default');
+    await user.clear(screen.getByTestId('apigateway-token-authorizer-identity'));
+    await user.type(screen.getByTestId('apigateway-token-authorizer-identity'), 'method.request.');
+    await user.click(screen.getByTestId('apigateway-token-authorizer-add'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-token-authorizer-error')).toHaveTextContent(
+        'Identity source must reference a request value',
+      ),
+    );
+    expect(createTokenAuthorizerMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a token authorizer with no authorizer URI', async () => {
+    const user = userEvent.setup();
+    renderSection();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-token-authorizer-add')).toBeInTheDocument(),
+    );
+    await user.type(screen.getByTestId('apigateway-token-authorizer-name'), 'jwt-authorizer');
+    await user.type(
+      screen.getByTestId('apigateway-token-authorizer-issuer'),
+      'https://issuer.example.com',
+    );
+    await user.type(screen.getByTestId('apigateway-token-authorizer-audience'), 'api://default');
+    await user.click(screen.getByTestId('apigateway-token-authorizer-add'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-token-authorizer-error')).toHaveTextContent(
+        'Authorizer URI is required.',
+      ),
+    );
+    expect(createTokenAuthorizerMock).not.toHaveBeenCalled();
+  });
+
+  it('shows an error when the token authorizer create request fails', async () => {
+    createTokenAuthorizerMock.mockRejectedValue(new Error('boom'));
+    const user = userEvent.setup();
+    renderSection();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-token-authorizer-add')).toBeInTheDocument(),
+    );
+    await user.type(screen.getByTestId('apigateway-token-authorizer-name'), 'jwt-authorizer');
+    await user.type(
+      screen.getByTestId('apigateway-token-authorizer-issuer'),
+      'https://issuer.example.com',
+    );
+    await user.type(screen.getByTestId('apigateway-token-authorizer-audience'), 'api://default');
+    await user.type(
+      screen.getByTestId('apigateway-token-authorizer-uri'),
+      'arn:aws:apigateway:eu-west-1:lambda:path/invocations',
+    );
+    await user.click(screen.getByTestId('apigateway-token-authorizer-add'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('apigateway-token-authorizer-error')).toHaveTextContent(
+        'Unable to add the token authorizer.',
+      ),
     );
   });
 

@@ -13,8 +13,19 @@ public class PutRestMethodCommandValidatorTests
         string resourceId = "res-2",
         string httpMethod = "GET",
         string authorizationType = "NONE",
-        IReadOnlyList<string>? authorizationScopes = null)
-        => new(restApiId, resourceId, httpMethod, authorizationType, null, false, authorizationScopes ?? []);
+        IReadOnlyList<string>? authorizationScopes = null,
+        string integrationType = "MOCK",
+        string? integrationUri = null)
+        => new(
+            restApiId,
+            resourceId,
+            httpMethod,
+            authorizationType,
+            null,
+            false,
+            authorizationScopes ?? [],
+            integrationType,
+            integrationUri);
 
     [Fact]
     public async Task ValidateAsync_WhenValid_IsValid()
@@ -80,9 +91,28 @@ public class PutRestMethodCommandValidatorTests
     [Fact]
     public async Task ValidateAsync_WhenAuthorizationScopesNull_ReturnsErrorForAuthorizationScopes()
     {
-        var command = new PutRestMethodCommand("api-1", "res-2", "GET", "NONE", null, false, null!);
+        var command = new PutRestMethodCommand("api-1", "res-2", "GET", "NONE", null, false, null!, "MOCK", null);
         var result = await _sut.ValidateAsync(command, TestContext.Current.CancellationToken);
         result.IsValid.Should().BeFalse();
         result.Errors.Should().Contain(_ => _.PropertyName == nameof(PutRestMethodCommand.AuthorizationScopes));
+    }
+
+    [Fact]
+    public async Task ValidateAsync_WhenIntegrationTypeInvalid_ReturnsErrorForIntegrationType()
+    {
+        var result = await _sut.ValidateAsync(
+            Valid(integrationType: "SOAP"), TestContext.Current.CancellationToken);
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(_ => _.PropertyName == nameof(PutRestMethodCommand.IntegrationType));
+    }
+
+    [Fact]
+    public async Task ValidateAsync_WhenIntegrationTypeNotMockAndUriMissing_ReturnsErrorForIntegrationUri()
+    {
+        var result = await _sut.ValidateAsync(
+            Valid(integrationType: "AWS_PROXY", integrationUri: null),
+            TestContext.Current.CancellationToken);
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(_ => _.PropertyName == nameof(PutRestMethodCommand.IntegrationUri));
     }
 }

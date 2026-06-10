@@ -34,20 +34,12 @@ internal sealed partial class WorkspaceSnapshotImporter : IWorkspaceSnapshotImpo
             foreach (var resource in serviceGroup.Value)
             {
                 totalResources++;
-                try
-                {
-                    LogImporting(serviceKey, resource.ResourceType, resource.ResourceId);
+                LogImporting(serviceKey, resource.ResourceType, resource.ResourceId);
 
-                    // TODO: Implement actual resource recreation logic via AwsGateway
-                    // For now, log and succeed (placeholder implementation)
-                    LogImported(serviceKey, resource.ResourceType, resource.ResourceName);
-                    successCount++;
-                }
-                catch (Exception ex)
-                {
-                    LogImportFailed(serviceKey, resource.ResourceType, resource.ResourceId, ex.Message);
-                    failures.Add(new SnapshotFailureDetail(serviceKey, resource.ResourceId, ex.Message));
-                }
+                // TODO: Implement actual resource recreation logic via AwsGateway.
+                // The placeholder implementation logs and reports success for each resource.
+                LogImported(serviceKey, resource.ResourceType, resource.ResourceName);
+                successCount++;
             }
         }
 
@@ -72,9 +64,6 @@ internal sealed partial class WorkspaceSnapshotImporter : IWorkspaceSnapshotImpo
 
     [LoggerMessage(LogLevel.Information, "Imported {ServiceKey}/{ResourceType}/{ResourceName}")]
     private partial void LogImported(string serviceKey, string resourceType, string resourceName);
-
-    [LoggerMessage(LogLevel.Warning, "Failed to import {ServiceKey}/{ResourceType}/{ResourceId}: {Error}")]
-    private partial void LogImportFailed(string serviceKey, string resourceType, string resourceId, string error);
 
     [LoggerMessage(LogLevel.Information, "Workspace snapshot import completed: {SuccessCount}/{TotalResources} resources imported")]
     private partial void LogCompleted(int successCount, int totalResources);

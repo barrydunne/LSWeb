@@ -6,6 +6,7 @@ using Foundation.Application.Queries.ExportWorkspaceSnapshot;
 using Foundation.Domain.Snapshot;
 using MediatR;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Foundation.UnitTests.Controllers;
@@ -106,5 +107,43 @@ public class SnapshotControllerTests
 
         // Assert
         result.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task Import_WithFailures_MapsFailureDetailsToResponse()
+    {
+        // Arrange
+        var snapshot = new WorkspaceSnapshot(
+            "snap-abc123",
+            DateTime.UtcNow,
+            new Dictionary<string, IReadOnlyList<SnapshotResourceData>>());
+
+        var outcome = new SnapshotOutcome(
+            "imp-xyz789",
+            "Import",
+            DateTime.UtcNow,
+            2,
+            1,
+            1,
+            new List<SnapshotFailureDetail>
+            {
+                new("lambda", "func-1", "boom"),
+            });
+
+        _sender
+            .Send(Arg.Any<ImportWorkspaceSnapshotCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<SnapshotOutcome>>(outcome));
+
+        // Act
+        var result = await _sut.Value.Import(snapshot, TestContext.Current.CancellationToken);
+
+        // Assert
+        var ok = result.Should().BeOfType<Ok<SnapshotImportResponse>>().Subject;
+        ok.Value!.OperationId.Should().Be("imp-xyz789");
+        ok.Value!.FailureCount.Should().Be(1);
+        var failure = ok.Value!.Failures.Should().ContainSingle().Subject;
+        failure.Service.Should().Be("lambda");
+        failure.ResourceId.Should().Be("func-1");
+        failure.Error.Should().Be("boom");
     }
 }

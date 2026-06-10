@@ -106,6 +106,23 @@ public interface IApiGatewayV2Client
     Task<Result<string>> CreateIntegrationAsync(HttpIntegrationSpecification specification, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Updates an existing integration with the supplied specification.
+    /// </summary>
+    /// <param name="specification">The desired configuration of the integration, including its identifier.</param>
+    /// <param name="cancellationToken">A token used to cancel the operation.</param>
+    /// <returns>A successful result, or an error if the integration could not be updated.</returns>
+    Task<Result> UpdateIntegrationAsync(HttpIntegrationSpecification specification, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Deletes an integration of an API. This action cannot be undone.
+    /// </summary>
+    /// <param name="apiId">The unique identifier of the API.</param>
+    /// <param name="integrationId">The unique identifier of the integration to delete.</param>
+    /// <param name="cancellationToken">A token used to cancel the operation.</param>
+    /// <returns>A successful result, or an error if the integration could not be deleted.</returns>
+    Task<Result> DeleteIntegrationAsync(string apiId, string integrationId, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Lists the authorizers of an API.
     /// </summary>
     /// <param name="apiId">The unique identifier of the API.</param>

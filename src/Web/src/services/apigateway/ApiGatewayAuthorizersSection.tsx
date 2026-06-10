@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import {
   createApiGatewayRestAuthorizer,
+  createApiGatewayRestTokenAuthorizer,
   deleteApiGatewayRestAuthorizer,
   getApiGatewayRestAuthorizer,
   getApiGatewayRestAuthorizers,
@@ -81,6 +82,46 @@ function emptyToNull(value: string): string | null {
   return trimmed === '' ? null : trimmed;
 }
 
+const IDENTITY_SOURCE_PREFIX = 'method.request.';
+const DEFAULT_IDENTITY_SOURCE = 'method.request.header.Authorization';
+
+function isHttpsUrl(value: string): boolean {
+  try {
+    return new URL(value).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function isRequestIdentitySource(value: string): boolean {
+  return value.startsWith(IDENTITY_SOURCE_PREFIX) && value.length > IDENTITY_SOURCE_PREFIX.length;
+}
+
+function validateTokenAuthorizer(
+  name: string,
+  issuer: string,
+  audience: string,
+  identitySource: string,
+  authorizerUri: string,
+): string | null {
+  if (name.trim() === '') {
+    return 'Name is required.';
+  }
+  if (!isHttpsUrl(issuer)) {
+    return 'Issuer must be an absolute https URL.';
+  }
+  if (audience.trim() === '') {
+    return 'Audience is required.';
+  }
+  if (!isRequestIdentitySource(identitySource)) {
+    return 'Identity source must reference a request value, for example method.request.header.Authorization.';
+  }
+  if (authorizerUri.trim() === '') {
+    return 'Authorizer URI is required.';
+  }
+  return null;
+}
+
 interface ApiGatewayAuthorizersSectionProps {
   restApiId: string;
 }
@@ -93,6 +134,13 @@ export function ApiGatewayAuthorizersSection({ restApiId }: ApiGatewayAuthorizer
   const [selectedPoolId, setSelectedPoolId] = useState('');
   const [newIdentitySource, setNewIdentitySource] = useState('');
   const [addError, setAddError] = useState(false);
+
+  const [tokenName, setTokenName] = useState('');
+  const [tokenIssuer, setTokenIssuer] = useState('');
+  const [tokenAudience, setTokenAudience] = useState('');
+  const [tokenIdentitySource, setTokenIdentitySource] = useState(DEFAULT_IDENTITY_SOURCE);
+  const [tokenAuthorizerUri, setTokenAuthorizerUri] = useState('');
+  const [tokenError, setTokenError] = useState<string | null>(null);
 
   const [detail, setDetail] = useState<ApiGatewayRestAuthorizerDetailResult | null>(null);
 
@@ -139,6 +187,37 @@ export function ApiGatewayAuthorizersSection({ restApiId }: ApiGatewayAuthorizer
         });
       })
       .catch(() => setAddError(true));
+  };
+
+  const handleCreateToken = () => {
+    const validationError = validateTokenAuthorizer(
+      tokenName,
+      tokenIssuer,
+      tokenAudience,
+      tokenIdentitySource,
+      tokenAuthorizerUri,
+    );
+    if (validationError !== null) {
+      setTokenError(validationError);
+      return;
+    }
+    setTokenError(null);
+    createApiGatewayRestTokenAuthorizer(restApiId, {
+      name: tokenName.trim(),
+      issuer: tokenIssuer.trim(),
+      audience: tokenAudience.trim(),
+      identitySource: tokenIdentitySource.trim(),
+      authorizerUri: tokenAuthorizerUri.trim(),
+    })
+      .then(() => {
+        setTokenName('');
+        setTokenIssuer('');
+        setTokenAudience('');
+        setTokenIdentitySource(DEFAULT_IDENTITY_SOURCE);
+        setTokenAuthorizerUri('');
+        refresh();
+      })
+      .catch(() => setTokenError('Unable to add the token authorizer.'));
   };
 
   const handleDelete = (authorizerId: string) => {
@@ -290,6 +369,68 @@ export function ApiGatewayAuthorizersSection({ restApiId }: ApiGatewayAuthorizer
       {addError ? (
         <p data-testid="apigateway-authorizer-add-error" style={messageStyle}>
           Unable to add the authorizer.
+        </p>
+      ) : null}
+
+      <span style={headingStyle}>OAuth / JWT token authorizer</span>
+      <p data-testid="apigateway-token-authorizer-hint" style={labelStyle}>
+        Guided setup for validating OIDC bearer tokens. Issuer and audience are validated here and
+        enforced by the authorizer function the URI points to.
+      </p>
+      <div data-testid="apigateway-token-authorizer-form" style={inlineStyle}>
+        <input
+          type="text"
+          data-testid="apigateway-token-authorizer-name"
+          style={inputStyle}
+          placeholder="authorizer name"
+          value={tokenName}
+          onChange={(event) => setTokenName(event.target.value)}
+        />
+        <input
+          type="text"
+          data-testid="apigateway-token-authorizer-issuer"
+          style={inputStyle}
+          placeholder="issuer (https://...)"
+          value={tokenIssuer}
+          onChange={(event) => setTokenIssuer(event.target.value)}
+        />
+        <input
+          type="text"
+          data-testid="apigateway-token-authorizer-audience"
+          style={inputStyle}
+          placeholder="audience"
+          value={tokenAudience}
+          onChange={(event) => setTokenAudience(event.target.value)}
+        />
+        <input
+          type="text"
+          data-testid="apigateway-token-authorizer-identity"
+          style={inputStyle}
+          placeholder="identity source"
+          value={tokenIdentitySource}
+          onChange={(event) => setTokenIdentitySource(event.target.value)}
+        />
+        <input
+          type="text"
+          data-testid="apigateway-token-authorizer-uri"
+          style={inputStyle}
+          placeholder="authorizer function URI"
+          value={tokenAuthorizerUri}
+          onChange={(event) => setTokenAuthorizerUri(event.target.value)}
+        />
+        <button
+          type="button"
+          data-testid="apigateway-token-authorizer-add"
+          style={buttonStyle}
+          onClick={handleCreateToken}
+        >
+          Add token authorizer
+        </button>
+      </div>
+
+      {tokenError !== null ? (
+        <p data-testid="apigateway-token-authorizer-error" style={messageStyle}>
+          {tokenError}
         </p>
       ) : null}
     </div>

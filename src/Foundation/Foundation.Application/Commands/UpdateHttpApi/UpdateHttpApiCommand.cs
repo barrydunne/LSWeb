@@ -1,4 +1,5 @@
 using AspNet.KickStarter.CQRS.Abstractions.Commands;
+using Foundation.Domain.ApiGatewayV2;
 
 namespace Foundation.Application.Commands.UpdateHttpApi;
 
@@ -11,10 +12,12 @@ namespace Foundation.Application.Commands.UpdateHttpApi;
 /// <param name="Description">The description of the API, or <see langword="null"/> for none.</param>
 /// <param name="Version">The version identifier of the API, or <see langword="null"/> for none.</param>
 /// <param name="RouteSelectionExpression">The route selection expression of the API, or <see langword="null"/> to use the backend default.</param>
+/// <param name="CorsConfiguration">The CORS configuration to apply, or <see langword="null"/> to leave the CORS configuration unchanged.</param>
 public record UpdateHttpApiCommand(
     string ApiId,
     string Name,
     string ProtocolType,
     string? Description,
     string? Version,
-    string? RouteSelectionExpression) : ICommand;
+    string? RouteSelectionExpression,
+    HttpApiCorsConfiguration? CorsConfiguration = null) : ICommand;

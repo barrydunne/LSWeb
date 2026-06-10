@@ -12,6 +12,8 @@ namespace Foundation.Application.Commands.PutRestMethod;
 /// <param name="AuthorizerId">The identifier of the authorizer to apply, or <see langword="null"/> when none is required.</param>
 /// <param name="ApiKeyRequired">Whether an API key is required to call the method.</param>
 /// <param name="AuthorizationScopes">The authorization scopes required by the method, when applicable.</param>
+/// <param name="IntegrationType">The integration type for backend forwarding (for example <c>MOCK</c>, <c>HTTP</c> or <c>AWS_PROXY</c>).</param>
+/// <param name="IntegrationUri">The integration URI/ARN to target, or <see langword="null"/> when the selected integration type does not require one.</param>
 public record PutRestMethodCommand(
     string RestApiId,
     string ResourceId,
@@ -19,4 +21,6 @@ public record PutRestMethodCommand(
     string AuthorizationType,
     string? AuthorizerId,
     bool ApiKeyRequired,
-    IReadOnlyList<string> AuthorizationScopes) : ICommand;
+    IReadOnlyList<string> AuthorizationScopes,
+    string IntegrationType,
+    string? IntegrationUri) : ICommand;

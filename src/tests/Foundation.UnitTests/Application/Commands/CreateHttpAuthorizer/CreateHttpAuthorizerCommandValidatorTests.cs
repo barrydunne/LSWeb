@@ -12,13 +12,14 @@ public class CreateHttpAuthorizerCommandValidatorTests
         string apiId = "abc123",
         string name = "jwt-authorizer",
         string authorizerType = "JWT",
+        IReadOnlyList<string>? identitySource = null,
         string? jwtIssuer = "https://example.com/issuer",
         IReadOnlyList<string>? jwtAudience = null)
         => new(
             apiId,
             name,
             authorizerType,
-            ["$request.header.Authorization"],
+            identitySource ?? ["$request.header.Authorization"],
             jwtIssuer,
             jwtAudience ?? ["client1"]);
 
@@ -81,6 +82,15 @@ public class CreateHttpAuthorizerCommandValidatorTests
             Valid(jwtIssuer: "not a uri"), TestContext.Current.CancellationToken);
         result.IsValid.Should().BeFalse();
         result.Errors.Should().Contain(_ => _.PropertyName == nameof(CreateHttpAuthorizerCommand.JwtIssuer));
+    }
+
+    [Fact]
+    public async Task ValidateAsync_WhenIdentitySourceEmpty_ReturnsErrorForIdentitySource()
+    {
+        var result = await _sut.ValidateAsync(
+            Valid(identitySource: []), TestContext.Current.CancellationToken);
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(_ => _.PropertyName == nameof(CreateHttpAuthorizerCommand.IdentitySource));
     }
 
     [Fact]

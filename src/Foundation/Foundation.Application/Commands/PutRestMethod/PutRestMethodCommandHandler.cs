@@ -52,7 +52,9 @@ internal sealed partial class PutRestMethodCommandHandler : ICommandHandler<PutR
             request.AuthorizationType,
             request.AuthorizerId,
             request.ApiKeyRequired,
-            request.AuthorizationScopes);
+            request.AuthorizationScopes,
+            request.IntegrationType,
+            request.IntegrationUri);
         var result = await _client.PutMethodAsync(specification, cancellationToken);
         if (!result.IsSuccess)
         {

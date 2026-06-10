@@ -1,21 +1,25 @@
 using AspNet.KickStarter.FunctionalResult.Extensions;
 using Foundation.Api.Models;
+using Foundation.Application.Commands.ConfigureRestCors;
 using Foundation.Application.Commands.CreateRestApi;
 using Foundation.Application.Commands.CreateRestAuthorizer;
 using Foundation.Application.Commands.CreateRestDeployment;
 using Foundation.Application.Commands.CreateRestResource;
 using Foundation.Application.Commands.CreateRestStage;
+using Foundation.Application.Commands.CreateRestTokenAuthorizer;
 using Foundation.Application.Commands.DeleteRestApi;
 using Foundation.Application.Commands.DeleteRestAuthorizer;
 using Foundation.Application.Commands.DeleteRestMethod;
 using Foundation.Application.Commands.DeleteRestResource;
 using Foundation.Application.Commands.DeleteRestStage;
 using Foundation.Application.Commands.PutRestMethod;
+using Foundation.Application.Commands.TestInvokeRestMethod;
 using Foundation.Application.Commands.UpdateRestApi;
 using Foundation.Application.Commands.UpdateRestAuthorizer;
 using Foundation.Application.Commands.UpdateRestStage;
 using Foundation.Application.Queries.GetRestApi;
 using Foundation.Application.Queries.GetRestAuthorizer;
+using Foundation.Application.Queries.GetRestCors;
 using Foundation.Application.Queries.GetRestMethod;
 using Foundation.Application.Queries.GetRestStage;
 using Foundation.Application.Queries.ListRestApis;
@@ -278,7 +282,9 @@ public partial class ApiGatewayController : ControllerBase
                 request.AuthorizationType,
                 request.AuthorizerId,
                 request.ApiKeyRequired,
-                request.AuthorizationScopes ?? []),
+                request.AuthorizationScopes ?? [],
+                request.IntegrationType,
+                request.IntegrationUri),
             cancellationToken);
         LogPutRestMethodHandled(result.IsSuccess);
         return result.Match(
@@ -303,6 +309,104 @@ public partial class ApiGatewayController : ControllerBase
         var result = await _sender.Send(
             new DeleteRestMethodCommand(restApiId, resourceId, httpMethod), cancellationToken);
         LogDeleteRestMethodHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.NoContent(),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Tests invocation of an HTTP method on a resource.
+    /// </summary>
+    /// <param name="restApiId">The identifier of the REST API.</param>
+    /// <param name="resourceId">The identifier of the resource.</param>
+    /// <param name="httpMethod">The HTTP verb of the method to invoke.</param>
+    /// <param name="request">The request payload used for test invocation.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 200 result carrying the invocation response details.</returns>
+    [HttpPost("restapis/{restApiId}/resources/{resourceId}/methods/{httpMethod}/test-invoke")]
+    [ProducesResponseType(typeof(RestMethodTestInvokeResponse), StatusCodes.Status200OK)]
+    public async Task<IResult> TestInvokeRestMethod(
+        string restApiId,
+        string resourceId,
+        string httpMethod,
+        [FromBody] RestMethodTestInvokeRequest request,
+        CancellationToken cancellationToken)
+    {
+        LogHandlingTestInvokeRestMethod(httpMethod, resourceId, restApiId);
+        var result = await _sender.Send(
+            new TestInvokeRestMethodCommand(
+                restApiId,
+                resourceId,
+                httpMethod,
+                request.PathWithQueryString,
+                request.Headers ?? new Dictionary<string, string>(),
+                request.QueryStringParameters ?? new Dictionary<string, string>(),
+                request.Body,
+                request.StageVariables ?? new Dictionary<string, string>()),
+            cancellationToken);
+        LogTestInvokeRestMethodHandled(result.IsSuccess);
+        return result.Match(
+            response => Results.Ok(new RestMethodTestInvokeResponse(
+                response.StatusCode,
+                response.LatencyMilliseconds,
+                response.Headers,
+                response.Body,
+                response.Log)),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Gets the CORS policy configured on a resource of an API Gateway REST API.
+    /// </summary>
+    /// <param name="restApiId">The identifier of the REST API.</param>
+    /// <param name="resourceId">The identifier of the resource whose CORS policy to read.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 200 result carrying the CORS policy.</returns>
+    [HttpGet("restapis/{restApiId}/resources/{resourceId}/cors")]
+    [ProducesResponseType(typeof(RestCorsResponse), StatusCodes.Status200OK)]
+    public async Task<IResult> GetRestCors(
+        string restApiId, string resourceId, CancellationToken cancellationToken)
+    {
+        LogHandlingGetRestCors(resourceId, restApiId);
+        var result = await _sender.Send(
+            new GetRestCorsQuery(restApiId, resourceId), cancellationToken);
+        LogGetRestCorsHandled(result.IsSuccess);
+        return result.Match(
+            cors => Results.Ok(new RestCorsResponse(
+                cors.Cors.ResourceId,
+                cors.Cors.Enabled,
+                cors.Cors.AllowOrigins,
+                cors.Cors.AllowMethods,
+                cors.Cors.AllowHeaders)),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Configures the CORS policy on a resource of an API Gateway REST API.
+    /// </summary>
+    /// <param name="restApiId">The identifier of the REST API.</param>
+    /// <param name="resourceId">The identifier of the resource to configure.</param>
+    /// <param name="request">The CORS policy to apply.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 204 result on success.</returns>
+    [HttpPut("restapis/{restApiId}/resources/{resourceId}/cors")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IResult> ConfigureRestCors(
+        string restApiId,
+        string resourceId,
+        [FromBody] RestCorsConfigureRequest request,
+        CancellationToken cancellationToken)
+    {
+        LogHandlingConfigureRestCors(resourceId, restApiId);
+        var result = await _sender.Send(
+            new ConfigureRestCorsCommand(
+                restApiId,
+                resourceId,
+                request.AllowOrigins ?? [],
+                request.AllowMethods ?? [],
+                request.AllowHeaders ?? []),
+            cancellationToken);
+        LogConfigureRestCorsHandled(result.IsSuccess);
         return result.Match(
             () => Results.NoContent(),
             error => error.AsHttpResult());
@@ -375,6 +479,38 @@ public partial class ApiGatewayController : ControllerBase
                 request.IdentitySource),
             cancellationToken);
         LogCreateRestAuthorizerHandled(result.IsSuccess);
+        return result.Match(
+            authorizerId => Results.Created(
+                $"/api/services/apigateway/restapis/{Uri.EscapeDataString(restApiId)}/authorizers/{Uri.EscapeDataString(authorizerId)}",
+                new RestAuthorizerCreatedResponse(authorizerId)),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Creates an OAuth/JWT token authorizer on an API Gateway REST API.
+    /// </summary>
+    /// <param name="restApiId">The identifier of the REST API the authorizer belongs to.</param>
+    /// <param name="request">The token authorizer configuration to create.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 201 result carrying the new authorizer id.</returns>
+    [HttpPost("restapis/{restApiId}/authorizers/token")]
+    [ProducesResponseType(typeof(RestAuthorizerCreatedResponse), StatusCodes.Status201Created)]
+    public async Task<IResult> CreateRestTokenAuthorizer(
+        string restApiId,
+        [FromBody] RestTokenAuthorizerCreateRequest request,
+        CancellationToken cancellationToken)
+    {
+        LogHandlingCreateRestTokenAuthorizer(request.Name, restApiId);
+        var result = await _sender.Send(
+            new CreateRestTokenAuthorizerCommand(
+                restApiId,
+                request.Name,
+                request.Issuer,
+                request.Audience,
+                request.IdentitySource,
+                request.AuthorizerUri),
+            cancellationToken);
+        LogCreateRestTokenAuthorizerHandled(result.IsSuccess);
         return result.Match(
             authorizerId => Results.Created(
                 $"/api/services/apigateway/restapis/{Uri.EscapeDataString(restApiId)}/authorizers/{Uri.EscapeDataString(authorizerId)}",
@@ -639,7 +775,9 @@ public partial class ApiGatewayController : ControllerBase
             method.AuthorizationType,
             method.AuthorizerId,
             method.ApiKeyRequired,
-            method.AuthorizationScopes);
+            method.AuthorizationScopes,
+            method.IntegrationType,
+            method.IntegrationUri);
 
     private static RestAuthorizerSummaryResponse ToAuthorizerSummaryResponse(
         Foundation.Domain.ApiGateway.RestAuthorizerSummary authorizer)
@@ -749,6 +887,24 @@ public partial class ApiGatewayController : ControllerBase
     [LoggerMessage(LogLevel.Trace, "API Gateway REST API method delete handled. Success: {Success}")]
     private partial void LogDeleteRestMethodHandled(bool success);
 
+    [LoggerMessage(LogLevel.Trace, "Testing invocation of API Gateway REST API method {HttpMethod} on {ResourceId} of {RestApiId}.")]
+    private partial void LogHandlingTestInvokeRestMethod(string httpMethod, string resourceId, string restApiId);
+
+    [LoggerMessage(LogLevel.Trace, "API Gateway REST API method test invoke handled. Success: {Success}")]
+    private partial void LogTestInvokeRestMethodHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Getting API Gateway REST API CORS policy for resource {ResourceId} of {RestApiId}.")]
+    private partial void LogHandlingGetRestCors(string resourceId, string restApiId);
+
+    [LoggerMessage(LogLevel.Trace, "API Gateway REST API CORS get handled. Success: {Success}")]
+    private partial void LogGetRestCorsHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Configuring API Gateway REST API CORS policy for resource {ResourceId} of {RestApiId}.")]
+    private partial void LogHandlingConfigureRestCors(string resourceId, string restApiId);
+
+    [LoggerMessage(LogLevel.Trace, "API Gateway REST API CORS configure handled. Success: {Success}")]
+    private partial void LogConfigureRestCorsHandled(bool success);
+
     [LoggerMessage(LogLevel.Trace, "Listing API Gateway REST API authorizers for {RestApiId}.")]
     private partial void LogHandlingListRestAuthorizers(string restApiId);
 
@@ -766,6 +922,12 @@ public partial class ApiGatewayController : ControllerBase
 
     [LoggerMessage(LogLevel.Trace, "API Gateway REST API authorizer create handled. Success: {Success}")]
     private partial void LogCreateRestAuthorizerHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Creating API Gateway REST API token authorizer {Name} on {RestApiId}.")]
+    private partial void LogHandlingCreateRestTokenAuthorizer(string name, string restApiId);
+
+    [LoggerMessage(LogLevel.Trace, "API Gateway REST API token authorizer create handled. Success: {Success}")]
+    private partial void LogCreateRestTokenAuthorizerHandled(bool success);
 
     [LoggerMessage(LogLevel.Trace, "Updating API Gateway REST API authorizer {AuthorizerId} on {RestApiId}.")]
     private partial void LogHandlingUpdateRestAuthorizer(string authorizerId, string restApiId);

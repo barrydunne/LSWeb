@@ -9,10 +9,14 @@ namespace Foundation.Domain.ApiGateway;
 /// <param name="AuthorizerId">The identifier of the authorizer applied to the method, or <see langword="null"/> when none is set.</param>
 /// <param name="ApiKeyRequired">Whether an API key is required to call the method.</param>
 /// <param name="AuthorizationScopes">The authorization scopes required by the method, when applicable.</param>
+/// <param name="IntegrationType">The integration type configured for backend forwarding.</param>
+/// <param name="IntegrationUri">The integration URI/ARN configured for backend forwarding, or <see langword="null"/> when none is set.</param>
 public sealed record RestMethodDetail(
     string ResourceId,
     string HttpMethod,
     string AuthorizationType,
     string? AuthorizerId,
     bool ApiKeyRequired,
-    IReadOnlyList<string> AuthorizationScopes);
+    IReadOnlyList<string> AuthorizationScopes,
+    string IntegrationType,
+    string? IntegrationUri);

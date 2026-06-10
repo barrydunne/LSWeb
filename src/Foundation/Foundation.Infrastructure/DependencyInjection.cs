@@ -143,6 +143,7 @@ public static class DependencyInjection
             .AddSingleton<IApiGatewayClient, ApiGatewayClientAdapter>()
             .AddSingleton<IResourceSource, ApiGatewayResourceSource>()
             .AddSingleton<IApiGatewayV2Client, ApiGatewayV2ClientAdapter>()
+            .AddSingleton<IHttpApiRouteInvoker, HttpApiRouteInvoker>()
             .AddSingleton<IResourceSource, ApiGatewayV2ResourceSource>()
             .AddSingleton<IRoute53Client, Route53ClientAdapter>()
             .AddSingleton<IResourceSource, Route53ResourceSource>()

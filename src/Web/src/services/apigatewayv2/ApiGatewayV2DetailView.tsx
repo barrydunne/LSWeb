@@ -10,6 +10,8 @@ import {
   deleteHttpRoute,
   getHttpIntegrations,
   createHttpIntegration,
+  updateHttpIntegration,
+  deleteHttpIntegration,
   getHttpAuthorizers,
   createHttpAuthorizer,
   updateHttpAuthorizer,
@@ -28,6 +30,7 @@ import type {
 } from '../../api/client';
 import type { ServiceDetailViewProps } from '../serviceViewRegistry';
 import { RawJsonViewer } from '../../components/RawJsonViewer';
+import { ApiGatewayV2RouteTestSection } from './ApiGatewayV2RouteTestSection';
 
 const containerStyle: CSSProperties = {
   display: 'flex',
@@ -48,6 +51,24 @@ const rowStyle: CSSProperties = {
 const labelStyle: CSSProperties = { fontSize: 12, opacity: 0.7 };
 const valueStyle: CSSProperties = { fontSize: 14, fontFamily: 'monospace' };
 const messageStyle: CSSProperties = { fontSize: 14 };
+const protectedBadgeStyle: CSSProperties = {
+  fontSize: 12,
+  fontWeight: 600,
+  alignSelf: 'flex-start',
+  padding: '1px 8px',
+  borderRadius: 999,
+  border: '1px solid currentColor',
+  color: '#3fb950',
+};
+const publicBadgeStyle: CSSProperties = {
+  fontSize: 12,
+  fontWeight: 600,
+  alignSelf: 'flex-start',
+  padding: '1px 8px',
+  borderRadius: 999,
+  border: '1px solid currentColor',
+  color: '#d29922',
+};
 const sectionStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
@@ -122,6 +143,14 @@ type StagesState =
 const integrationTypes = ['AWS', 'AWS_PROXY', 'HTTP', 'HTTP_PROXY', 'MOCK'];
 const authorizationTypes = ['NONE', 'AWS_IAM', 'JWT', 'CUSTOM'];
 
+function isRouteProtected(authorizationType: string | null): boolean {
+  return (
+    authorizationType !== null &&
+    authorizationType.trim() !== '' &&
+    authorizationType.trim().toUpperCase() !== 'NONE'
+  );
+}
+
 function emptyToNull(value: string): string | null {
   const trimmed = value.trim();
   return trimmed === '' ? null : trimmed;
@@ -151,6 +180,45 @@ function formatList(values: string[]): string {
   return values.length === 0 ? '\u2014' : values.join(', ');
 }
 
+function isAbsoluteUrl(value: string): boolean {
+  try {
+    return Boolean(new URL(value).protocol);
+  } catch {
+    return false;
+  }
+}
+
+function buildCognitoIssuer(region: string, userPoolId: string): string | null {
+  const trimmedRegion = region.trim();
+  const trimmedPoolId = userPoolId.trim();
+  if (trimmedRegion === '' || trimmedPoolId === '') {
+    return null;
+  }
+  return `https://cognito-idp.${trimmedRegion}.amazonaws.com/${trimmedPoolId}`;
+}
+
+function getAuthorizerValidationMessage(
+  name: string,
+  identitySource: string,
+  jwtIssuer: string,
+  jwtAudience: string,
+): string | null {
+  if (name.trim() === '') {
+    return 'Authorizer name is required.';
+  }
+  if (commaToArray(identitySource).length === 0) {
+    return 'At least one identity source is required.';
+  }
+  const issuer = emptyToNull(jwtIssuer);
+  if (issuer === null || !isAbsoluteUrl(issuer)) {
+    return 'A valid JWT issuer URL is required.';
+  }
+  if (commaToArray(jwtAudience).length === 0) {
+    return 'At least one JWT audience is required.';
+  }
+  return null;
+}
+
 export function ApiGatewayV2DetailView({ resourceId }: ServiceDetailViewProps) {
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [reloadToken, setReloadToken] = useState(0);
@@ -161,6 +229,13 @@ export function ApiGatewayV2DetailView({ resourceId }: ServiceDetailViewProps) {
   const [editDescription, setEditDescription] = useState('');
   const [editVersion, setEditVersion] = useState('');
   const [editRouteSelectionExpression, setEditRouteSelectionExpression] = useState('');
+  const [editCorsEnabled, setEditCorsEnabled] = useState(false);
+  const [editCorsAllowOrigins, setEditCorsAllowOrigins] = useState('');
+  const [editCorsAllowMethods, setEditCorsAllowMethods] = useState('');
+  const [editCorsAllowHeaders, setEditCorsAllowHeaders] = useState('');
+  const [editCorsExposeHeaders, setEditCorsExposeHeaders] = useState('');
+  const [editCorsAllowCredentials, setEditCorsAllowCredentials] = useState(false);
+  const [editCorsMaxAge, setEditCorsMaxAge] = useState('');
   const [saveState, setSaveState] = useState<SaveState>('idle');
 
   const [routesState, setRoutesState] = useState<RoutesState>({ kind: 'loading' });
@@ -194,6 +269,19 @@ export function ApiGatewayV2DetailView({ resourceId }: ServiceDetailViewProps) {
   const [newIntegrationDescription, setNewIntegrationDescription] = useState('');
   const [integrationCreateState, setIntegrationCreateState] = useState<SaveState>('idle');
 
+  const [editingIntegrationId, setEditingIntegrationId] = useState<string | null>(null);
+  const [editIntegrationType, setEditIntegrationType] = useState('HTTP_PROXY');
+  const [editIntegrationMethod, setEditIntegrationMethod] = useState('');
+  const [editIntegrationUri, setEditIntegrationUri] = useState('');
+  const [editIntegrationPayloadVersion, setEditIntegrationPayloadVersion] = useState('');
+  const [editIntegrationDescription, setEditIntegrationDescription] = useState('');
+  const [integrationEditState, setIntegrationEditState] = useState<SaveState>('idle');
+
+  const [pendingDeleteIntegrationId, setPendingDeleteIntegrationId] = useState<string | null>(
+    null,
+  );
+  const [integrationDeleteState, setIntegrationDeleteState] = useState<SaveState>('idle');
+
   const [authorizersState, setAuthorizersState] = useState<AuthorizersState>({
     kind: 'loading',
   });
@@ -203,6 +291,8 @@ export function ApiGatewayV2DetailView({ resourceId }: ServiceDetailViewProps) {
   );
   const [newAuthorizerJwtIssuer, setNewAuthorizerJwtIssuer] = useState('');
   const [newAuthorizerJwtAudience, setNewAuthorizerJwtAudience] = useState('');
+  const [newAuthorizerCognitoRegion, setNewAuthorizerCognitoRegion] = useState('');
+  const [newAuthorizerCognitoPoolId, setNewAuthorizerCognitoPoolId] = useState('');
   const [authorizerCreateState, setAuthorizerCreateState] = useState<SaveState>('idle');
 
   const [editingAuthorizerId, setEditingAuthorizerId] = useState<string | null>(null);
@@ -298,6 +388,14 @@ export function ApiGatewayV2DetailView({ resourceId }: ServiceDetailViewProps) {
     setEditDescription(api.description ?? '');
     setEditVersion(api.version ?? '');
     setEditRouteSelectionExpression(api.routeSelectionExpression ?? '');
+    const cors = api.corsConfiguration;
+    setEditCorsEnabled(cors !== null);
+    setEditCorsAllowOrigins((cors?.allowOrigins ?? []).join(', '));
+    setEditCorsAllowMethods((cors?.allowMethods ?? []).join(', '));
+    setEditCorsAllowHeaders((cors?.allowHeaders ?? []).join(', '));
+    setEditCorsExposeHeaders((cors?.exposeHeaders ?? []).join(', '));
+    setEditCorsAllowCredentials(cors?.allowCredentials ?? false);
+    setEditCorsMaxAge(cors?.maxAge != null ? String(cors.maxAge) : '');
     setSaveState('idle');
     setEditing(true);
   };
@@ -310,6 +408,16 @@ export function ApiGatewayV2DetailView({ resourceId }: ServiceDetailViewProps) {
       description: emptyToNull(editDescription),
       version: emptyToNull(editVersion),
       routeSelectionExpression: emptyToNull(editRouteSelectionExpression),
+      corsConfiguration: editCorsEnabled
+        ? {
+            allowCredentials: editCorsAllowCredentials,
+            allowHeaders: commaToArray(editCorsAllowHeaders),
+            allowMethods: commaToArray(editCorsAllowMethods),
+            allowOrigins: commaToArray(editCorsAllowOrigins),
+            exposeHeaders: commaToArray(editCorsExposeHeaders),
+            maxAge: emptyToNumber(editCorsMaxAge),
+          }
+        : null,
     })
       .then(() => {
         setSaveState('saved');
@@ -398,6 +506,44 @@ export function ApiGatewayV2DetailView({ resourceId }: ServiceDetailViewProps) {
       .catch(() => setIntegrationCreateState('error'));
   };
 
+  const handleStartEditIntegration = (integration: HttpIntegrationSummaryItem) => {
+    setEditingIntegrationId(integration.integrationId);
+    setEditIntegrationType(integration.integrationType);
+    setEditIntegrationMethod(integration.integrationMethod ?? '');
+    setEditIntegrationUri(integration.integrationUri ?? '');
+    setEditIntegrationPayloadVersion(integration.payloadFormatVersion ?? '');
+    setEditIntegrationDescription(integration.description ?? '');
+    setIntegrationEditState('idle');
+  };
+
+  const handleUpdateIntegration = (integrationId: string) => {
+    setIntegrationEditState('saving');
+    updateHttpIntegration(resourceId, integrationId, {
+      integrationType: editIntegrationType,
+      integrationMethod: emptyToNull(editIntegrationMethod),
+      integrationUri: emptyToNull(editIntegrationUri),
+      payloadFormatVersion: emptyToNull(editIntegrationPayloadVersion),
+      description: emptyToNull(editIntegrationDescription),
+    })
+      .then(() => {
+        setIntegrationEditState('saved');
+        setEditingIntegrationId(null);
+        refreshChildren();
+      })
+      .catch(() => setIntegrationEditState('error'));
+  };
+
+  const handleDeleteIntegration = (integrationId: string) => {
+    setIntegrationDeleteState('saving');
+    deleteHttpIntegration(resourceId, integrationId)
+      .then(() => {
+        setIntegrationDeleteState('saved');
+        setPendingDeleteIntegrationId(null);
+        refreshChildren();
+      })
+      .catch(() => setIntegrationDeleteState('error'));
+  };
+
   const handleCreateAuthorizer = () => {
     setAuthorizerCreateState('saving');
     createHttpAuthorizer(resourceId, {
@@ -415,6 +561,13 @@ export function ApiGatewayV2DetailView({ resourceId }: ServiceDetailViewProps) {
         refreshChildren();
       })
       .catch(() => setAuthorizerCreateState('error'));
+  };
+
+  const handleUseCognitoIssuer = () => {
+    const issuer = buildCognitoIssuer(newAuthorizerCognitoRegion, newAuthorizerCognitoPoolId);
+    if (issuer !== null) {
+      setNewAuthorizerJwtIssuer(issuer);
+    }
   };
 
   const handleStartEditAuthorizer = (authorizer: HttpAuthorizerSummaryItem) => {
@@ -530,6 +683,15 @@ export function ApiGatewayV2DetailView({ resourceId }: ServiceDetailViewProps) {
   }
 
   const api = state.api;
+
+  const authorizerValidationMessage = getAuthorizerValidationMessage(
+    newAuthorizerName,
+    newAuthorizerIdentitySource,
+    newAuthorizerJwtIssuer,
+    newAuthorizerJwtAudience,
+  );
+  const configuredAuthorizers =
+    authorizersState.kind === 'ready' ? authorizersState.authorizers : [];
 
   return (
     <div data-testid="apigatewayv2-detail-view" style={containerStyle}>
@@ -685,6 +847,101 @@ export function ApiGatewayV2DetailView({ resourceId }: ServiceDetailViewProps) {
               onChange={(event) => setEditRouteSelectionExpression(event.target.value)}
             />
           </div>
+          <div data-testid="apigatewayv2-edit-cors" style={fieldRowStyle}>
+            <label style={labelStyle} htmlFor="apigatewayv2-edit-cors-enabled">
+              <input
+                id="apigatewayv2-edit-cors-enabled"
+                type="checkbox"
+                data-testid="apigatewayv2-edit-cors-enabled"
+                checked={editCorsEnabled}
+                onChange={(event) => setEditCorsEnabled(event.target.checked)}
+              />
+              {' '}
+              Configure CORS policy
+            </label>
+          </div>
+          {editCorsEnabled ? (
+            <div data-testid="apigatewayv2-edit-cors-fields">
+              <div style={fieldRowStyle}>
+                <label style={labelStyle} htmlFor="apigatewayv2-edit-cors-origins">
+                  Allow origins (comma separated)
+                </label>
+                <input
+                  id="apigatewayv2-edit-cors-origins"
+                  type="text"
+                  data-testid="apigatewayv2-edit-cors-origins"
+                  style={inputStyle}
+                  value={editCorsAllowOrigins}
+                  onChange={(event) => setEditCorsAllowOrigins(event.target.value)}
+                />
+              </div>
+              <div style={fieldRowStyle}>
+                <label style={labelStyle} htmlFor="apigatewayv2-edit-cors-methods">
+                  Allow methods (comma separated)
+                </label>
+                <input
+                  id="apigatewayv2-edit-cors-methods"
+                  type="text"
+                  data-testid="apigatewayv2-edit-cors-methods"
+                  style={inputStyle}
+                  value={editCorsAllowMethods}
+                  onChange={(event) => setEditCorsAllowMethods(event.target.value)}
+                />
+              </div>
+              <div style={fieldRowStyle}>
+                <label style={labelStyle} htmlFor="apigatewayv2-edit-cors-headers">
+                  Allow headers (comma separated)
+                </label>
+                <input
+                  id="apigatewayv2-edit-cors-headers"
+                  type="text"
+                  data-testid="apigatewayv2-edit-cors-headers"
+                  style={inputStyle}
+                  value={editCorsAllowHeaders}
+                  onChange={(event) => setEditCorsAllowHeaders(event.target.value)}
+                />
+              </div>
+              <div style={fieldRowStyle}>
+                <label style={labelStyle} htmlFor="apigatewayv2-edit-cors-expose">
+                  Expose headers (comma separated)
+                </label>
+                <input
+                  id="apigatewayv2-edit-cors-expose"
+                  type="text"
+                  data-testid="apigatewayv2-edit-cors-expose"
+                  style={inputStyle}
+                  value={editCorsExposeHeaders}
+                  onChange={(event) => setEditCorsExposeHeaders(event.target.value)}
+                />
+              </div>
+              <div style={fieldRowStyle}>
+                <label style={labelStyle} htmlFor="apigatewayv2-edit-cors-max-age">
+                  Max age (seconds)
+                </label>
+                <input
+                  id="apigatewayv2-edit-cors-max-age"
+                  type="text"
+                  data-testid="apigatewayv2-edit-cors-max-age"
+                  style={inputStyle}
+                  value={editCorsMaxAge}
+                  onChange={(event) => setEditCorsMaxAge(event.target.value)}
+                />
+              </div>
+              <div style={fieldRowStyle}>
+                <label style={labelStyle} htmlFor="apigatewayv2-edit-cors-credentials">
+                  <input
+                    id="apigatewayv2-edit-cors-credentials"
+                    type="checkbox"
+                    data-testid="apigatewayv2-edit-cors-credentials"
+                    checked={editCorsAllowCredentials}
+                    onChange={(event) => setEditCorsAllowCredentials(event.target.checked)}
+                  />
+                  {' '}
+                  Allow credentials
+                </label>
+              </div>
+            </div>
+          ) : null}
           <button
             type="button"
             data-testid="apigatewayv2-edit-submit"
@@ -739,8 +996,47 @@ export function ApiGatewayV2DetailView({ resourceId }: ServiceDetailViewProps) {
                 </span>
                 <span style={labelStyle}>Route ID: {route.routeId}</span>
                 <span style={labelStyle}>Target: {route.target ?? '\u2014'}</span>
+                {(() => {
+                  if (integrationsState.kind !== 'ready') {
+                    return null;
+                  }
+                  const target = route.target ?? '';
+                  const prefix = 'integrations/';
+                  const match = target.startsWith(prefix)
+                    ? integrationsState.integrations.find(
+                        (integration) =>
+                          integration.integrationId === target.slice(prefix.length),
+                      )
+                    : undefined;
+                  if (match === undefined) {
+                    return null;
+                  }
+                  return (
+                    <span
+                      data-testid="apigatewayv2-route-integration"
+                      style={labelStyle}
+                    >
+                      Integration: {match.integrationType}
+                      {match.integrationUri === null
+                        ? ''
+                        : ` \u2192 ${match.integrationUri}`}
+                    </span>
+                  );
+                })()}
                 <span style={labelStyle}>
                   Authorization: {route.authorizationType ?? '\u2014'}
+                </span>
+                <span
+                  data-testid="apigatewayv2-route-protection"
+                  style={
+                    isRouteProtected(route.authorizationType)
+                      ? protectedBadgeStyle
+                      : publicBadgeStyle
+                  }
+                >
+                  {isRouteProtected(route.authorizationType)
+                    ? 'Protected \u2014 authorizer enforced'
+                    : 'Public \u2014 no authorizer'}
                 </span>
                 {editingRouteId === route.routeId ? (
                   <div data-testid="apigatewayv2-route-edit-form" style={fieldRowStyle}>
@@ -785,14 +1081,20 @@ export function ApiGatewayV2DetailView({ resourceId }: ServiceDetailViewProps) {
                     <label style={labelStyle} htmlFor="apigatewayv2-route-edit-authorizer">
                       Authorizer ID
                     </label>
-                    <input
+                    <select
                       id="apigatewayv2-route-edit-authorizer"
-                      type="text"
                       data-testid="apigatewayv2-route-edit-authorizer"
                       style={inputStyle}
                       value={editRouteAuthorizerId}
                       onChange={(event) => setEditRouteAuthorizerId(event.target.value)}
-                    />
+                    >
+                      <option value="">{'\u2014'}</option>
+                      {configuredAuthorizers.map((authorizer) => (
+                        <option key={authorizer.authorizerId} value={authorizer.authorizerId}>
+                          {authorizer.name} ({authorizer.authorizerId})
+                        </option>
+                      ))}
+                    </select>
                     <label style={labelStyle} htmlFor="apigatewayv2-route-edit-scopes">
                       Authorization scopes (comma separated)
                     </label>
@@ -942,14 +1244,20 @@ export function ApiGatewayV2DetailView({ resourceId }: ServiceDetailViewProps) {
             <label style={labelStyle} htmlFor="apigatewayv2-route-new-authorizer">
               Authorizer ID
             </label>
-            <input
+            <select
               id="apigatewayv2-route-new-authorizer"
-              type="text"
               data-testid="apigatewayv2-route-new-authorizer"
               style={inputStyle}
               value={newRouteAuthorizerId}
               onChange={(event) => setNewRouteAuthorizerId(event.target.value)}
-            />
+            >
+              <option value="">{'\u2014'}</option>
+              {configuredAuthorizers.map((authorizer) => (
+                <option key={authorizer.authorizerId} value={authorizer.authorizerId}>
+                  {authorizer.name} ({authorizer.authorizerId})
+                </option>
+              ))}
+            </select>
           </div>
           <div style={fieldRowStyle}>
             <label style={labelStyle} htmlFor="apigatewayv2-route-new-scopes">
@@ -980,6 +1288,8 @@ export function ApiGatewayV2DetailView({ resourceId }: ServiceDetailViewProps) {
           ) : null}
         </div>
       </div>
+
+      <ApiGatewayV2RouteTestSection apiId={resourceId} />
 
       <div data-testid="apigatewayv2-integrations-section" style={sectionStyle}>
         <Heading as="h3" style={{ fontSize: 15 }}>
@@ -1021,6 +1331,168 @@ export function ApiGatewayV2DetailView({ resourceId }: ServiceDetailViewProps) {
                 <span style={labelStyle}>
                   Description: {integration.description ?? '\u2014'}
                 </span>
+                {editingIntegrationId === integration.integrationId ? (
+                  <div data-testid="apigatewayv2-integration-edit-form" style={fieldRowStyle}>
+                    <label style={labelStyle} htmlFor="apigatewayv2-integration-edit-type">
+                      Integration type
+                    </label>
+                    <select
+                      id="apigatewayv2-integration-edit-type"
+                      data-testid="apigatewayv2-integration-edit-type"
+                      style={inputStyle}
+                      value={editIntegrationType}
+                      onChange={(event) => setEditIntegrationType(event.target.value)}
+                    >
+                      {integrationTypes.map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                    <label style={labelStyle} htmlFor="apigatewayv2-integration-edit-method">
+                      Integration method
+                    </label>
+                    <input
+                      id="apigatewayv2-integration-edit-method"
+                      type="text"
+                      data-testid="apigatewayv2-integration-edit-method"
+                      style={inputStyle}
+                      value={editIntegrationMethod}
+                      onChange={(event) => setEditIntegrationMethod(event.target.value)}
+                    />
+                    <label style={labelStyle} htmlFor="apigatewayv2-integration-edit-uri">
+                      Integration URI
+                    </label>
+                    <input
+                      id="apigatewayv2-integration-edit-uri"
+                      type="text"
+                      data-testid="apigatewayv2-integration-edit-uri"
+                      style={inputStyle}
+                      value={editIntegrationUri}
+                      onChange={(event) => setEditIntegrationUri(event.target.value)}
+                    />
+                    <label style={labelStyle} htmlFor="apigatewayv2-integration-edit-payload">
+                      Payload format version
+                    </label>
+                    <input
+                      id="apigatewayv2-integration-edit-payload"
+                      type="text"
+                      data-testid="apigatewayv2-integration-edit-payload"
+                      style={inputStyle}
+                      value={editIntegrationPayloadVersion}
+                      onChange={(event) =>
+                        setEditIntegrationPayloadVersion(event.target.value)
+                      }
+                    />
+                    <label
+                      style={labelStyle}
+                      htmlFor="apigatewayv2-integration-edit-description"
+                    >
+                      Description
+                    </label>
+                    <input
+                      id="apigatewayv2-integration-edit-description"
+                      type="text"
+                      data-testid="apigatewayv2-integration-edit-description"
+                      style={inputStyle}
+                      value={editIntegrationDescription}
+                      onChange={(event) => setEditIntegrationDescription(event.target.value)}
+                    />
+                    <button
+                      type="button"
+                      data-testid="apigatewayv2-integration-edit-submit"
+                      style={buttonStyle}
+                      disabled={
+                        integrationEditState === 'saving' ||
+                        (editIntegrationType !== 'MOCK' &&
+                          emptyToNull(editIntegrationUri) === null)
+                      }
+                      onClick={() => handleUpdateIntegration(integration.integrationId)}
+                    >
+                      {integrationEditState === 'saving' ? 'Saving\u2026' : 'Save integration'}
+                    </button>
+                    {editIntegrationType !== 'MOCK' &&
+                    emptyToNull(editIntegrationUri) === null ? (
+                      <p
+                        data-testid="apigatewayv2-integration-edit-validation"
+                        style={messageStyle}
+                      >
+                        Integration URI is required unless the integration type is MOCK.
+                      </p>
+                    ) : null}
+                    <button
+                      type="button"
+                      data-testid="apigatewayv2-integration-edit-cancel"
+                      style={buttonStyle}
+                      onClick={() => setEditingIntegrationId(null)}
+                    >
+                      Cancel
+                    </button>
+                    {integrationEditState === 'error' ? (
+                      <p
+                        data-testid="apigatewayv2-integration-edit-error"
+                        style={messageStyle}
+                      >
+                        Unable to update the integration.
+                      </p>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div style={fieldRowStyle}>
+                    <button
+                      type="button"
+                      data-testid="apigatewayv2-integration-edit-toggle"
+                      style={buttonStyle}
+                      onClick={() => handleStartEditIntegration(integration)}
+                    >
+                      Edit integration
+                    </button>
+                    {pendingDeleteIntegrationId === integration.integrationId ? (
+                      <div
+                        data-testid="apigatewayv2-integration-delete-confirm"
+                        style={fieldRowStyle}
+                      >
+                        <span style={messageStyle}>Delete this integration?</span>
+                        <button
+                          type="button"
+                          data-testid="apigatewayv2-integration-delete-confirm-yes"
+                          style={buttonStyle}
+                          disabled={integrationDeleteState === 'saving'}
+                          onClick={() => handleDeleteIntegration(integration.integrationId)}
+                        >
+                          Confirm delete
+                        </button>
+                        <button
+                          type="button"
+                          data-testid="apigatewayv2-integration-delete-confirm-no"
+                          style={buttonStyle}
+                          onClick={() => setPendingDeleteIntegrationId(null)}
+                        >
+                          Cancel
+                        </button>
+                        {integrationDeleteState === 'error' ? (
+                          <p
+                            data-testid="apigatewayv2-integration-delete-error"
+                            style={messageStyle}
+                          >
+                            Unable to delete the integration.
+                          </p>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        data-testid="apigatewayv2-integration-delete-toggle"
+                        style={buttonStyle}
+                        onClick={() =>
+                          setPendingDeleteIntegrationId(integration.integrationId)
+                        }
+                      >
+                        Delete integration
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             ))
           : null}
@@ -1103,11 +1575,19 @@ export function ApiGatewayV2DetailView({ resourceId }: ServiceDetailViewProps) {
             type="button"
             data-testid="apigatewayv2-integration-new-submit"
             style={buttonStyle}
-            disabled={integrationCreateState === 'saving'}
+            disabled={
+              integrationCreateState === 'saving' ||
+              (newIntegrationType !== 'MOCK' && emptyToNull(newIntegrationUri) === null)
+            }
             onClick={handleCreateIntegration}
           >
             {integrationCreateState === 'saving' ? 'Adding\u2026' : 'Add integration'}
           </button>
+          {newIntegrationType !== 'MOCK' && emptyToNull(newIntegrationUri) === null ? (
+            <p data-testid="apigatewayv2-integration-new-validation" style={messageStyle}>
+              Integration URI is required unless the integration type is MOCK.
+            </p>
+          ) : null}
           {integrationCreateState === 'error' ? (
             <p data-testid="apigatewayv2-integration-new-error" style={messageStyle}>
               Unable to add the integration.
@@ -1301,6 +1781,37 @@ export function ApiGatewayV2DetailView({ resourceId }: ServiceDetailViewProps) {
               onChange={(event) => setNewAuthorizerIdentitySource(event.target.value)}
             />
           </div>
+          <div data-testid="apigatewayv2-authorizer-new-cognito" style={fieldRowStyle}>
+            <span style={labelStyle}>
+              Cognito user pool (guided OIDC issuer)
+            </span>
+            <input
+              id="apigatewayv2-authorizer-new-cognito-region"
+              type="text"
+              data-testid="apigatewayv2-authorizer-new-cognito-region"
+              style={inputStyle}
+              placeholder="Region (e.g. eu-west-1)"
+              value={newAuthorizerCognitoRegion}
+              onChange={(event) => setNewAuthorizerCognitoRegion(event.target.value)}
+            />
+            <input
+              id="apigatewayv2-authorizer-new-cognito-pool"
+              type="text"
+              data-testid="apigatewayv2-authorizer-new-cognito-pool"
+              style={inputStyle}
+              placeholder="User pool id"
+              value={newAuthorizerCognitoPoolId}
+              onChange={(event) => setNewAuthorizerCognitoPoolId(event.target.value)}
+            />
+            <button
+              type="button"
+              data-testid="apigatewayv2-authorizer-new-cognito-apply"
+              style={buttonStyle}
+              onClick={handleUseCognitoIssuer}
+            >
+              Use Cognito issuer
+            </button>
+          </div>
           <div style={fieldRowStyle}>
             <label style={labelStyle} htmlFor="apigatewayv2-authorizer-new-issuer">
               JWT issuer
@@ -1310,6 +1821,7 @@ export function ApiGatewayV2DetailView({ resourceId }: ServiceDetailViewProps) {
               type="text"
               data-testid="apigatewayv2-authorizer-new-issuer"
               style={inputStyle}
+              placeholder="https://cognito-idp.{region}.amazonaws.com/{userPoolId}"
               value={newAuthorizerJwtIssuer}
               onChange={(event) => setNewAuthorizerJwtIssuer(event.target.value)}
             />
@@ -1331,11 +1843,16 @@ export function ApiGatewayV2DetailView({ resourceId }: ServiceDetailViewProps) {
             type="button"
             data-testid="apigatewayv2-authorizer-new-submit"
             style={buttonStyle}
-            disabled={authorizerCreateState === 'saving' || newAuthorizerName.trim() === ''}
+            disabled={authorizerCreateState === 'saving' || authorizerValidationMessage !== null}
             onClick={handleCreateAuthorizer}
           >
             {authorizerCreateState === 'saving' ? 'Adding\u2026' : 'Add authorizer'}
           </button>
+          {authorizerValidationMessage !== null ? (
+            <p data-testid="apigatewayv2-authorizer-new-validation" style={messageStyle}>
+              {authorizerValidationMessage}
+            </p>
+          ) : null}
           {authorizerCreateState === 'error' ? (
             <p data-testid="apigatewayv2-authorizer-new-error" style={messageStyle}>
               Unable to add the authorizer.

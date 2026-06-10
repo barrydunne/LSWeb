@@ -8,10 +8,13 @@ using Foundation.Application.Commands.CreateHttpRoute;
 using Foundation.Application.Commands.CreateHttpStage;
 using Foundation.Application.Commands.DeleteHttpApi;
 using Foundation.Application.Commands.DeleteHttpAuthorizer;
+using Foundation.Application.Commands.DeleteHttpIntegration;
 using Foundation.Application.Commands.DeleteHttpRoute;
 using Foundation.Application.Commands.DeleteHttpStage;
+using Foundation.Application.Commands.TestHttpRoute;
 using Foundation.Application.Commands.UpdateHttpApi;
 using Foundation.Application.Commands.UpdateHttpAuthorizer;
+using Foundation.Application.Commands.UpdateHttpIntegration;
 using Foundation.Application.Commands.UpdateHttpRoute;
 using Foundation.Application.Commands.UpdateHttpStage;
 using Foundation.Application.Queries.GetHttpApi;
@@ -237,6 +240,33 @@ public class ApiGatewayV2ControllerTests
     }
 
     [Fact]
+    public async Task UpdateApi_WhenCorsProvided_ForwardsCorsConfiguration()
+    {
+        // Arrange
+        var request = new HttpApiUpdateRequest(
+            "orders", "HTTP", null, null, null,
+            new HttpApiCorsRequest(true, ["content-type"], ["GET", "POST"], ["*"], [], 600));
+        UpdateHttpApiCommand? captured = null;
+        _sender
+            .Send(Arg.Do<UpdateHttpApiCommand>(command => captured = command), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+
+        // Act
+        await sut.UpdateApi("abc123", request, TestContext.Current.CancellationToken);
+
+        // Assert
+        captured.Should().NotBeNull();
+        captured!.CorsConfiguration.Should().NotBeNull();
+        captured.CorsConfiguration!.AllowCredentials.Should().BeTrue();
+        captured.CorsConfiguration.AllowHeaders.Should().BeEquivalentTo("content-type");
+        captured.CorsConfiguration.AllowMethods.Should().BeEquivalentTo("GET", "POST");
+        captured.CorsConfiguration.AllowOrigins.Should().BeEquivalentTo("*");
+        captured.CorsConfiguration.ExposeHeaders.Should().BeEmpty();
+        captured.CorsConfiguration.MaxAge.Should().Be(600);
+    }
+
+    [Fact]
     public async Task UpdateApi_WhenCommandFails_ReturnsErrorResult()
     {
         // Arrange
@@ -285,6 +315,60 @@ public class ApiGatewayV2ControllerTests
 
         // Act
         var result = await sut.DeleteApi("abc123", TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task TestInvokeRoute_WhenCommandSucceeds_ReturnsOkAndForwardsFields()
+    {
+        // Arrange
+        var request = new HttpRouteTestRequest("$default", "GET", "/orders", "token-123", "{\"a\":1}");
+        TestHttpRouteCommand? captured = null;
+        _sender
+            .Send(Arg.Do<TestHttpRouteCommand>(command => captured = command), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<HttpRouteInvocationResult>>(
+                new HttpRouteInvocationResult(
+                    200,
+                    true,
+                    9,
+                    new Dictionary<string, string> { ["Content-Type"] = "application/json" },
+                    "{\"ok\":true}")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.TestInvokeRoute("abc123", request, TestContext.Current.CancellationToken);
+
+        // Assert
+        var ok = result.Should().BeOfType<Ok<HttpRouteInvocationResponse>>().Subject;
+        ok.Value!.StatusCode.Should().Be(200);
+        ok.Value.Authorized.Should().BeTrue();
+        ok.Value.LatencyMilliseconds.Should().Be(9);
+        ok.Value.Body.Should().Be("{\"ok\":true}");
+        ok.Value.Headers.Should().ContainKey("Content-Type");
+        captured.Should().NotBeNull();
+        captured!.ApiId.Should().Be("abc123");
+        captured.Stage.Should().Be("$default");
+        captured.Method.Should().Be("GET");
+        captured.Path.Should().Be("/orders");
+        captured.Token.Should().Be("token-123");
+        captured.Body.Should().Be("{\"a\":1}");
+    }
+
+    [Fact]
+    public async Task TestInvokeRoute_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        var request = new HttpRouteTestRequest("$default", "GET", "/orders", null, null);
+        _sender
+            .Send(Arg.Any<TestHttpRouteCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<HttpRouteInvocationResult>>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.TestInvokeRoute("abc123", request, TestContext.Current.CancellationToken);
 
         // Assert
         var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
@@ -638,6 +722,90 @@ public class ApiGatewayV2ControllerTests
 
         // Act
         var result = await sut.CreateIntegration("abc123", request, TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task UpdateIntegration_WhenCommandSucceeds_ReturnsNoContentAndForwardsFields()
+    {
+        // Arrange
+        var request = new HttpIntegrationUpdateRequest(
+            "HTTP_PROXY", "POST", "https://updated.test", "2.0", "updated");
+        UpdateHttpIntegrationCommand? captured = null;
+        _sender
+            .Send(Arg.Do<UpdateHttpIntegrationCommand>(command => captured = command), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.UpdateIntegration("abc123", "int1", request, TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().Be(StatusCodes.Status204NoContent);
+        captured.Should().NotBeNull();
+        captured!.ApiId.Should().Be("abc123");
+        captured.IntegrationId.Should().Be("int1");
+        captured.IntegrationType.Should().Be("HTTP_PROXY");
+        captured.IntegrationMethod.Should().Be("POST");
+        captured.IntegrationUri.Should().Be("https://updated.test");
+        captured.PayloadFormatVersion.Should().Be("2.0");
+        captured.Description.Should().Be("updated");
+    }
+
+    [Fact]
+    public async Task UpdateIntegration_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        var request = new HttpIntegrationUpdateRequest("HTTP_PROXY", null, "https://updated.test", null, null);
+        _sender
+            .Send(Arg.Any<UpdateHttpIntegrationCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.UpdateIntegration("abc123", "int1", request, TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task DeleteIntegration_WhenCommandSucceeds_ReturnsNoContentAndForwardsIds()
+    {
+        // Arrange
+        DeleteHttpIntegrationCommand? captured = null;
+        _sender
+            .Send(Arg.Do<DeleteHttpIntegrationCommand>(command => captured = command), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.DeleteIntegration("abc123", "int1", TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().Be(StatusCodes.Status204NoContent);
+        captured.Should().NotBeNull();
+        captured!.ApiId.Should().Be("abc123");
+        captured.IntegrationId.Should().Be("int1");
+    }
+
+    [Fact]
+    public async Task DeleteIntegration_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<DeleteHttpIntegrationCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.DeleteIntegration("abc123", "int1", TestContext.Current.CancellationToken);
 
         // Assert
         var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;

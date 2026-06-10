@@ -51,7 +51,13 @@ describe('SnapshotPanel', () => {
 
   it('disables buttons while exporting', async () => {
     const mockExport = vi.fn().mockImplementation(
-      () => new Promise((resolve) => setTimeout(() => resolve({} as any), 100)),
+      () =>
+        new Promise((resolve) =>
+          setTimeout(
+            () => resolve({} as unknown as Awaited<ReturnType<typeof client.exportWorkspaceSnapshot>>),
+            100,
+          ),
+        ),
     );
 
     vi.mocked(client.exportWorkspaceSnapshot).mockImplementation(mockExport);
@@ -119,5 +125,123 @@ describe('SnapshotPanel', () => {
     await waitFor(() => {
       expect(screen.getByText(/Export error: Export failed/)).toBeInTheDocument();
     });
+  });
+
+  it('shows a generic export error when the failure is not an Error', async () => {
+    const mockExport = vi.fn().mockRejectedValue('boom');
+    vi.mocked(client.exportWorkspaceSnapshot).mockImplementation(mockExport);
+
+    render(<SnapshotPanel />);
+
+    await userEvent.click(screen.getByRole('button', { name: /Export Snapshot/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Export error: Failed to export snapshot/)).toBeInTheDocument();
+    });
+  });
+
+  function getFileInput(): HTMLInputElement {
+    return screen
+      .getByRole('button', { name: /Import Snapshot/i })
+      .parentElement?.querySelector('input[type="file"]') as HTMLInputElement;
+  }
+
+  it('ignores a file change when no file is selected', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    render(<SnapshotPanel />);
+
+    fireEvent.change(getFileInput(), { target: { files: [] } });
+
+    expect(confirmSpy).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it('does not import when the confirmation is cancelled', () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const mockImport = vi.fn();
+    vi.mocked(client.importWorkspaceSnapshot).mockImplementation(mockImport);
+
+    render(<SnapshotPanel />);
+
+    const file = new File(['{}'], 'snapshot.json', { type: 'application/json' });
+    fireEvent.change(getFileInput(), { target: { files: [file] } });
+
+    expect(mockImport).not.toHaveBeenCalled();
+    confirmSpy.mockRestore();
+  });
+
+  it('shows the last import summary including a failure count', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const mockImport = vi.fn().mockResolvedValue({
+      operationId: 'imp-9',
+      operationType: 'Import',
+      completedAt: new Date().toISOString(),
+      totalResources: 5,
+      successCount: 3,
+      failureCount: 2,
+      failures: [],
+    });
+    vi.mocked(client.importWorkspaceSnapshot).mockImplementation(mockImport);
+
+    render(<SnapshotPanel />);
+
+    const snapshotData = JSON.stringify({ id: 's', exportedAt: '', resources: {} });
+    const file = new File([snapshotData], 'snapshot.json', { type: 'application/json' });
+    fireEvent.change(getFileInput(), { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Last import: 3 of 5 resource\(s\)/)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/\(2 failed\)/)).toBeInTheDocument();
+    confirmSpy.mockRestore();
+  });
+
+  it('shows an error message when the import request fails', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const mockImport = vi.fn().mockRejectedValue(new Error('Import boom'));
+    vi.mocked(client.importWorkspaceSnapshot).mockImplementation(mockImport);
+
+    render(<SnapshotPanel />);
+
+    const snapshotData = JSON.stringify({ id: 's', exportedAt: '', resources: {} });
+    const file = new File([snapshotData], 'snapshot.json', { type: 'application/json' });
+    fireEvent.change(getFileInput(), { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Import error: Import boom/)).toBeInTheDocument();
+    });
+    confirmSpy.mockRestore();
+  });
+
+  it('shows a generic import error when the failure is not an Error', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const mockImport = vi.fn().mockRejectedValue('boom');
+    vi.mocked(client.importWorkspaceSnapshot).mockImplementation(mockImport);
+
+    render(<SnapshotPanel />);
+
+    const snapshotData = JSON.stringify({ id: 's', exportedAt: '', resources: {} });
+    const file = new File([snapshotData], 'snapshot.json', { type: 'application/json' });
+    fireEvent.change(getFileInput(), { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Import error: Failed to import snapshot/)).toBeInTheDocument();
+    });
+    confirmSpy.mockRestore();
+  });
+
+  it('shows an error message when the file is not valid JSON', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+
+    render(<SnapshotPanel />);
+
+    const file = new File(['not-json'], 'snapshot.json', { type: 'application/json' });
+    fireEvent.change(getFileInput(), { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(screen.getByText(/Import error:/)).toBeInTheDocument();
+    });
+    confirmSpy.mockRestore();
   });
 });

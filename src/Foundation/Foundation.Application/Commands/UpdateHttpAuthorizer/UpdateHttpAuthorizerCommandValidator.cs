@@ -37,6 +37,12 @@ internal sealed partial class UpdateHttpAuthorizerCommandValidator : AbstractVal
             .Equal("JWT")
                 .WithMessage("Authorizer type must be 'JWT'.");
 
+        RuleFor(_ => _.IdentitySource)
+            .Cascade(CascadeMode.Stop)
+            .NotNull()
+            .Must(source => source.Count > 0)
+                .WithMessage("At least one identity source must be supplied.");
+
         RuleFor(_ => _.JwtIssuer)
             .Cascade(CascadeMode.Stop)
             .NotNull()

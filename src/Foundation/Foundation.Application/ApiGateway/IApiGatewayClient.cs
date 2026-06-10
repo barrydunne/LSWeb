@@ -115,6 +115,37 @@ public interface IApiGatewayClient
         string restApiId, string resourceId, string httpMethod, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Test invoke an HTTP method on a REST API resource.
+    /// </summary>
+    /// <param name="specification">The invocation request payload.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The invocation result, or an error when the invocation cannot be executed.</returns>
+    Task<Result<RestMethodTestInvocationResult>> TestInvokeMethodAsync(
+        RestMethodTestInvocationSpecification specification,
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Read the CORS policy configured on a resource, reported as not enabled when no preflight
+    /// (OPTIONS) method is present.
+    /// </summary>
+    /// <param name="restApiId">The identifier of the REST API.</param>
+    /// <param name="resourceId">The identifier of the resource whose CORS policy to read.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The CORS configuration, or an error when it cannot be read.</returns>
+    Task<Result<RestCorsConfiguration>> GetCorsAsync(
+        string restApiId, string resourceId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Configure the CORS policy on a resource by wiring an OPTIONS preflight method backed by a
+    /// MOCK integration that returns the configured Access-Control headers.
+    /// </summary>
+    /// <param name="specification">The desired CORS policy.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A success result, or an error when the CORS policy cannot be configured.</returns>
+    Task<Result> ConfigureCorsAsync(
+        RestCorsSpecification specification, CancellationToken cancellationToken);
+
+    /// <summary>
     /// List the authorizers configured on a REST API.
     /// </summary>
     /// <param name="restApiId">The identifier of the REST API.</param>
@@ -141,6 +172,15 @@ public interface IApiGatewayClient
     /// <returns>The identifier of the created authorizer, or an error when it cannot be created.</returns>
     Task<Result<string>> CreateAuthorizerAsync(
         RestAuthorizerSpecification specification, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Create a new OAuth/JWT token authorizer from the supplied specification.
+    /// </summary>
+    /// <param name="specification">The desired configuration of the token authorizer to create.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The identifier of the created authorizer, or an error when it cannot be created.</returns>
+    Task<Result<string>> CreateTokenAuthorizerAsync(
+        RestTokenAuthorizerSpecification specification, CancellationToken cancellationToken);
 
     /// <summary>
     /// Update the configuration of an existing authorizer.

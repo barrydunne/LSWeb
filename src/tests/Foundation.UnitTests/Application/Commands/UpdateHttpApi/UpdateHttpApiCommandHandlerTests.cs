@@ -84,7 +84,8 @@ public class UpdateHttpApiCommandHandlerTests
             .UpdateApiAsync(Arg.Any<HttpApiSpecification>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result.Success()));
         var command = new UpdateHttpApiCommand(
-            "abc123", "events", "WEBSOCKET", "Event API", "2.0", "$request.body.action");
+            "abc123", "events", "WEBSOCKET", "Event API", "2.0", "$request.body.action",
+            new HttpApiCorsConfiguration(true, ["content-type"], ["GET"], ["*"], [], 600));
         var sut = CreateSut();
 
         // Act
@@ -98,7 +99,10 @@ public class UpdateHttpApiCommandHandlerTests
                 && specification.ProtocolType == "WEBSOCKET"
                 && specification.Description == "Event API"
                 && specification.Version == "2.0"
-                && specification.RouteSelectionExpression == "$request.body.action"),
+                && specification.RouteSelectionExpression == "$request.body.action"
+                && specification.CorsConfiguration!.AllowOrigins[0] == "*"
+                && specification.CorsConfiguration.AllowMethods[0] == "GET"
+                && specification.CorsConfiguration.MaxAge == 600),
             Arg.Any<CancellationToken>());
     }
 }

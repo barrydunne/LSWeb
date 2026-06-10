@@ -19,7 +19,7 @@ public class PutRestMethodCommandHandlerTests
     private readonly ISearchRefreshTrigger _searchRefresh = Substitute.For<ISearchRefreshTrigger>();
 
     private static PutRestMethodCommand BuildCommand()
-        => new("api-1", "res-2", "GET", "NONE", null, false, []);
+        => new("api-1", "res-2", "GET", "NONE", null, false, [], "MOCK", null);
 
     private PutRestMethodCommandHandler CreateSut()
         => new(_client, _publisher, _activityLog, _searchRefresh, NullLogger<PutRestMethodCommandHandler>.Instance);
@@ -43,7 +43,9 @@ public class PutRestMethodCommandHandlerTests
                 specification.RestApiId == "api-1"
                 && specification.ResourceId == "res-2"
                 && specification.HttpMethod == "GET"
-                && specification.AuthorizationType == "NONE"),
+                && specification.AuthorizationType == "NONE"
+                && specification.IntegrationType == "MOCK"
+                && specification.IntegrationUri == null),
             Arg.Any<CancellationToken>());
         await _publisher.Received(1).PublishAsync(
             Arg.Is<Notification>(notification => notification.State == OperationState.InProgress),
@@ -87,7 +89,7 @@ public class PutRestMethodCommandHandlerTests
             .PutMethodAsync(Arg.Any<RestMethodSpecification>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result.Success()));
         var command = new PutRestMethodCommand(
-            "api-1", "res-2", "POST", "COGNITO_USER_POOLS", "auth-9", true, ["scope-a", "scope-b"]);
+            "api-1", "res-2", "POST", "COGNITO_USER_POOLS", "auth-9", true, ["scope-a", "scope-b"], "AWS_PROXY", "arn:aws:lambda:eu-west-1:000000000000:function:orders");
         var sut = CreateSut();
 
         // Act
@@ -99,7 +101,9 @@ public class PutRestMethodCommandHandlerTests
                 specification.AuthorizationType == "COGNITO_USER_POOLS"
                 && specification.AuthorizerId == "auth-9"
                 && specification.ApiKeyRequired
-                && specification.AuthorizationScopes.Count == 2),
+                && specification.AuthorizationScopes.Count == 2
+                && specification.IntegrationType == "AWS_PROXY"
+                && specification.IntegrationUri == "arn:aws:lambda:eu-west-1:000000000000:function:orders"),
             Arg.Any<CancellationToken>());
     }
 }

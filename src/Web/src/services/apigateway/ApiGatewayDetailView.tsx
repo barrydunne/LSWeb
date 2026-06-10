@@ -8,6 +8,9 @@ import { RawJsonViewer } from '../../components/RawJsonViewer';
 import { ApiGatewayResourcesSection } from './ApiGatewayResourcesSection';
 import { ApiGatewayAuthorizersSection } from './ApiGatewayAuthorizersSection';
 import { ApiGatewayStagesSection } from './ApiGatewayStagesSection';
+import { ApiGatewayTestInvokeSection } from './ApiGatewayTestInvokeSection';
+import { ApiGatewayCorsSection } from './ApiGatewayCorsSection';
+import { ApiGatewayProtectedRouteVerificationSection } from './ApiGatewayProtectedRouteVerificationSection';
 
 const containerStyle: CSSProperties = {
   display: 'flex',
@@ -255,6 +258,12 @@ export function ApiGatewayDetailView({ resourceId }: ServiceDetailViewProps) {
       <ApiGatewayAuthorizersSection restApiId={api.id} />
 
       <ApiGatewayStagesSection restApiId={api.id} />
+
+        <ApiGatewayProtectedRouteVerificationSection restApiId={api.id} />
+
+      <ApiGatewayTestInvokeSection restApiId={api.id} />
+
+      <ApiGatewayCorsSection restApiId={api.id} />
 
       <RawJsonViewer value={api} title="Raw REST API" />
     </div>

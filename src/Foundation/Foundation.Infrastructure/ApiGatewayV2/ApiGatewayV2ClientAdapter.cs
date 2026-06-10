@@ -104,6 +104,9 @@ internal sealed class ApiGatewayV2ClientAdapter : IApiGatewayV2Client
                     RouteSelectionExpression = specification.RouteSelectionExpression,
                 };
 
+                if (specification.CorsConfiguration is not null)
+                    request.CorsConfiguration = FromCors(specification.CorsConfiguration);
+
                 await client.UpdateApiAsync(request, token);
                 return true;
             },
@@ -294,6 +297,49 @@ internal sealed class ApiGatewayV2ClientAdapter : IApiGatewayV2Client
             cancellationToken);
 
         return result;
+    }
+
+    public async Task<Result> UpdateIntegrationAsync(
+        HttpIntegrationSpecification specification, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonApiGatewayV2Client, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var request = new UpdateIntegrationRequest
+                {
+                    ApiId = specification.ApiId,
+                    IntegrationId = specification.IntegrationId,
+                    IntegrationType = IntegrationType.FindValue(specification.IntegrationType),
+                    IntegrationMethod = specification.IntegrationMethod,
+                    IntegrationUri = specification.IntegrationUri,
+                    PayloadFormatVersion = specification.PayloadFormatVersion,
+                    Description = specification.Description,
+                };
+
+                await client.UpdateIntegrationAsync(request, token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    public async Task<Result> DeleteIntegrationAsync(
+        string apiId, string integrationId, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonApiGatewayV2Client, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                await client.DeleteIntegrationAsync(
+                    new DeleteIntegrationRequest { ApiId = apiId, IntegrationId = integrationId },
+                    token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
     }
 
     public Task<Result<IReadOnlyList<HttpAuthorizerSummary>>> ListAuthorizersAsync(
@@ -629,6 +675,17 @@ internal sealed class ApiGatewayV2ClientAdapter : IApiGatewayV2Client
             (cors.ExposeHeaders ?? []).ToList(),
             cors.MaxAge);
     }
+
+    private static Cors FromCors(HttpApiCorsConfiguration cors)
+        => new()
+        {
+            AllowCredentials = cors.AllowCredentials,
+            AllowHeaders = cors.AllowHeaders.ToList(),
+            AllowMethods = cors.AllowMethods.ToList(),
+            AllowOrigins = cors.AllowOrigins.ToList(),
+            ExposeHeaders = cors.ExposeHeaders.ToList(),
+            MaxAge = cors.MaxAge,
+        };
 
     private static DateTimeOffset? ToTimestamp(DateTime? value)
         => value is null

@@ -55,17 +55,31 @@ public interface ICloudFormationClient
         string stackName, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Validate a CloudFormation template supplied either inline or by S3 URL.
+    /// </summary>
+    /// <param name="templateBody">The inline template body to validate, or <see langword="null"/> when validating by URL.</param>
+    /// <param name="templateUrl">The S3 URL of the template to validate, or <see langword="null"/> when validating an inline body.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The validation result, or an error when the template is invalid or the backend cannot be reached.</returns>
+    Task<Result<TemplateValidationResult>> ValidateTemplateAsync(
+        string? templateBody,
+        string? templateUrl,
+        CancellationToken cancellationToken);
+
+    /// <summary>
     /// Create a new stack from a template body with optional parameters and capabilities.
     /// </summary>
     /// <param name="stackName">The name of the stack to create.</param>
-    /// <param name="templateBody">The template body that defines the stack.</param>
+    /// <param name="templateBody">The inline template body that defines the stack, or <see langword="null"/> when creating from a URL.</param>
+    /// <param name="templateUrl">The S3 URL of the template that defines the stack, or <see langword="null"/> when creating from an inline body.</param>
     /// <param name="parameters">The input parameters to deploy the stack with.</param>
     /// <param name="capabilities">The capabilities the template requires, such as CAPABILITY_IAM.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>The Amazon Resource Name of the created stack, or an error when the create fails.</returns>
     Task<Result<string>> CreateStackAsync(
         string stackName,
-        string templateBody,
+        string? templateBody,
+        string? templateUrl,
         IReadOnlyList<StackParameter> parameters,
         IReadOnlyList<string> capabilities,
         CancellationToken cancellationToken);

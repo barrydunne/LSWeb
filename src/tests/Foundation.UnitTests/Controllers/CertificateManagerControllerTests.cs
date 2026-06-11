@@ -1,6 +1,8 @@
 using AspNet.KickStarter.FunctionalResult;
 using Foundation.Api.Controllers;
 using Foundation.Api.Models;
+using Foundation.Application.Commands.ImportCertificate;
+using Foundation.Application.Commands.RequestCertificate;
 using Foundation.Application.Queries.ListCertificates;
 using Foundation.Domain.CertificateManager;
 using MediatR;
@@ -64,5 +66,108 @@ public class CertificateManagerControllerTests
         // Assert
         var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
         statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task ImportCertificate_WhenCommandSucceeds_ReturnsCreatedWithArn()
+    {
+        // Arrange
+        CommandCapture<ImportCertificateCommand> captured = new();
+        _sender
+            .Send(Arg.Do<ImportCertificateCommand>(command => captured.Value = command), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<string>>("arn:aws:acm:eu-west-1:000000000000:certificate/new"));
+        var request = new CertificateImportRequest("cert-body", "key-body", "chain-body");
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.ImportCertificate(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        var created = result.Should().BeOfType<Created<CertificateImportResponse>>().Subject;
+        created.Value!.Arn.Should().Be("arn:aws:acm:eu-west-1:000000000000:certificate/new");
+        captured.Value!.Certificate.Should().Be("cert-body");
+        captured.Value!.PrivateKey.Should().Be("key-body");
+        captured.Value!.CertificateChain.Should().Be("chain-body");
+    }
+
+    [Fact]
+    public async Task ImportCertificate_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<ImportCertificateCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<string>>(new Error("import boom")));
+        var request = new CertificateImportRequest("cert-body", "key-body", null);
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.ImportCertificate(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task RequestCertificate_WhenCommandSucceeds_ReturnsCreatedWithArn()
+    {
+        // Arrange
+        CommandCapture<RequestCertificateCommand> captured = new();
+        _sender
+            .Send(Arg.Do<RequestCertificateCommand>(command => captured.Value = command), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<string>>("arn:aws:acm:eu-west-1:000000000000:certificate/req"));
+        var request = new CertificateRequestRequest("example.com", "DNS", ["www.example.com"]);
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.RequestCertificate(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        var created = result.Should().BeOfType<Created<CertificateRequestResponse>>().Subject;
+        created.Value!.Arn.Should().Be("arn:aws:acm:eu-west-1:000000000000:certificate/req");
+        captured.Value!.DomainName.Should().Be("example.com");
+        captured.Value!.ValidationMethod.Should().Be("DNS");
+        captured.Value!.SubjectAlternativeNames.Should().ContainSingle().Which.Should().Be("www.example.com");
+    }
+
+    [Fact]
+    public async Task RequestCertificate_WhenSubjectAlternativeNamesOmitted_PassesEmptyList()
+    {
+        // Arrange
+        CommandCapture<RequestCertificateCommand> captured = new();
+        _sender
+            .Send(Arg.Do<RequestCertificateCommand>(command => captured.Value = command), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<string>>("arn:aws:acm:eu-west-1:000000000000:certificate/req"));
+        var request = new CertificateRequestRequest("example.com", "DNS", null);
+        var sut = CreateSut();
+
+        // Act
+        await sut.RequestCertificate(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        captured.Value!.SubjectAlternativeNames.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task RequestCertificate_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<RequestCertificateCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<string>>(new Error("request boom")));
+        var request = new CertificateRequestRequest("example.com", "DNS", null);
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.RequestCertificate(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    private sealed class CommandCapture<T>
+    {
+        public T? Value { get; set; }
     }
 }

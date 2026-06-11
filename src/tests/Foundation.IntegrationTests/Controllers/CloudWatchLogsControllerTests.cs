@@ -138,4 +138,67 @@ public class CloudWatchLogsControllerTests
         response.StatusCode.Should().NotBe(HttpStatusCode.NotFound);
         response.StatusCode.Should().NotBe(HttpStatusCode.MethodNotAllowed);
     }
+
+    [Fact]
+    public async Task CreateStream_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
+    {
+        // Arrange
+        var client = _fixture.CreateClient();
+
+        // Act
+        var response = await client.PostAsJsonAsync(
+            "/api/services/cloudwatch-logs/streams",
+            new LogStreamCreateRequest("integration-create-stream-probe", "integration-stream-probe"),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().NotBe(HttpStatusCode.NotFound);
+        response.StatusCode.Should().NotBe(HttpStatusCode.MethodNotAllowed);
+    }
+
+    [Fact]
+    public async Task DeleteStream_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
+    {
+        // Arrange
+        var client = _fixture.CreateClient();
+
+        // Act
+        var response = await client.DeleteAsync(
+            "/api/services/cloudwatch-logs/streams?logGroupName=missing-log-group&logStreamName=missing-stream",
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().NotBe(HttpStatusCode.NotFound);
+        response.StatusCode.Should().NotBe(HttpStatusCode.MethodNotAllowed);
+    }
+
+    [Fact]
+    public async Task RunInsightsQuery_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
+    {
+        // Arrange
+        var client = _fixture.CreateClient();
+
+        // Act
+        var response = await client.PostAsJsonAsync(
+            "/api/services/cloudwatch-logs/insights/query",
+            new LogInsightsQueryRequest(
+                "/aws/lambda/missing",
+                "fields @timestamp, @message | limit 5",
+                DateTimeOffset.UnixEpoch,
+                DateTimeOffset.UtcNow,
+                100),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().NotBe(HttpStatusCode.NotFound);
+        response.StatusCode.Should().NotBe(HttpStatusCode.MethodNotAllowed);
+
+        if (response.StatusCode == HttpStatusCode.OK)
+        {
+            var payload = await response.Content.ReadFromJsonAsync<LogInsightsQueryResponse>(
+                TestContext.Current.CancellationToken);
+            payload.Should().NotBeNull();
+            payload!.Rows.Should().NotBeNull();
+        }
+    }
 }

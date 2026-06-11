@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Text;
 using Amazon.CertificateManager;
 using Amazon.CertificateManager.Model;
 using AspNet.KickStarter.FunctionalResult;
@@ -48,6 +49,51 @@ internal sealed class CertificateManagerClientAdapter : ICertificateManagerClien
                 return certificates;
             },
             cancellationToken);
+
+    public Task<Result<string>> ImportCertificateAsync(
+        CertificateImportSpecification specification,
+        CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonCertificateManagerClient, string>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var request = new ImportCertificateRequest
+                {
+                    Certificate = ToStream(specification.Certificate),
+                    PrivateKey = ToStream(specification.PrivateKey),
+                };
+
+                if (!string.IsNullOrEmpty(specification.CertificateChain))
+                    request.CertificateChain = ToStream(specification.CertificateChain);
+
+                var response = await client.ImportCertificateAsync(request, token);
+                return response.CertificateArn ?? string.Empty;
+            },
+            cancellationToken);
+
+    public Task<Result<string>> RequestCertificateAsync(
+        CertificateRequestSpecification specification,
+        CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonCertificateManagerClient, string>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var request = new RequestCertificateRequest
+                {
+                    DomainName = specification.DomainName,
+                    ValidationMethod = ValidationMethod.FindValue(specification.ValidationMethod),
+                };
+
+                if (specification.SubjectAlternativeNames.Count > 0)
+                    request.SubjectAlternativeNames = [.. specification.SubjectAlternativeNames];
+
+                var response = await client.RequestCertificateAsync(request, token);
+                return response.CertificateArn ?? string.Empty;
+            },
+            cancellationToken);
+
+    private static MemoryStream ToStream(string value)
+        => new(Encoding.UTF8.GetBytes(value));
 
     private static Certificate ToCertificate(CertificateSummary summary)
         => new(

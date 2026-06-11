@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { CloudFormationListView } from './CloudFormationListView';
-import { createStack, deleteStack, getStacks } from '../../api/client';
+import { createStack, deleteStack, getStacks, validateTemplate } from '../../api/client';
 import type { CloudFormationStackListResult } from '../../api/client';
 
 vi.mock('../../api/client');
@@ -10,6 +10,7 @@ vi.mock('../../api/client');
 const getStacksMock = vi.mocked(getStacks);
 const createStackMock = vi.mocked(createStack);
 const deleteStackMock = vi.mocked(deleteStack);
+const validateTemplateMock = vi.mocked(validateTemplate);
 
 const listResult: CloudFormationStackListResult = {
   stacks: [
@@ -45,10 +46,19 @@ describe('CloudFormationListView', () => {
     getStacksMock.mockResolvedValue(listResult);
     createStackMock.mockResolvedValue({ stackId: 'arn:stack/new' });
     deleteStackMock.mockResolvedValue();
+    validateTemplateMock.mockResolvedValue({
+      description: 'An example template',
+      capabilitiesReason: 'Requires IAM',
+      capabilities: ['CAPABILITY_IAM'],
+      parameters: [
+        { parameterKey: 'Env', defaultValue: 'dev', noEcho: false, description: 'Environment' },
+      ],
+    });
   });
 
   afterEach(() => {
-    vi.resetAllMocks();
+    cleanup();
+    vi.clearAllMocks();
   });
 
   it('shows a loading state before stacks arrive', () => {
@@ -171,6 +181,7 @@ describe('CloudFormationListView', () => {
     expect(createStackMock).toHaveBeenCalledWith(
       'new-stack',
       '{"Resources":{}}',
+      null,
       [{ parameterKey: 'Env', parameterValue: 'dev' }],
       ['CAPABILITY_IAM'],
     );
@@ -199,7 +210,7 @@ describe('CloudFormationListView', () => {
     fireEvent.click(screen.getByTestId('cloudformation-create-submit'));
 
     await waitFor(() => expect(createStackMock).toHaveBeenCalledTimes(1));
-    expect(createStackMock).toHaveBeenCalledWith('new-stack', '{}', [], []);
+    expect(createStackMock).toHaveBeenCalledWith('new-stack', '{}', null, [], []);
     await waitFor(() => expect(getStacksMock).toHaveBeenCalledTimes(2));
   });
 
@@ -223,6 +234,117 @@ describe('CloudFormationListView', () => {
 
     await waitFor(() =>
       expect(screen.getByTestId('cloudformation-create-error')).toBeInTheDocument(),
+    );
+  });
+
+  it('creates a stack from an S3 template URL when that source is selected', async () => {
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('cloudformation-list-view')).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByTestId('cloudformation-create-toggle'));
+    fireEvent.change(screen.getByTestId('cloudformation-create-stackName'), {
+      target: { value: 'new-stack' },
+    });
+    fireEvent.change(screen.getByTestId('cloudformation-create-template-source'), {
+      target: { value: 'url' },
+    });
+    fireEvent.change(screen.getByTestId('cloudformation-create-templateUrl'), {
+      target: { value: 'https://example.s3.amazonaws.com/t.json' },
+    });
+
+    fireEvent.click(screen.getByTestId('cloudformation-create-submit'));
+
+    await waitFor(() => expect(createStackMock).toHaveBeenCalledTimes(1));
+    expect(createStackMock).toHaveBeenCalledWith(
+      'new-stack',
+      null,
+      'https://example.s3.amazonaws.com/t.json',
+      [],
+      [],
+    );
+  });
+
+  it('validates an inline template and shows the result', async () => {
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('cloudformation-list-view')).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByTestId('cloudformation-create-toggle'));
+    fireEvent.change(screen.getByTestId('cloudformation-create-templateBody'), {
+      target: { value: '{"Resources":{}}' },
+    });
+
+    fireEvent.click(screen.getByTestId('cloudformation-create-validate'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('cloudformation-validate-result')).toBeInTheDocument(),
+    );
+    expect(validateTemplateMock).toHaveBeenCalledWith('{"Resources":{}}', null);
+    expect(screen.getByTestId('cloudformation-validate-description')).toHaveTextContent(
+      'An example template',
+    );
+    expect(screen.getByTestId('cloudformation-validate-capabilities')).toHaveTextContent(
+      'CAPABILITY_IAM',
+    );
+    expect(screen.getByTestId('cloudformation-validate-parameter')).toHaveTextContent('Env');
+  });
+
+  it('falls back to placeholder text when validation reports no description or capabilities', async () => {
+    validateTemplateMock.mockResolvedValue({
+      description: '',
+      capabilitiesReason: '',
+      capabilities: [],
+      parameters: [],
+    });
+
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('cloudformation-list-view')).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByTestId('cloudformation-create-toggle'));
+    fireEvent.change(screen.getByTestId('cloudformation-create-templateBody'), {
+      target: { value: '{"Resources":{}}' },
+    });
+
+    fireEvent.click(screen.getByTestId('cloudformation-create-validate'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('cloudformation-validate-result')).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId('cloudformation-validate-description')).toHaveTextContent(
+      'No description provided.',
+    );
+    expect(screen.getByTestId('cloudformation-validate-capabilities')).toHaveTextContent(
+      'No additional capabilities required.',
+    );
+    expect(screen.queryByTestId('cloudformation-validate-parameter')).not.toBeInTheDocument();
+  });
+
+  it('shows an error when template validation fails', async () => {
+    validateTemplateMock.mockRejectedValue(new Error('boom'));
+
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('cloudformation-list-view')).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByTestId('cloudformation-create-toggle'));
+    fireEvent.change(screen.getByTestId('cloudformation-create-templateBody'), {
+      target: { value: '{"Resources":{}}' },
+    });
+
+    fireEvent.click(screen.getByTestId('cloudformation-create-validate'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('cloudformation-validate-error')).toBeInTheDocument(),
     );
   });
 

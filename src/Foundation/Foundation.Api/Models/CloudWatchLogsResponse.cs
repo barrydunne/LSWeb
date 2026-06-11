@@ -56,3 +56,51 @@ public sealed record LogEventResponse(
 /// </summary>
 /// <param name="LogGroupName">The name of the log group to create.</param>
 public sealed record LogGroupCreateRequest(string LogGroupName);
+
+/// <summary>
+/// A request to create a new CloudWatch log stream within a log group.
+/// </summary>
+/// <param name="LogGroupName">The name of the log group the stream belongs to.</param>
+/// <param name="LogStreamName">The name of the log stream to create.</param>
+public sealed record LogStreamCreateRequest(string LogGroupName, string LogStreamName);
+
+/// <summary>
+/// A request to run a CloudWatch Logs Insights query against a log group over a time range.
+/// </summary>
+/// <param name="LogGroupName">The name of the log group to query.</param>
+/// <param name="QueryString">The CloudWatch Logs Insights query to run.</param>
+/// <param name="StartTime">The inclusive lower bound of the query time range.</param>
+/// <param name="EndTime">The inclusive upper bound of the query time range.</param>
+/// <param name="Limit">The maximum number of result rows to return.</param>
+public sealed record LogInsightsQueryRequest(
+    string LogGroupName,
+    string QueryString,
+    DateTimeOffset StartTime,
+    DateTimeOffset EndTime,
+    int Limit);
+
+/// <summary>
+/// The outcome of a CloudWatch Logs Insights query.
+/// </summary>
+/// <param name="Status">The terminal query status reported by the backend.</param>
+/// <param name="Rows">The matching result rows in the order returned by the backend.</param>
+/// <param name="RecordsMatched">The number of log records that matched the query.</param>
+/// <param name="RecordsScanned">The number of log records the backend scanned to run the query.</param>
+public sealed record LogInsightsQueryResponse(
+    string Status,
+    IReadOnlyList<LogInsightsRowResponse> Rows,
+    long RecordsMatched,
+    long RecordsScanned);
+
+/// <summary>
+/// A single row returned by a CloudWatch Logs Insights query.
+/// </summary>
+/// <param name="Fields">The fields that make up the row, in the order returned by the backend.</param>
+public sealed record LogInsightsRowResponse(IReadOnlyList<LogInsightsFieldResponse> Fields);
+
+/// <summary>
+/// A single field within a CloudWatch Logs Insights result row.
+/// </summary>
+/// <param name="Field">The name of the field.</param>
+/// <param name="Value">The value of the field for the owning row.</param>
+public sealed record LogInsightsFieldResponse(string Field, string Value);

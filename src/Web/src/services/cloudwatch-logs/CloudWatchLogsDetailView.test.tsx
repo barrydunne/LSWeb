@@ -1,8 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { CloudWatchLogsDetailView } from './CloudWatchLogsDetailView';
-import { getLogEvents, getLogStreams } from '../../api/client';
-import type { LogEventListResult, LogStreamListResult } from '../../api/client';
+import {
+  createLogStream,
+  deleteLogStream,
+  getLogEvents,
+  getLogStreams,
+  runLogInsightsQuery,
+} from '../../api/client';
+import type {
+  LogEventListResult,
+  LogInsightsQueryResult,
+  LogStreamListResult,
+} from '../../api/client';
 import { streamLogGroup } from '../../api/notifications';
 import type { LiveLogEvent, LiveLogEventHandler } from '../../api/notifications';
 
@@ -27,6 +37,9 @@ vi.mock('../../components/ResourceLink', () => ({
 const getLogStreamsMock = vi.mocked(getLogStreams);
 const getLogEventsMock = vi.mocked(getLogEvents);
 const streamLogGroupMock = vi.mocked(streamLogGroup);
+const createLogStreamMock = vi.mocked(createLogStream);
+const deleteLogStreamMock = vi.mocked(deleteLogStream);
+const runLogInsightsQueryMock = vi.mocked(runLogInsightsQuery);
 
 const streamsResult: LogStreamListResult = {
   logStreams: [
@@ -56,10 +69,19 @@ function renderViewWithResourceId(resourceId: string) {
     getLogStreamsMock.mockResolvedValue(streamsResult);
     getLogEventsMock.mockResolvedValue(eventsResult);
     streamLogGroupMock.mockResolvedValue({ stop: vi.fn().mockResolvedValue(undefined) });
+    createLogStreamMock.mockResolvedValue(undefined);
+    deleteLogStreamMock.mockResolvedValue(undefined);
+    runLogInsightsQueryMock.mockResolvedValue({
+      status: 'Complete',
+      rows: [{ fields: [{ field: '@message', value: 'hello' }] }],
+      recordsMatched: 1,
+      recordsScanned: 2,
+    });
   });
 
   afterEach(() => {
-    vi.resetAllMocks();
+    cleanup();
+    vi.clearAllMocks();
   });
 
   it('shows the log group name', async () => {
@@ -338,5 +360,175 @@ function renderViewWithResourceId(resourceId: string) {
       URL.revokeObjectURL = originalRevoke;
       clickSpy.mockRestore();
     }
+  });
+
+  it('creates a new log stream and reloads the stream list', async () => {
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('logs-streams-list')).toBeInTheDocument());
+    fireEvent.change(screen.getByTestId('logs-new-stream-name'), {
+      target: { value: 'new-stream' },
+    });
+    fireEvent.click(screen.getByTestId('logs-create-stream'));
+
+    await waitFor(() =>
+      expect(createLogStreamMock).toHaveBeenCalledWith('/aws/lambda/orders', 'new-stream'),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('logs-stream-action-success')).toHaveTextContent('new-stream'),
+    );
+  });
+
+  it('does not call create when the new stream name is blank', async () => {
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('logs-streams-list')).toBeInTheDocument());
+    fireEvent.change(screen.getByTestId('logs-new-stream-name'), { target: { value: '   ' } });
+    fireEvent.click(screen.getByTestId('logs-create-stream'));
+
+    expect(createLogStreamMock).not.toHaveBeenCalled();
+  });
+
+  it('shows an error when creating a log stream fails', async () => {
+    createLogStreamMock.mockRejectedValue(new Error('boom'));
+
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('logs-streams-list')).toBeInTheDocument());
+    fireEvent.change(screen.getByTestId('logs-new-stream-name'), {
+      target: { value: 'new-stream' },
+    });
+    fireEvent.click(screen.getByTestId('logs-create-stream'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('logs-stream-action-error')).toBeInTheDocument(),
+    );
+  });
+
+  it('deletes a selected log stream and clears the events panel', async () => {
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('logs-streams-list')).toBeInTheDocument());
+    fireEvent.click(screen.getAllByTestId('logs-stream-button')[0]);
+    await waitFor(() => expect(screen.getByTestId('logs-events-list')).toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByTestId('confirm-trigger')[0]);
+    fireEvent.click(screen.getByTestId('confirm-accept'));
+
+    await waitFor(() =>
+      expect(deleteLogStreamMock).toHaveBeenCalledWith(
+        '/aws/lambda/orders',
+        '2026/01/02/[$LATEST]abc',
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('logs-stream-action-success')).toHaveTextContent('Deleted'),
+    );
+    expect(screen.queryByTestId('logs-events-list')).not.toBeInTheDocument();
+  });
+
+  it('shows an error when deleting a log stream fails', async () => {
+    deleteLogStreamMock.mockRejectedValue(new Error('boom'));
+
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('logs-streams-list')).toBeInTheDocument());
+    fireEvent.click(screen.getAllByTestId('confirm-trigger')[1]);
+    fireEvent.click(screen.getByTestId('confirm-accept'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('logs-stream-action-error')).toBeInTheDocument(),
+    );
+  });
+
+  it('runs an Insights query with explicit times and limit and renders results', async () => {
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('logs-insights-query')).toBeInTheDocument());
+    fireEvent.change(screen.getByTestId('logs-insights-query'), {
+      target: { value: 'fields @message' },
+    });
+    fireEvent.change(screen.getByTestId('logs-insights-start'), {
+      target: { value: '2026-01-01T00:00' },
+    });
+    fireEvent.change(screen.getByTestId('logs-insights-end'), {
+      target: { value: '2026-01-02T00:00' },
+    });
+    fireEvent.change(screen.getByTestId('logs-insights-limit'), { target: { value: '50' } });
+    fireEvent.click(screen.getByTestId('logs-insights-run'));
+
+    await waitFor(() =>
+      expect(runLogInsightsQueryMock).toHaveBeenCalledWith(
+        '/aws/lambda/orders',
+        'fields @message',
+        new Date('2026-01-01T00:00').toISOString(),
+        new Date('2026-01-02T00:00').toISOString(),
+        50,
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('logs-insights-table')).toHaveTextContent('hello'),
+    );
+    expect(screen.getByTestId('logs-insights-stats')).toHaveTextContent('1 matched');
+  });
+
+  it('runs an Insights query with default times and limit when fields are blank', async () => {
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('logs-insights-limit')).toBeInTheDocument());
+    fireEvent.change(screen.getByTestId('logs-insights-limit'), { target: { value: '' } });
+    fireEvent.click(screen.getByTestId('logs-insights-run'));
+
+    await waitFor(() =>
+      expect(runLogInsightsQueryMock).toHaveBeenCalledWith(
+        '/aws/lambda/orders',
+        expect.any(String),
+        new Date(0).toISOString(),
+        expect.any(String),
+        1000,
+      ),
+    );
+  });
+
+  it('does not run an Insights query when the query is blank', async () => {
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('logs-insights-query')).toBeInTheDocument());
+    fireEvent.change(screen.getByTestId('logs-insights-query'), { target: { value: '   ' } });
+    fireEvent.click(screen.getByTestId('logs-insights-run'));
+
+    expect(runLogInsightsQueryMock).not.toHaveBeenCalled();
+  });
+
+  it('shows an empty Insights result message when no rows are returned', async () => {
+    const emptyResult: LogInsightsQueryResult = {
+      status: 'Complete',
+      rows: [],
+      recordsMatched: 0,
+      recordsScanned: 0,
+    };
+    runLogInsightsQueryMock.mockResolvedValue(emptyResult);
+
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('logs-insights-run')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('logs-insights-run'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('logs-insights-empty')).toBeInTheDocument(),
+    );
+  });
+
+  it('shows an error when the Insights query fails', async () => {
+    runLogInsightsQueryMock.mockRejectedValue(new Error('boom'));
+
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('logs-insights-run')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('logs-insights-run'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('logs-insights-error')).toBeInTheDocument(),
+    );
   });
 });

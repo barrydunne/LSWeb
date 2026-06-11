@@ -1425,6 +1425,70 @@ export async function filterLogEvents(
   return (await response.json()) as LogEventListResult;
 }
 
+export async function createLogStream(
+  logGroupName: string,
+  logStreamName: string,
+): Promise<void> {
+  const response = await fetch('/api/services/cloudwatch-logs/streams', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ logGroupName, logStreamName }),
+  });
+  if (!response.ok) {
+    throw new Error(`Create log stream failed with status ${response.status}`);
+  }
+}
+
+export async function deleteLogStream(
+  logGroupName: string,
+  logStreamName: string,
+): Promise<void> {
+  const params = new URLSearchParams({ logGroupName, logStreamName });
+  const response = await fetch(
+    `/api/services/cloudwatch-logs/streams?${params.toString()}`,
+    { method: 'DELETE' },
+  );
+  if (!response.ok) {
+    throw new Error(`Delete log stream failed with status ${response.status}`);
+  }
+}
+
+export interface LogInsightsField {
+  field: string;
+  value: string;
+}
+
+export interface LogInsightsRow {
+  fields: LogInsightsField[];
+}
+
+export interface LogInsightsQueryResult {
+  status: string;
+  rows: LogInsightsRow[];
+  recordsMatched: number;
+  recordsScanned: number;
+}
+
+export async function runLogInsightsQuery(
+  logGroupName: string,
+  queryString: string,
+  startTime: string,
+  endTime: string,
+  limit: number,
+  signal?: AbortSignal,
+): Promise<LogInsightsQueryResult> {
+  const response = await fetch('/api/services/cloudwatch-logs/insights/query', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ logGroupName, queryString, startTime, endTime, limit }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`Log insights query failed with status ${response.status}`);
+  }
+  return (await response.json()) as LogInsightsQueryResult;
+}
+
 export interface DynamoDbTableItem {
   name: string;
 }
@@ -3501,9 +3565,41 @@ export interface CloudFormationStackOperationResult {
   stackId: string;
 }
 
+export interface CloudFormationTemplateValidationParameter {
+  parameterKey: string;
+  defaultValue: string;
+  noEcho: boolean;
+  description: string;
+}
+
+export interface CloudFormationTemplateValidationResult {
+  description: string;
+  capabilitiesReason: string;
+  capabilities: string[];
+  parameters: CloudFormationTemplateValidationParameter[];
+}
+
+export async function validateTemplate(
+  templateBody: string | null,
+  templateUrl: string | null,
+  signal?: AbortSignal,
+): Promise<CloudFormationTemplateValidationResult> {
+  const response = await fetch('/api/services/cloudformation/template/validate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ templateBody, templateUrl }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`CloudFormation template validation request failed with status ${response.status}`);
+  }
+  return (await response.json()) as CloudFormationTemplateValidationResult;
+}
+
 export async function createStack(
   stackName: string,
-  templateBody: string,
+  templateBody: string | null,
+  templateUrl: string | null,
   parameters: StackParameter[],
   capabilities: string[],
   signal?: AbortSignal,
@@ -3511,7 +3607,7 @@ export async function createStack(
   const response = await fetch('/api/services/cloudformation/stack', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ stackName, templateBody, parameters, capabilities }),
+    body: JSON.stringify({ stackName, templateBody, templateUrl, parameters, capabilities }),
     signal,
   });
   if (!response.ok) {
@@ -4073,6 +4169,58 @@ export async function getAcmCertificates(
     throw new Error(`ACM certificates request failed with status ${response.status}`);
   }
   return (await response.json()) as AcmCertificateListResult;
+}
+
+export interface AcmImportCertificateRequest {
+  certificate: string;
+  privateKey: string;
+  certificateChain: string | null;
+}
+
+export interface AcmImportCertificateResult {
+  arn: string;
+}
+
+export async function importAcmCertificate(
+  request: AcmImportCertificateRequest,
+  signal?: AbortSignal,
+): Promise<AcmImportCertificateResult> {
+  const response = await fetch('/api/services/acm/certificates/import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`ACM import certificate request failed with status ${response.status}`);
+  }
+  return (await response.json()) as AcmImportCertificateResult;
+}
+
+export interface AcmRequestCertificateRequest {
+  domainName: string;
+  validationMethod: string;
+  subjectAlternativeNames: string[];
+}
+
+export interface AcmRequestCertificateResult {
+  arn: string;
+}
+
+export async function requestAcmCertificate(
+  request: AcmRequestCertificateRequest,
+  signal?: AbortSignal,
+): Promise<AcmRequestCertificateResult> {
+  const response = await fetch('/api/services/acm/certificates', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`ACM request certificate request failed with status ${response.status}`);
+  }
+  return (await response.json()) as AcmRequestCertificateResult;
 }
 
 export interface ApiGatewayRestApiItem {

@@ -138,9 +138,40 @@ internal sealed class CloudFormationClientAdapter : ICloudFormationClient
             },
             cancellationToken);
 
+    public Task<Result<TemplateValidationResult>> ValidateTemplateAsync(
+        string? templateBody,
+        string? templateUrl,
+        CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonCloudFormationClient, TemplateValidationResult>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var request = new ValidateTemplateRequest();
+                if (!string.IsNullOrWhiteSpace(templateUrl))
+                    request.TemplateURL = templateUrl;
+                else
+                    request.TemplateBody = templateBody;
+
+                var response = await client.ValidateTemplateAsync(request, token);
+
+                return new TemplateValidationResult(
+                    response.Description ?? string.Empty,
+                    response.CapabilitiesReason ?? string.Empty,
+                    response.Capabilities?.ToList() ?? [],
+                    (response.Parameters ?? [])
+                        .Select(parameter => new TemplateValidationParameter(
+                            parameter.ParameterKey ?? string.Empty,
+                            parameter.DefaultValue ?? string.Empty,
+                            parameter.NoEcho ?? false,
+                            parameter.Description ?? string.Empty))
+                        .ToList());
+            },
+            cancellationToken);
+
     public Task<Result<string>> CreateStackAsync(
         string stackName,
-        string templateBody,
+        string? templateBody,
+        string? templateUrl,
         IReadOnlyList<Foundation.Domain.CloudFormation.StackParameter> parameters,
         IReadOnlyList<string> capabilities,
         CancellationToken cancellationToken)
@@ -148,15 +179,18 @@ internal sealed class CloudFormationClientAdapter : ICloudFormationClient
             ServiceKey,
             async (client, token) =>
             {
-                var response = await client.CreateStackAsync(
-                    new CreateStackRequest
-                    {
-                        StackName = stackName,
-                        TemplateBody = templateBody,
-                        Parameters = ToParameters(parameters),
-                        Capabilities = capabilities.ToList(),
-                    },
-                    token);
+                var request = new CreateStackRequest
+                {
+                    StackName = stackName,
+                    Parameters = ToParameters(parameters),
+                    Capabilities = capabilities.ToList(),
+                };
+                if (!string.IsNullOrWhiteSpace(templateUrl))
+                    request.TemplateURL = templateUrl;
+                else
+                    request.TemplateBody = templateBody;
+
+                var response = await client.CreateStackAsync(request, token);
 
                 return response.StackId ?? string.Empty;
             },

@@ -11,10 +11,11 @@ public class CreateStackCommandValidatorTests
 
     private static CreateStackCommand Valid(
         string stackName = "orders-stack",
-        string templateBody = "{\"Resources\":{}}",
+        string? templateBody = "{\"Resources\":{}}",
+        string? templateUrl = null,
         IReadOnlyList<StackParameter>? parameters = null,
         IReadOnlyList<string>? capabilities = null)
-        => new(stackName, templateBody,
+        => new(stackName, templateBody, templateUrl,
             parameters ?? [new StackParameter("Env", "dev")],
             capabilities ?? ["CAPABILITY_IAM"]);
 
@@ -53,12 +54,31 @@ public class CreateStackCommandValidatorTests
     }
 
     [Fact]
-    public async Task ValidateAsync_WhenTemplateBodyEmpty_ReturnsErrorForTemplateBody()
+    public async Task ValidateAsync_WhenNeitherTemplateBodyNorUrlProvided_ReturnsErrorForTemplate()
     {
         var result = await _sut.ValidateAsync(
-            Valid(templateBody: string.Empty), TestContext.Current.CancellationToken);
+            Valid(templateBody: string.Empty, templateUrl: null), TestContext.Current.CancellationToken);
         result.IsValid.Should().BeFalse();
-        result.Errors.Should().Contain(_ => _.PropertyName == nameof(CreateStackCommand.TemplateBody));
+        result.Errors.Should().Contain(_ => _.PropertyName == "Template");
+    }
+
+    [Fact]
+    public async Task ValidateAsync_WhenBothTemplateBodyAndUrlProvided_ReturnsErrorForTemplate()
+    {
+        var result = await _sut.ValidateAsync(
+            Valid(templateBody: "{\"Resources\":{}}", templateUrl: "https://example.s3.amazonaws.com/template.json"),
+            TestContext.Current.CancellationToken);
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(_ => _.PropertyName == "Template");
+    }
+
+    [Fact]
+    public async Task ValidateAsync_WhenOnlyTemplateUrlProvided_IsValid()
+    {
+        var result = await _sut.ValidateAsync(
+            Valid(templateBody: null, templateUrl: "https://example.s3.amazonaws.com/template.json"),
+            TestContext.Current.CancellationToken);
+        result.IsValid.Should().BeTrue();
     }
 
     [Fact]

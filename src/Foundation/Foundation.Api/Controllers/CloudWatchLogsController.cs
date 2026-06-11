@@ -1,11 +1,14 @@
 using AspNet.KickStarter.FunctionalResult.Extensions;
 using Foundation.Api.Models;
 using Foundation.Application.Commands.CreateLogGroup;
+using Foundation.Application.Commands.CreateLogStream;
 using Foundation.Application.Commands.DeleteLogGroup;
+using Foundation.Application.Commands.DeleteLogStream;
 using Foundation.Application.Queries.FilterLogEvents;
 using Foundation.Application.Queries.GetLogEvents;
 using Foundation.Application.Queries.ListLogGroups;
 using Foundation.Application.Queries.ListLogStreams;
+using Foundation.Application.Queries.RunLogInsights;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -189,6 +192,91 @@ public partial class CloudWatchLogsController : ControllerBase
             error => error.AsHttpResult());
     }
 
+    /// <summary>
+    /// Creates a new, empty log stream within an existing CloudWatch log group.
+    /// </summary>
+    /// <param name="request">The log stream to create.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 201 result locating the created log stream.</returns>
+    [HttpPost("streams")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    public async Task<IResult> CreateStream(
+        [FromBody] LogStreamCreateRequest request, CancellationToken cancellationToken)
+    {
+        LogHandlingCreateStream(request.LogGroupName, request.LogStreamName);
+        var result = await _sender.Send(
+            new CreateLogStreamCommand(request.LogGroupName, request.LogStreamName), cancellationToken);
+        LogCreateStreamHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.Created(
+                "/api/services/cloudwatch-logs/streams?logGroupName=" +
+                $"{Uri.EscapeDataString(request.LogGroupName)}&logStreamName={Uri.EscapeDataString(request.LogStreamName)}",
+                null),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Deletes a CloudWatch log stream and all of the events it contains. This is a destructive
+    /// action that cannot be undone.
+    /// </summary>
+    /// <param name="logGroupName">The name of the log group the stream belongs to.</param>
+    /// <param name="logStreamName">The name of the log stream to delete.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 204 result on success.</returns>
+    [HttpDelete("streams")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IResult> DeleteStream(
+        [FromQuery] string logGroupName,
+        [FromQuery] string logStreamName,
+        CancellationToken cancellationToken)
+    {
+        LogHandlingDeleteStream(logGroupName, logStreamName);
+        var result = await _sender.Send(
+            new DeleteLogStreamCommand(logGroupName, logStreamName), cancellationToken);
+        LogDeleteStreamHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.NoContent(),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Runs a CloudWatch Logs Insights query against a log group over a time range and waits for the
+    /// matching rows.
+    /// </summary>
+    /// <param name="request">The Insights query to run.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 200 result carrying the query outcome and rows.</returns>
+    [HttpPost("insights/query")]
+    [ProducesResponseType(typeof(LogInsightsQueryResponse), StatusCodes.Status200OK)]
+    public async Task<IResult> RunInsightsQuery(
+        [FromBody] LogInsightsQueryRequest request, CancellationToken cancellationToken)
+    {
+        var requested = request.Limit <= 0 ? 1000 : request.Limit;
+
+        LogHandlingInsights(request.LogGroupName);
+        var result = await _sender.Send(
+            new RunLogInsightsQuery(
+                request.LogGroupName,
+                request.QueryString,
+                request.StartTime,
+                request.EndTime,
+                requested),
+            cancellationToken);
+        LogInsightsHandled(result.IsSuccess);
+        return result.Match(
+            query => Results.Ok(new LogInsightsQueryResponse(
+                query.Result.Status,
+                query.Result.Rows
+                    .Select(row => new LogInsightsRowResponse(
+                        row.Fields
+                            .Select(field => new LogInsightsFieldResponse(field.Field, field.Value))
+                            .ToList()))
+                    .ToList(),
+                query.Result.RecordsMatched,
+                query.Result.RecordsScanned)),
+            error => error.AsHttpResult());
+    }
+
     [LoggerMessage(LogLevel.Trace, "Handling CloudWatch log group list request.")]
     private partial void LogHandlingListGroups();
 
@@ -224,4 +312,22 @@ public partial class CloudWatchLogsController : ControllerBase
 
     [LoggerMessage(LogLevel.Trace, "CloudWatch log group delete request handled. Success: {Success}")]
     private partial void LogDeleteHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling CloudWatch log stream create request for {LogGroupName}/{LogStreamName}.")]
+    private partial void LogHandlingCreateStream(string logGroupName, string logStreamName);
+
+    [LoggerMessage(LogLevel.Trace, "CloudWatch log stream create request handled. Success: {Success}")]
+    private partial void LogCreateStreamHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling CloudWatch log stream delete request for {LogGroupName}/{LogStreamName}.")]
+    private partial void LogHandlingDeleteStream(string logGroupName, string logStreamName);
+
+    [LoggerMessage(LogLevel.Trace, "CloudWatch log stream delete request handled. Success: {Success}")]
+    private partial void LogDeleteStreamHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling CloudWatch Logs Insights query request for {LogGroupName}.")]
+    private partial void LogHandlingInsights(string logGroupName);
+
+    [LoggerMessage(LogLevel.Trace, "CloudWatch Logs Insights query request handled. Success: {Success}")]
+    private partial void LogInsightsHandled(bool success);
 }

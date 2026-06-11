@@ -154,14 +154,51 @@ public sealed record StackParameterRequest(
 /// The details required to create a CloudFormation stack.
 /// </summary>
 /// <param name="StackName">The name of the stack to create.</param>
-/// <param name="TemplateBody">The template body that defines the stack.</param>
+/// <param name="TemplateBody">The inline template body that defines the stack, or <see langword="null"/> when creating from a URL.</param>
+/// <param name="TemplateUrl">The S3 URL of the template that defines the stack, or <see langword="null"/> when creating from an inline body.</param>
 /// <param name="Parameters">The input parameters to deploy the stack with.</param>
 /// <param name="Capabilities">The capabilities the template requires, such as <c>CAPABILITY_IAM</c>.</param>
 public sealed record CloudFormationStackCreateRequest(
     string StackName,
-    string TemplateBody,
+    string? TemplateBody,
+    string? TemplateUrl,
     IReadOnlyList<StackParameterRequest>? Parameters,
     IReadOnlyList<string>? Capabilities);
+
+/// <summary>
+/// The template to validate, supplied either inline or by S3 URL.
+/// </summary>
+/// <param name="TemplateBody">The inline template body to validate, or <see langword="null"/> when validating by URL.</param>
+/// <param name="TemplateUrl">The S3 URL of the template to validate, or <see langword="null"/> when validating an inline body.</param>
+public sealed record CloudFormationTemplateValidationRequest(
+    string? TemplateBody,
+    string? TemplateUrl);
+
+/// <summary>
+/// The outcome of validating a CloudFormation template.
+/// </summary>
+/// <param name="Description">The description the template documents, or an empty string when none.</param>
+/// <param name="CapabilitiesReason">The reason the template requires the reported capabilities, or an empty string when none.</param>
+/// <param name="Capabilities">The capabilities the template requires, such as <c>CAPABILITY_IAM</c>.</param>
+/// <param name="Parameters">The input parameters the template declares.</param>
+public sealed record CloudFormationTemplateValidationResponse(
+    string Description,
+    string CapabilitiesReason,
+    IReadOnlyList<string> Capabilities,
+    IReadOnlyList<CloudFormationTemplateValidationParameterResponse> Parameters);
+
+/// <summary>
+/// A single input parameter that a validated CloudFormation template declares.
+/// </summary>
+/// <param name="ParameterKey">The name of the parameter the template declares.</param>
+/// <param name="DefaultValue">The default value the template assigns to the parameter, or an empty string when none.</param>
+/// <param name="NoEcho">Whether the parameter value is masked in the console and logs.</param>
+/// <param name="Description">The description the template documents for the parameter, or an empty string when none.</param>
+public sealed record CloudFormationTemplateValidationParameterResponse(
+    string ParameterKey,
+    string DefaultValue,
+    bool NoEcho,
+    string Description);
 
 /// <summary>
 /// The details required to update a CloudFormation stack.

@@ -45,7 +45,7 @@ internal sealed partial class CreateStackCommandHandler : ICommandHandler<Create
             cancellationToken);
 
         var result = await _client.CreateStackAsync(
-            request.StackName, request.TemplateBody, request.Parameters, request.Capabilities, cancellationToken);
+            request.StackName, request.TemplateBody, request.TemplateUrl, request.Parameters, request.Capabilities, cancellationToken);
         if (!result.IsSuccess)
         {
             var failure = $"Failed to create {request.StackName}: {result.Error!.Value.Message}";

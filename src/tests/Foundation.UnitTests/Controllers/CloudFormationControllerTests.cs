@@ -19,6 +19,7 @@ using Foundation.Application.Queries.ListResourceDrifts;
 using Foundation.Application.Queries.ListStackEvents;
 using Foundation.Application.Queries.ListStackResources;
 using Foundation.Application.Queries.ListStacks;
+using Foundation.Application.Queries.ValidateTemplate;
 using Foundation.Domain.CloudFormation;
 using MediatR;
 using Microsoft.AspNetCore.Http;
@@ -325,6 +326,7 @@ public class CloudFormationControllerTests
         var request = new CloudFormationStackCreateRequest(
             "orders-stack",
             "{\"Resources\":{}}",
+            null,
             [new("Env", "dev")],
             ["CAPABILITY_IAM"]);
         CreateStackCommand? captured = null;
@@ -345,6 +347,7 @@ public class CloudFormationControllerTests
         captured.Should().NotBeNull();
         captured!.StackName.Should().Be("orders-stack");
         captured.TemplateBody.Should().Be("{\"Resources\":{}}");
+        captured.TemplateUrl.Should().BeNull();
         var parameter = captured.Parameters.Should().ContainSingle().Subject;
         parameter.ParameterKey.Should().Be("Env");
         parameter.ParameterValue.Should().Be("dev");
@@ -358,6 +361,7 @@ public class CloudFormationControllerTests
         var request = new CloudFormationStackCreateRequest(
             "orders-stack",
             "{\"Resources\":{}}",
+            null,
             null,
             null);
         CreateStackCommand? captured = null;
@@ -380,7 +384,7 @@ public class CloudFormationControllerTests
     public async Task CreateStack_WhenCommandFails_ReturnsErrorResult()
     {
         // Arrange
-        var request = new CloudFormationStackCreateRequest("orders-stack", "{}", null, null);
+        var request = new CloudFormationStackCreateRequest("orders-stack", "{}", null, null, null);
         _sender
             .Send(Arg.Any<CreateStackCommand>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<Result<string>>(new Error("boom")));
@@ -388,6 +392,59 @@ public class CloudFormationControllerTests
 
         // Act
         var result = await sut.CreateStack(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task ValidateTemplate_WhenQuerySucceeds_ReturnsOkWithValidationAndForwardsRequest()
+    {
+        // Arrange
+        var request = new CloudFormationTemplateValidationRequest("{\"Resources\":{}}", null);
+        var validation = new TemplateValidationResult(
+            "An example template",
+            "Requires IAM",
+            ["CAPABILITY_IAM"],
+            [new TemplateValidationParameter("Env", "dev", true, "Environment name")]);
+        ValidateTemplateQuery? captured = null;
+        _sender
+            .Send(Arg.Do<ValidateTemplateQuery>(query => captured = query), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<ValidateTemplateQueryResult>>(
+                new ValidateTemplateQueryResult(validation)));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.ValidateTemplate(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        var ok = result.Should().BeOfType<Ok<CloudFormationTemplateValidationResponse>>().Subject;
+        ok.Value!.Description.Should().Be("An example template");
+        ok.Value.CapabilitiesReason.Should().Be("Requires IAM");
+        ok.Value.Capabilities.Should().ContainSingle().Which.Should().Be("CAPABILITY_IAM");
+        var parameter = ok.Value.Parameters.Should().ContainSingle().Subject;
+        parameter.ParameterKey.Should().Be("Env");
+        parameter.DefaultValue.Should().Be("dev");
+        parameter.NoEcho.Should().BeTrue();
+        parameter.Description.Should().Be("Environment name");
+        captured.Should().NotBeNull();
+        captured!.TemplateBody.Should().Be("{\"Resources\":{}}");
+        captured.TemplateUrl.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ValidateTemplate_WhenQueryFails_ReturnsErrorResult()
+    {
+        // Arrange
+        var request = new CloudFormationTemplateValidationRequest(null, "https://example.s3.amazonaws.com/template.json");
+        _sender
+            .Send(Arg.Any<ValidateTemplateQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<ValidateTemplateQueryResult>>(new Error("invalid template")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.ValidateTemplate(request, TestContext.Current.CancellationToken);
 
         // Assert
         var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;

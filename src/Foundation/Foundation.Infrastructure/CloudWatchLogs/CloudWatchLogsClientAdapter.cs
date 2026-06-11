@@ -6,6 +6,7 @@ using Foundation.Application.CloudWatchLogs;
 using Foundation.Infrastructure.Aws;
 using LogEvent = Foundation.Domain.CloudWatchLogs.LogEvent;
 using LogGroup = Foundation.Domain.CloudWatchLogs.LogGroup;
+using LogInsightsResult = Foundation.Domain.CloudWatchLogs.LogInsightsResult;
 using LogStream = Foundation.Domain.CloudWatchLogs.LogStream;
 
 namespace Foundation.Infrastructure.CloudWatchLogs;
@@ -148,4 +149,78 @@ internal sealed class CloudWatchLogsClientAdapter : ICloudWatchLogsClient
 
         return result.IsSuccess ? Result.Success() : result.Error!.Value;
     }
+
+    public async Task<Result> CreateLogStreamAsync(
+        string logGroupName, string logStreamName, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonCloudWatchLogsClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                await client.CreateLogStreamAsync(
+                    new CreateLogStreamRequest { LogGroupName = logGroupName, LogStreamName = logStreamName }, token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    public async Task<Result> DeleteLogStreamAsync(
+        string logGroupName, string logStreamName, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonCloudWatchLogsClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                await client.DeleteLogStreamAsync(
+                    new DeleteLogStreamRequest { LogGroupName = logGroupName, LogStreamName = logStreamName }, token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    public Task<Result<LogInsightsResult>> RunInsightsQueryAsync(
+        string logGroupName,
+        string queryString,
+        DateTimeOffset startTime,
+        DateTimeOffset endTime,
+        int limit,
+        CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonCloudWatchLogsClient, LogInsightsResult>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var start = await client.StartQueryAsync(
+                    new StartQueryRequest
+                    {
+                        LogGroupName = logGroupName,
+                        QueryString = queryString,
+                        StartTime = startTime.ToUnixTimeSeconds(),
+                        EndTime = endTime.ToUnixTimeSeconds(),
+                        Limit = Math.Clamp(limit, 1, 1000),
+                    },
+                    token);
+
+                for (var attempt = 0; attempt < MaxQueryPolls; attempt++)
+                {
+                    var results = await client.GetQueryResultsAsync(
+                        new GetQueryResultsRequest { QueryId = start.QueryId }, token);
+
+                    var status = results.Status ?? QueryStatus.Unknown;
+                    if (status != QueryStatus.Running && status != QueryStatus.Scheduled)
+                        return LogInsightsMapper.ToResult(status.Value, results);
+
+                    await Task.Delay(_queryPollInterval, token);
+                }
+
+                return LogInsightsMapper.ToResult(QueryStatus.Timeout.Value, new GetQueryResultsResponse());
+            },
+            cancellationToken);
+
+    private const int MaxQueryPolls = 30;
+
+    private static readonly TimeSpan _queryPollInterval = TimeSpan.FromMilliseconds(500);
 }

@@ -4,11 +4,15 @@ import { Link } from 'react-router-dom';
 import { DataListShell } from '../../components/DataListShell';
 import type { DataListColumn, DataListRow } from '../../components/DataListShell';
 import { ConfirmationHost } from '../../components/ConfirmationHost';
-import { createStack, deleteStack, getStacks } from '../../api/client';
-import type { CloudFormationStackItem, StackParameter } from '../../api/client';
+import { createStack, deleteStack, getStacks, validateTemplate } from '../../api/client';
+import type {
+  CloudFormationStackItem,
+  CloudFormationTemplateValidationResult,
+  StackParameter,
+} from '../../api/client';
 import type { ServiceListViewProps } from '../serviceViewRegistry';
 import { CloudFormationStackForm } from './CloudFormationStackForm';
-import type { StackFormValue } from './CloudFormationStackForm';
+import type { StackFormValue, TemplateSource } from './CloudFormationStackForm';
 
 const messageStyle: CSSProperties = { fontSize: 14 };
 
@@ -47,6 +51,12 @@ type ListState =
 
 type CreateState = 'idle' | 'saving' | 'created' | 'error';
 
+type ValidateState =
+  | { kind: 'idle' }
+  | { kind: 'validating' }
+  | { kind: 'valid'; result: CloudFormationTemplateValidationResult }
+  | { kind: 'error' };
+
 function toParameters(value: StackFormValue): StackParameter[] {
   return value.parameters
     .filter((parameter) => parameter.parameterKey.trim() !== '')
@@ -61,6 +71,7 @@ export function CloudFormationListView({ serviceKey }: ServiceListViewProps) {
   const [reloadToken, setReloadToken] = useState(0);
   const [showCreate, setShowCreate] = useState(false);
   const [createState, setCreateState] = useState<CreateState>('idle');
+  const [validateState, setValidateState] = useState<ValidateState>({ kind: 'idle' });
 
   useEffect(() => {
     const controller = new AbortController();
@@ -77,13 +88,26 @@ export function CloudFormationListView({ serviceKey }: ServiceListViewProps) {
 
   const handleCreate = (value: StackFormValue) => {
     setCreateState('saving');
-    createStack(value.stackName, value.templateBody, toParameters(value), value.capabilities)
+    createStack(
+      value.stackName,
+      value.templateUrl.trim() !== '' ? null : value.templateBody,
+      value.templateUrl.trim() !== '' ? value.templateUrl : null,
+      toParameters(value),
+      value.capabilities,
+    )
       .then(() => {
         setCreateState('created');
         setShowCreate(false);
         refresh();
       })
       .catch(() => setCreateState('error'));
+  };
+
+  const handleValidate = (source: TemplateSource) => {
+    setValidateState({ kind: 'validating' });
+    validateTemplate(source.templateBody, source.templateUrl)
+      .then((result) => setValidateState({ kind: 'valid', result }))
+      .catch(() => setValidateState({ kind: 'error' }));
   };
 
   const handleDelete = (name: string) => {
@@ -154,8 +178,38 @@ export function CloudFormationListView({ serviceKey }: ServiceListViewProps) {
           submitLabel="Create"
           saving={createState === 'saving'}
           requireName
+          allowTemplateUrl
+          validating={validateState.kind === 'validating'}
           onSubmit={handleCreate}
+          onValidate={handleValidate}
         />
+      ) : null}
+      {showCreate && validateState.kind === 'valid' ? (
+        <div data-testid="cloudformation-validate-result" style={messageStyle}>
+          <p>Template is valid.</p>
+          <p data-testid="cloudformation-validate-description">
+            {validateState.result.description === ''
+              ? 'No description provided.'
+              : validateState.result.description}
+          </p>
+          <p data-testid="cloudformation-validate-capabilities">
+            {validateState.result.capabilities.length === 0
+              ? 'No additional capabilities required.'
+              : validateState.result.capabilities.join(', ')}
+          </p>
+          <ul>
+            {validateState.result.parameters.map((parameter) => (
+              <li key={parameter.parameterKey} data-testid="cloudformation-validate-parameter">
+                {parameter.parameterKey}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {showCreate && validateState.kind === 'error' ? (
+        <p data-testid="cloudformation-validate-error" style={messageStyle}>
+          Unable to validate the template.
+        </p>
       ) : null}
       {createState === 'created' ? (
         <p data-testid="cloudformation-create-status" style={messageStyle}>

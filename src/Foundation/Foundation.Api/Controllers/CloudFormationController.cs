@@ -18,6 +18,7 @@ using Foundation.Application.Queries.ListResourceDrifts;
 using Foundation.Application.Queries.ListStackEvents;
 using Foundation.Application.Queries.ListStackResources;
 using Foundation.Application.Queries.ListStacks;
+using Foundation.Application.Queries.ValidateTemplate;
 using Foundation.Domain.CloudFormation;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
@@ -211,6 +212,7 @@ public partial class CloudFormationController : ControllerBase
             new CreateStackCommand(
                 request.StackName,
                 request.TemplateBody,
+                request.TemplateUrl,
                 request.Parameters
                     ?.Select(parameter => new StackParameter(parameter.ParameterKey, parameter.ParameterValue))
                     .ToList() ?? [],
@@ -221,6 +223,37 @@ public partial class CloudFormationController : ControllerBase
             stackId => Results.Created(
                 $"/api/services/cloudformation/stack?name={Uri.EscapeDataString(request.StackName)}",
                 new CloudFormationStackOperationResponse(stackId)),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Validates a CloudFormation template supplied either inline or by S3 URL.
+    /// </summary>
+    /// <param name="request">The template body or S3 URL to validate.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 200 result describing the validated template.</returns>
+    [HttpPost("template/validate")]
+    [ProducesResponseType(typeof(CloudFormationTemplateValidationResponse), StatusCodes.Status200OK)]
+    public async Task<IResult> ValidateTemplate(
+        [FromBody] CloudFormationTemplateValidationRequest request, CancellationToken cancellationToken)
+    {
+        LogHandlingValidateTemplate();
+        var result = await _sender.Send(
+            new ValidateTemplateQuery(request.TemplateBody, request.TemplateUrl),
+            cancellationToken);
+        LogValidateTemplateHandled(result.IsSuccess);
+        return result.Match(
+            value => Results.Ok(new CloudFormationTemplateValidationResponse(
+                value.Validation.Description,
+                value.Validation.CapabilitiesReason,
+                value.Validation.Capabilities,
+                value.Validation.Parameters
+                    .Select(parameter => new CloudFormationTemplateValidationParameterResponse(
+                        parameter.ParameterKey,
+                        parameter.DefaultValue,
+                        parameter.NoEcho,
+                        parameter.Description))
+                    .ToList())),
             error => error.AsHttpResult());
     }
 
@@ -581,6 +614,12 @@ public partial class CloudFormationController : ControllerBase
 
     [LoggerMessage(LogLevel.Trace, "CloudFormation stack create request handled. Success: {Success}")]
     private partial void LogCreateStackHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling CloudFormation template validation request.")]
+    private partial void LogHandlingValidateTemplate();
+
+    [LoggerMessage(LogLevel.Trace, "CloudFormation template validation request handled. Success: {Success}")]
+    private partial void LogValidateTemplateHandled(bool success);
 
     [LoggerMessage(LogLevel.Trace, "Handling CloudFormation stack update request for {Name}.")]
     private partial void LogHandlingUpdateStack(string name);

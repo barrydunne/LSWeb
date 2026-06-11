@@ -26,10 +26,10 @@ internal sealed partial class CreateStackCommandValidator : AbstractValidator<Cr
             .Must(name => NamePattern().IsMatch(name))
                 .WithMessage("Stack names must begin with a letter and contain only letters, digits, and hyphens.");
 
-        RuleFor(_ => _.TemplateBody)
-            .Cascade(CascadeMode.Stop)
-            .NotNull()
-            .NotEmpty();
+        RuleFor(_ => _)
+            .Must(command => HasExactlyOneTemplateSource(command))
+                .WithName("Template")
+                .WithMessage("Provide either a template body or a template URL, but not both.");
 
         RuleForEach(_ => _.Parameters)
             .ChildRules(parameter =>
@@ -55,6 +55,9 @@ internal sealed partial class CreateStackCommandValidator : AbstractValidator<Cr
 
     [GeneratedRegex("^[a-zA-Z][-a-zA-Z0-9]*$")]
     private static partial Regex NamePattern();
+
+    private static bool HasExactlyOneTemplateSource(CreateStackCommand command)
+        => !string.IsNullOrWhiteSpace(command.TemplateBody) ^ !string.IsNullOrWhiteSpace(command.TemplateUrl);
 
     [LoggerMessage(LogLevel.Warning, "CreateStackCommand validation failure: {Error}")]
     private partial void LogValidationFailure(string error);

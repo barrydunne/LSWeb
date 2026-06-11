@@ -63,4 +63,41 @@ public interface ICloudWatchLogsClient
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>A success result, or an error if the backend could not be reached.</returns>
     Task<Result> DeleteLogGroupAsync(string logGroupName, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Creates a new, empty log stream within a log group.
+    /// </summary>
+    /// <param name="logGroupName">The name of the log group the stream belongs to.</param>
+    /// <param name="logStreamName">The name of the log stream to create.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A success result, or an error if the backend could not be reached.</returns>
+    Task<Result> CreateLogStreamAsync(string logGroupName, string logStreamName, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Deletes a log stream and all of the events it contains.
+    /// </summary>
+    /// <param name="logGroupName">The name of the log group the stream belongs to.</param>
+    /// <param name="logStreamName">The name of the log stream to delete.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A success result, or an error if the backend could not be reached.</returns>
+    Task<Result> DeleteLogStreamAsync(string logGroupName, string logStreamName, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Runs a CloudWatch Logs Insights query against a log group over a time range and waits for it
+    /// to complete.
+    /// </summary>
+    /// <param name="logGroupName">The name of the log group to query.</param>
+    /// <param name="queryString">The CloudWatch Logs Insights query to run.</param>
+    /// <param name="startTime">The inclusive lower bound of the query time range.</param>
+    /// <param name="endTime">The inclusive upper bound of the query time range.</param>
+    /// <param name="limit">The maximum number of result rows to return.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The query result, or an error if the backend could not be reached.</returns>
+    Task<Result<LogInsightsResult>> RunInsightsQueryAsync(
+        string logGroupName,
+        string queryString,
+        DateTimeOffset startTime,
+        DateTimeOffset endTime,
+        int limit,
+        CancellationToken cancellationToken);
 }

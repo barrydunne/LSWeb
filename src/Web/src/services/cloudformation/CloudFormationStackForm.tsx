@@ -77,8 +77,14 @@ const smallButtonStyle: CSSProperties = {
 export interface StackFormValue {
   stackName: string;
   templateBody: string;
+  templateUrl: string;
   parameters: StackParameter[];
   capabilities: string[];
+}
+
+export interface TemplateSource {
+  templateBody: string | null;
+  templateUrl: string | null;
 }
 
 interface CloudFormationStackFormProps {
@@ -86,10 +92,13 @@ interface CloudFormationStackFormProps {
   submitLabel: string;
   saving: boolean;
   requireName?: boolean;
+  allowTemplateUrl?: boolean;
+  validating?: boolean;
   initialTemplateBody?: string;
   initialParameters?: StackParameter[];
   initialCapabilities?: string[];
   onSubmit: (value: StackFormValue) => void;
+  onValidate?: (source: TemplateSource) => void;
 }
 
 export function CloudFormationStackForm({
@@ -97,13 +106,18 @@ export function CloudFormationStackForm({
   submitLabel,
   saving,
   requireName = false,
+  allowTemplateUrl = false,
+  validating = false,
   initialTemplateBody = '',
   initialParameters = [],
   initialCapabilities = [],
   onSubmit,
+  onValidate,
 }: CloudFormationStackFormProps) {
   const [stackName, setStackName] = useState('');
+  const [templateSource, setTemplateSource] = useState<'body' | 'url'>('body');
   const [templateBody, setTemplateBody] = useState(initialTemplateBody);
+  const [templateUrl, setTemplateUrl] = useState('');
   const [parameters, setParameters] = useState<StackParameter[]>(initialParameters);
   const [capabilities, setCapabilities] = useState<string[]>(initialCapabilities);
 
@@ -129,8 +143,14 @@ export function CloudFormationStackForm({
     );
   };
 
-  const submitDisabled =
-    saving || templateBody.trim() === '' || (requireName && stackName.trim() === '');
+  const useUrl = allowTemplateUrl && templateSource === 'url';
+  const templateProvided = useUrl ? templateUrl.trim() !== '' : templateBody.trim() !== '';
+  const submitDisabled = saving || !templateProvided || (requireName && stackName.trim() === '');
+
+  const currentSource = (): TemplateSource => ({
+    templateBody: useUrl ? null : templateBody,
+    templateUrl: useUrl ? templateUrl : null,
+  });
 
   return (
     <div data-testid={`${testIdPrefix}-form`} style={formStyle}>
@@ -150,16 +170,52 @@ export function CloudFormationStackForm({
         </div>
       ) : null}
       <div style={fieldRowStyle}>
-        <label style={labelStyle} htmlFor={`${testIdPrefix}-templateBody`}>
-          Template body (JSON or YAML)
-        </label>
-        <textarea
-          id={`${testIdPrefix}-templateBody`}
-          data-testid={`${testIdPrefix}-templateBody`}
-          style={textareaStyle}
-          value={templateBody}
-          onChange={(event) => setTemplateBody(event.target.value)}
-        />
+        {allowTemplateUrl ? (
+          <div style={fieldRowStyle}>
+            <label style={labelStyle} htmlFor={`${testIdPrefix}-template-source`}>
+              Template source
+            </label>
+            <select
+              id={`${testIdPrefix}-template-source`}
+              data-testid={`${testIdPrefix}-template-source`}
+              style={inputStyle}
+              value={templateSource}
+              onChange={(event) => setTemplateSource(event.target.value === 'url' ? 'url' : 'body')}
+            >
+              <option value="body">Inline template body</option>
+              <option value="url">Amazon S3 template URL</option>
+            </select>
+          </div>
+        ) : null}
+        {useUrl ? (
+          <div style={fieldRowStyle}>
+            <label style={labelStyle} htmlFor={`${testIdPrefix}-templateUrl`}>
+              Template S3 URL
+            </label>
+            <input
+              id={`${testIdPrefix}-templateUrl`}
+              type="text"
+              data-testid={`${testIdPrefix}-templateUrl`}
+              style={inputStyle}
+              placeholder="https://bucket.s3.amazonaws.com/template.json"
+              value={templateUrl}
+              onChange={(event) => setTemplateUrl(event.target.value)}
+            />
+          </div>
+        ) : (
+          <>
+            <label style={labelStyle} htmlFor={`${testIdPrefix}-templateBody`}>
+              Template body (JSON or YAML)
+            </label>
+            <textarea
+              id={`${testIdPrefix}-templateBody`}
+              data-testid={`${testIdPrefix}-templateBody`}
+              style={textareaStyle}
+              value={templateBody}
+              onChange={(event) => setTemplateBody(event.target.value)}
+            />
+          </>
+        )}
       </div>
       <div style={fieldRowStyle}>
         <span style={labelStyle}>Parameters</span>
@@ -222,10 +278,29 @@ export function CloudFormationStackForm({
         data-testid={`${testIdPrefix}-submit`}
         style={buttonStyle}
         disabled={submitDisabled}
-        onClick={() => onSubmit({ stackName, templateBody, parameters, capabilities })}
+        onClick={() =>
+          onSubmit({
+            stackName,
+            templateBody: useUrl ? '' : templateBody,
+            templateUrl: useUrl ? templateUrl : '',
+            parameters,
+            capabilities,
+          })
+        }
       >
         {saving ? `${submitLabel}\u2026` : submitLabel}
       </button>
+      {onValidate ? (
+        <button
+          type="button"
+          data-testid={`${testIdPrefix}-validate`}
+          style={buttonStyle}
+          disabled={validating || !templateProvided}
+          onClick={() => onValidate(currentSource())}
+        >
+          {validating ? 'Validating\u2026' : 'Validate template'}
+        </button>
+      ) : null}
     </div>
   );
 }

@@ -73,6 +73,9 @@ import {
   filterLogEvents,
   createLogGroup,
   deleteLogGroup,
+  createLogStream,
+  deleteLogStream,
+  runLogInsightsQuery,
   getDynamoDbTables,
   getDynamoDbTable,
   createDynamoDbTable,
@@ -113,6 +116,7 @@ import {
   getStackResources,
   getStackEvents,
   createStack,
+  validateTemplate,
   updateStack,
   deleteStack,
   getChangeSets,
@@ -132,6 +136,8 @@ import {
   putScheduledRuleTargets,
   removeScheduledRuleTargets,
   getAcmCertificates,
+  importAcmCertificate,
+  requestAcmCertificate,
   getApiGatewayRestApis,
   getApiGatewayRestApi,
   createApiGatewayRestApi,
@@ -2746,6 +2752,112 @@ describe('filterLogEvents', () => {
   });
 });
 
+describe('createLogStream', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the log group and stream names to the streams endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await createLogStream('/aws/lambda/orders', 'stream-1');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/cloudwatch-logs/streams', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ logGroupName: '/aws/lambda/orders', logStreamName: 'stream-1' }),
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(createLogStream('/aws/lambda/orders', 'stream-1')).rejects.toThrow(
+      'Create log stream failed with status 400',
+    );
+  });
+});
+
+describe('deleteLogStream', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends a DELETE with the log group and stream name query parameters', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await deleteLogStream('/aws/lambda/orders', 'stream-1');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cloudwatch-logs/streams?logGroupName=%2Faws%2Flambda%2Forders&logStreamName=stream-1',
+      { method: 'DELETE' },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(deleteLogStream('/aws/lambda/orders', 'stream-1')).rejects.toThrow(
+      'Delete log stream failed with status 404',
+    );
+  });
+});
+
+describe('runLogInsightsQuery', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the query payload and returns the parsed result', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        status: 'Complete',
+        rows: [{ fields: [{ field: '@message', value: 'hello' }] }],
+        recordsMatched: 3,
+        recordsScanned: 10,
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await runLogInsightsQuery(
+      '/aws/lambda/orders',
+      'fields @message',
+      '1970-01-01T00:00:00Z',
+      '1970-01-01T01:00:00Z',
+      100,
+    );
+
+    expect(result.status).toBe('Complete');
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].fields[0].value).toBe('hello');
+    expect(result.recordsMatched).toBe(3);
+    expect(result.recordsScanned).toBe(10);
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/cloudwatch-logs/insights/query', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        logGroupName: '/aws/lambda/orders',
+        queryString: 'fields @message',
+        startTime: '1970-01-01T00:00:00Z',
+        endTime: '1970-01-01T01:00:00Z',
+        limit: 100,
+      }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(
+      runLogInsightsQuery('/aws/lambda/orders', 'fields @message', 's', 'e', 100),
+    ).rejects.toThrow('Log insights query failed with status 500');
+  });
+});
+
 describe('getDynamoDbTables', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -4117,6 +4229,48 @@ describe('getStackTemplate', () => {
   });
 });
 
+describe('validateTemplate', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the inline template body and returns the validation result', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        description: 'An example template',
+        capabilitiesReason: 'Requires IAM',
+        capabilities: ['CAPABILITY_IAM'],
+        parameters: [
+          { parameterKey: 'Env', defaultValue: 'dev', noEcho: false, description: 'Environment' },
+        ],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await validateTemplate('{"Resources":{}}', null, controller.signal);
+
+    expect(result.description).toBe('An example template');
+    expect(result.capabilities).toEqual(['CAPABILITY_IAM']);
+    expect(result.parameters[0].parameterKey).toBe('Env');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/cloudformation/template/validate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ templateBody: '{"Resources":{}}', templateUrl: null }),
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(validateTemplate(null, 'https://example.s3.amazonaws.com/t.json')).rejects.toThrow(
+      'CloudFormation template validation request failed with status 400',
+    );
+  });
+});
+
 describe('createStack', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -4132,6 +4286,7 @@ describe('createStack', () => {
     const result = await createStack(
       'new-stack',
       '{"Resources":{}}',
+      null,
       [{ parameterKey: 'Env', parameterValue: 'dev' }],
       ['CAPABILITY_IAM'],
       controller.signal,
@@ -4144,6 +4299,7 @@ describe('createStack', () => {
       body: JSON.stringify({
         stackName: 'new-stack',
         templateBody: '{"Resources":{}}',
+        templateUrl: null,
         parameters: [{ parameterKey: 'Env', parameterValue: 'dev' }],
         capabilities: ['CAPABILITY_IAM'],
       }),
@@ -4151,10 +4307,32 @@ describe('createStack', () => {
     });
   });
 
+  it('posts the S3 template URL when supplied', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ stackId: 'arn:stack/new' }) });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await createStack('new-stack', null, 'https://example.s3.amazonaws.com/t.json', [], []);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/cloudformation/stack', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        stackName: 'new-stack',
+        templateBody: null,
+        templateUrl: 'https://example.s3.amazonaws.com/t.json',
+        parameters: [],
+        capabilities: [],
+      }),
+      signal: undefined,
+    });
+  });
+
   it('throws when the response is not ok', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
 
-    await expect(createStack('new-stack', '{}', [], [])).rejects.toThrow(
+    await expect(createStack('new-stack', '{}', null, [], [])).rejects.toThrow(
       'CloudFormation stack create request failed with status 400',
     );
   });
@@ -5058,6 +5236,82 @@ describe('getAcmCertificates', () => {
     await expect(getAcmCertificates()).rejects.toThrow(
       'ACM certificates request failed with status 503',
     );
+  });
+});
+
+describe('importAcmCertificate', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the certificate material and returns the resulting arn', async () => {
+    const payload = { arn: 'arn:aws:acm:eu-west-1:000000000000:certificate/new' };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await importAcmCertificate(
+      { certificate: 'CERT-PEM', privateKey: 'KEY-PEM', certificateChain: 'CHAIN-PEM' },
+      controller.signal,
+    );
+
+    expect(result.arn).toBe('arn:aws:acm:eu-west-1:000000000000:certificate/new');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/acm/certificates/import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        certificate: 'CERT-PEM',
+        privateKey: 'KEY-PEM',
+        certificateChain: 'CHAIN-PEM',
+      }),
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(
+      importAcmCertificate({ certificate: 'C', privateKey: 'K', certificateChain: null }),
+    ).rejects.toThrow('ACM import certificate request failed with status 500');
+  });
+});
+
+describe('requestAcmCertificate', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the requested domain and returns the resulting arn', async () => {
+    const payload = { arn: 'arn:aws:acm:eu-west-1:000000000000:certificate/requested' };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await requestAcmCertificate(
+      { domainName: 'example.test', validationMethod: 'DNS', subjectAlternativeNames: ['www.example.test'] },
+      controller.signal,
+    );
+
+    expect(result.arn).toBe('arn:aws:acm:eu-west-1:000000000000:certificate/requested');
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/acm/certificates', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        domainName: 'example.test',
+        validationMethod: 'DNS',
+        subjectAlternativeNames: ['www.example.test'],
+      }),
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(
+      requestAcmCertificate({ domainName: 'd', validationMethod: 'DNS', subjectAlternativeNames: [] }),
+    ).rejects.toThrow('ACM request certificate request failed with status 503');
   });
 });
 

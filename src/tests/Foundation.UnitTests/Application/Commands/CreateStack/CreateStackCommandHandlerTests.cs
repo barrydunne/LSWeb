@@ -21,7 +21,7 @@ public class CreateStackCommandHandlerTests
     private readonly ISearchRefreshTrigger _searchRefresh = Substitute.For<ISearchRefreshTrigger>();
 
     private static CreateStackCommand BuildCommand()
-        => new("orders-stack", TemplateBody,
+        => new("orders-stack", TemplateBody, null,
             [new StackParameter("Env", "dev")], ["CAPABILITY_IAM"]);
 
     private CreateStackCommandHandler CreateSut()
@@ -32,7 +32,7 @@ public class CreateStackCommandHandlerTests
     {
         // Arrange
         _client
-            .CreateStackAsync("orders-stack", TemplateBody,
+            .CreateStackAsync("orders-stack", TemplateBody, null,
                 Arg.Any<IReadOnlyList<StackParameter>>(), Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<Result<string>>("arn:stack/orders-stack"));
         var sut = CreateSut();
@@ -44,7 +44,7 @@ public class CreateStackCommandHandlerTests
         result.IsSuccess.Should().BeTrue();
         result.Value.Should().Be("arn:stack/orders-stack");
         await _client.Received(1).CreateStackAsync(
-            "orders-stack", TemplateBody,
+            "orders-stack", TemplateBody, null,
             Arg.Any<IReadOnlyList<StackParameter>>(), Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>());
         await _publisher.Received(1).PublishAsync(
             Arg.Is<Notification>(notification => notification.State == OperationState.InProgress),
@@ -62,7 +62,7 @@ public class CreateStackCommandHandlerTests
     {
         // Arrange
         _client
-            .CreateStackAsync(Arg.Any<string>(), Arg.Any<string>(),
+            .CreateStackAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>(),
                 Arg.Any<IReadOnlyList<StackParameter>>(), Arg.Any<IReadOnlyList<string>>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<Result<string>>(new Error("create boom")));
         var sut = CreateSut();

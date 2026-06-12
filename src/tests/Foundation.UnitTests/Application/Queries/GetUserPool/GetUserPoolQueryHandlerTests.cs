@@ -29,7 +29,8 @@ public class GetUserPoolQueryHandlerTests
             ["email"],
             ["email"],
             DateTimeOffset.UnixEpoch,
-            DateTimeOffset.UnixEpoch);
+            DateTimeOffset.UnixEpoch,
+            null);
         _client
             .GetUserPoolAsync("eu-west-1_abc123", Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Ok(detail)));

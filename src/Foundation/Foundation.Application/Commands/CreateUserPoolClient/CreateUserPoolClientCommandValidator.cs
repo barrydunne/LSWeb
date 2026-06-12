@@ -10,6 +10,14 @@ internal sealed partial class CreateUserPoolClientCommandValidator : AbstractVal
     private const int MaxClientNameLength = 128;
 
     private static readonly string[] _allowedOAuthFlows = ["code", "implicit", "client_credentials"];
+    private static readonly string[] _allowedExplicitAuthFlows =
+    [
+        "ALLOW_USER_PASSWORD_AUTH",
+        "ALLOW_USER_SRP_AUTH",
+        "ALLOW_REFRESH_TOKEN_AUTH",
+        "ALLOW_CUSTOM_AUTH",
+        "ALLOW_ADMIN_USER_PASSWORD_AUTH",
+    ];
 
     private readonly ILogger _logger;
 
@@ -33,6 +41,10 @@ internal sealed partial class CreateUserPoolClientCommandValidator : AbstractVal
         RuleForEach(_ => _.AllowedOAuthFlows)
             .Must(flow => _allowedOAuthFlows.Contains(flow))
                 .WithMessage("Allowed OAuth flows may only be code, implicit, or client_credentials.");
+
+        RuleForEach(_ => _.ExplicitAuthFlows)
+            .Must(flow => _allowedExplicitAuthFlows.Contains(flow))
+                .WithMessage("Explicit auth flows may only be ALLOW_USER_PASSWORD_AUTH, ALLOW_USER_SRP_AUTH, ALLOW_REFRESH_TOKEN_AUTH, ALLOW_CUSTOM_AUTH, or ALLOW_ADMIN_USER_PASSWORD_AUTH.");
     }
 
     public override async Task<ValidationResult> ValidateAsync(

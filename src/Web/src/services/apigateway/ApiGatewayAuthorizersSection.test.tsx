@@ -66,6 +66,7 @@ describe('ApiGatewayAuthorizersSection', () => {
       autoVerifiedAttributes: [],
       creationDate: null,
       lastModifiedDate: null,
+      passwordPolicy: null,
     });
     createAuthorizerMock.mockResolvedValue({ id: 'auth9' });
     createTokenAuthorizerMock.mockResolvedValue({ id: 'auth7' });
@@ -255,6 +256,7 @@ describe('ApiGatewayAuthorizersSection', () => {
       autoVerifiedAttributes: [],
       creationDate: null,
       lastModifiedDate: null,
+      passwordPolicy: null,
     });
     const user = userEvent.setup();
     renderSection();

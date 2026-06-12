@@ -131,6 +131,13 @@ describe('CognitoListView', () => {
     fireEvent.change(screen.getByTestId('cognito-create-auto-verified-attributes'), {
       target: { value: 'email' },
     });
+    fireEvent.change(screen.getByTestId('cognito-create-password-length'), {
+      target: { value: '10' },
+    });
+    fireEvent.click(screen.getByTestId('cognito-create-require-uppercase'));
+    fireEvent.click(screen.getByTestId('cognito-create-require-lowercase'));
+    fireEvent.click(screen.getByTestId('cognito-create-require-numbers'));
+    fireEvent.click(screen.getByTestId('cognito-create-require-symbols'));
 
     fireEvent.click(screen.getByTestId('cognito-create-submit'));
 
@@ -141,6 +148,13 @@ describe('CognitoListView', () => {
       mfaConfiguration: 'OPTIONAL',
       usernameAttributes: ['email', 'phone_number'],
       autoVerifiedAttributes: ['email'],
+      passwordPolicy: {
+        minimumLength: 10,
+        requireUppercase: false,
+        requireLowercase: false,
+        requireNumbers: false,
+        requireSymbols: true,
+      },
     });
     expect(getUserPoolsMock).toHaveBeenCalledTimes(2);
     expect(screen.queryByTestId('cognito-create-form')).not.toBeInTheDocument();
@@ -166,6 +180,9 @@ describe('CognitoListView', () => {
     await waitFor(() => expect(screen.getByTestId('cognito-list-view')).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId('cognito-create-toggle'));
+    fireEvent.change(screen.getByTestId('cognito-create-password-length'), {
+      target: { value: '' },
+    });
     fireEvent.click(screen.getByTestId('cognito-create-submit'));
 
     await waitFor(() => expect(screen.getByTestId('cognito-create-error')).toBeInTheDocument());

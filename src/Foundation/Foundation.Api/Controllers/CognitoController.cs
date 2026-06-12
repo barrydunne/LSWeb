@@ -1,14 +1,23 @@
 using AspNet.KickStarter.FunctionalResult.Extensions;
 using Foundation.Api.Models;
+using Foundation.Application.Commands.CreateCognitoUser;
 using Foundation.Application.Commands.CreateUserPool;
 using Foundation.Application.Commands.CreateUserPoolClient;
+using Foundation.Application.Commands.DeleteCognitoUser;
 using Foundation.Application.Commands.DeleteUserPool;
 using Foundation.Application.Commands.DeleteUserPoolClient;
+using Foundation.Application.Commands.RegenerateUserPoolClientSecret;
+using Foundation.Application.Commands.SetCognitoUserEnabled;
+using Foundation.Application.Commands.SetCognitoUserPassword;
 using Foundation.Application.Commands.UpdateUserPoolClient;
+using Foundation.Application.Queries.GetUser;
 using Foundation.Application.Queries.GetUserPool;
 using Foundation.Application.Queries.GetUserPoolClient;
 using Foundation.Application.Queries.ListUserPoolClients;
 using Foundation.Application.Queries.ListUserPools;
+using Foundation.Application.Queries.ListUsers;
+using Foundation.Application.Queries.RequestCognitoToken;
+using Foundation.Domain.Cognito;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -83,7 +92,8 @@ public partial class CognitoController : ControllerBase
                 userPool.UserPool.UsernameAttributes,
                 userPool.UserPool.AutoVerifiedAttributes,
                 userPool.UserPool.CreationDate,
-                userPool.UserPool.LastModifiedDate)),
+                userPool.UserPool.LastModifiedDate,
+                ToPasswordPolicyModel(userPool.UserPool.PasswordPolicy))),
             error => error.AsHttpResult());
     }
 
@@ -104,7 +114,8 @@ public partial class CognitoController : ControllerBase
                 request.Name,
                 request.MfaConfiguration,
                 request.UsernameAttributes ?? [],
-                request.AutoVerifiedAttributes ?? []),
+                request.AutoVerifiedAttributes ?? [],
+                ToPasswordPolicy(request.PasswordPolicy)),
             cancellationToken);
         LogCreateUserPoolHandled(result.IsSuccess);
         return result.Match(
@@ -257,6 +268,26 @@ public partial class CognitoController : ControllerBase
             error => error.AsHttpResult());
     }
 
+    /// <summary>
+    /// Regenerates the client secret of an Amazon Cognito user pool app client by recreating it.
+    /// The recreated client has a new identifier and a freshly generated secret.
+    /// </summary>
+    /// <param name="poolId">The identifier of the user pool the app client belongs to.</param>
+    /// <param name="clientId">The unique identifier of the app client whose secret should be regenerated.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 200 result carrying the recreated app client details with the new secret.</returns>
+    [HttpPost("user-pools/{poolId}/clients/{clientId}/regenerate-secret")]
+    [ProducesResponseType(typeof(UserPoolClientDetailResponse), StatusCodes.Status200OK)]
+    public async Task<IResult> RegenerateUserPoolClientSecret(string poolId, string clientId, CancellationToken cancellationToken)
+    {
+        LogHandlingRegenerateUserPoolClientSecret(clientId);
+        var result = await _sender.Send(new RegenerateUserPoolClientSecretCommand(poolId, clientId), cancellationToken);
+        LogRegenerateUserPoolClientSecretHandled(result.IsSuccess);
+        return result.Match(
+            client => Results.Ok(ToDetailResponse(client)),
+            error => error.AsHttpResult());
+    }
+
     private static UserPoolClientDetailResponse ToDetailResponse(Foundation.Domain.Cognito.UserPoolClientDetail client)
         => new(
             client.ClientId,
@@ -271,6 +302,207 @@ public partial class CognitoController : ControllerBase
             client.AllowedOAuthFlowsUserPoolClient,
             client.CreationDate,
             client.LastModifiedDate);
+
+    /// <summary>
+    /// Lists the users within an Amazon Cognito user pool.
+    /// </summary>
+    /// <param name="poolId">The identifier of the user pool whose users should be listed.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 200 result carrying the user summaries.</returns>
+    [HttpGet("user-pools/{poolId}/users")]
+    [ProducesResponseType(typeof(CognitoUserListResponse), StatusCodes.Status200OK)]
+    public async Task<IResult> ListUsers(string poolId, CancellationToken cancellationToken)
+    {
+        LogHandlingListUsers(poolId);
+        var result = await _sender.Send(new ListUsersQuery(poolId), cancellationToken);
+        LogListUsersHandled(result.IsSuccess);
+        return result.Match(
+            users => Results.Ok(new CognitoUserListResponse(
+                users.Users
+                    .Select(user => new CognitoUserSummaryResponse(
+                        user.Username,
+                        user.Status,
+                        user.Enabled,
+                        user.CreatedDate))
+                    .ToList())),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Gets the details of a single Amazon Cognito user by its username.
+    /// </summary>
+    /// <param name="poolId">The identifier of the user pool the user belongs to.</param>
+    /// <param name="username">The unique username of the user to read.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 200 result carrying the user details.</returns>
+    [HttpGet("user-pools/{poolId}/users/{username}")]
+    [ProducesResponseType(typeof(CognitoUserDetailResponse), StatusCodes.Status200OK)]
+    public async Task<IResult> GetUser(string poolId, string username, CancellationToken cancellationToken)
+    {
+        LogHandlingGetUser(poolId, username);
+        var result = await _sender.Send(new GetUserQuery(poolId, username), cancellationToken);
+        LogGetUserHandled(result.IsSuccess);
+        return result.Match(
+            user => Results.Ok(ToUserDetailResponse(user.User)),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Creates a new user within an Amazon Cognito user pool.
+    /// </summary>
+    /// <param name="poolId">The identifier of the user pool to create the user in.</param>
+    /// <param name="request">The user configuration to create.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 201 result carrying the new user details.</returns>
+    [HttpPost("user-pools/{poolId}/users")]
+    [ProducesResponseType(typeof(CognitoUserDetailResponse), StatusCodes.Status201Created)]
+    public async Task<IResult> CreateUser(
+        string poolId, [FromBody] CognitoUserCreateRequest request, CancellationToken cancellationToken)
+    {
+        LogHandlingCreateUser(request.Username);
+        var result = await _sender.Send(
+            new CreateCognitoUserCommand(
+                poolId,
+                request.Username,
+                (request.Attributes ?? [])
+                    .Select(attribute => new CognitoUserAttributeEntry(attribute.Name, attribute.Value))
+                    .ToList(),
+                request.TemporaryPassword),
+            cancellationToken);
+        LogCreateUserHandled(result.IsSuccess);
+        return result.Match(
+            user => Results.Created(
+                $"/api/services/cognito/user-pools/{Uri.EscapeDataString(poolId)}/users/{Uri.EscapeDataString(user.Username)}",
+                ToUserDetailResponse(user)),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Deletes a user from an Amazon Cognito user pool. This action cannot be undone.
+    /// </summary>
+    /// <param name="poolId">The identifier of the user pool the user belongs to.</param>
+    /// <param name="username">The unique username of the user to delete.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 204 result on success.</returns>
+    [HttpDelete("user-pools/{poolId}/users/{username}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IResult> DeleteUser(string poolId, string username, CancellationToken cancellationToken)
+    {
+        LogHandlingDeleteUser(username);
+        var result = await _sender.Send(new DeleteCognitoUserCommand(poolId, username), cancellationToken);
+        LogDeleteUserHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.NoContent(),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Sets the password of an Amazon Cognito user.
+    /// </summary>
+    /// <param name="poolId">The identifier of the user pool the user belongs to.</param>
+    /// <param name="username">The unique username of the user.</param>
+    /// <param name="request">The password configuration to apply.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 204 result on success.</returns>
+    [HttpPut("user-pools/{poolId}/users/{username}/password")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IResult> SetUserPassword(
+        string poolId, string username, [FromBody] CognitoUserPasswordRequest request, CancellationToken cancellationToken)
+    {
+        LogHandlingSetUserPassword(username);
+        var result = await _sender.Send(
+            new SetCognitoUserPasswordCommand(poolId, username, request.Password, request.Permanent),
+            cancellationToken);
+        LogSetUserPasswordHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.NoContent(),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Enables or disables an Amazon Cognito user account.
+    /// </summary>
+    /// <param name="poolId">The identifier of the user pool the user belongs to.</param>
+    /// <param name="username">The unique username of the user.</param>
+    /// <param name="request">The enabled state to apply.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 204 result on success.</returns>
+    [HttpPut("user-pools/{poolId}/users/{username}/enabled")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IResult> SetUserEnabled(
+        string poolId, string username, [FromBody] CognitoUserEnabledRequest request, CancellationToken cancellationToken)
+    {
+        LogHandlingSetUserEnabled(username);
+        var result = await _sender.Send(
+            new SetCognitoUserEnabledCommand(poolId, username, request.Enabled),
+            cancellationToken);
+        LogSetUserEnabledHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.NoContent(),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Requests bearer tokens for an Amazon Cognito app client and decodes the identity token claims.
+    /// </summary>
+    /// <param name="poolId">The identifier of the user pool the app client belongs to.</param>
+    /// <param name="clientId">The identifier of the app client to authenticate against.</param>
+    /// <param name="request">The credentials to authenticate with.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 200 result carrying the issued tokens and decoded claims.</returns>
+    [HttpPost("user-pools/{poolId}/clients/{clientId}/token")]
+    [ProducesResponseType(typeof(CognitoTokenResponse), StatusCodes.Status200OK)]
+    public async Task<IResult> RequestToken(
+        string poolId, string clientId, [FromBody] CognitoTokenRequest request, CancellationToken cancellationToken)
+    {
+        LogHandlingRequestToken(clientId, request.Username);
+        var result = await _sender.Send(
+            new RequestCognitoTokenQuery(poolId, clientId, request.Username, request.Password),
+            cancellationToken);
+        LogRequestTokenHandled(result.IsSuccess);
+        return result.Match(
+            token => Results.Ok(new CognitoTokenResponse(
+                token.Token.AccessToken,
+                token.Token.IdToken,
+                token.Token.RefreshToken,
+                token.Token.TokenType,
+                token.Token.ExpiresIn,
+                token.Token.Claims
+                    .Select(claim => new CognitoUserAttributeResponse(claim.Name, claim.Value))
+                    .ToList())),
+            error => error.AsHttpResult());
+    }
+
+    private static CognitoUserDetailResponse ToUserDetailResponse(CognitoUserDetail user)
+        => new(
+            user.Username,
+            user.Status,
+            user.Enabled,
+            user.Attributes
+                .Select(attribute => new CognitoUserAttributeResponse(attribute.Name, attribute.Value))
+                .ToList(),
+            user.CreatedDate,
+            user.LastModifiedDate);
+
+    private static PasswordPolicyModel? ToPasswordPolicyModel(PasswordPolicy? policy)
+        => policy is null
+            ? null
+            : new PasswordPolicyModel(
+                policy.MinimumLength,
+                policy.RequireUppercase,
+                policy.RequireLowercase,
+                policy.RequireNumbers,
+                policy.RequireSymbols);
+
+    private static PasswordPolicy? ToPasswordPolicy(PasswordPolicyModel? policy)
+        => policy is null
+            ? null
+            : new PasswordPolicy(
+                policy.MinimumLength,
+                policy.RequireUppercase,
+                policy.RequireLowercase,
+                policy.RequireNumbers,
+                policy.RequireSymbols);
 
     [LoggerMessage(LogLevel.Trace, "Handling Cognito user pool list request.")]
     private partial void LogHandlingListUserPools();
@@ -325,4 +557,52 @@ public partial class CognitoController : ControllerBase
 
     [LoggerMessage(LogLevel.Trace, "Cognito app client delete request handled. Success: {Success}")]
     private partial void LogDeleteUserPoolClientHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling Cognito app client regenerate secret request for {ClientId}.")]
+    private partial void LogHandlingRegenerateUserPoolClientSecret(string clientId);
+
+    [LoggerMessage(LogLevel.Trace, "Cognito app client regenerate secret request handled. Success: {Success}")]
+    private partial void LogRegenerateUserPoolClientSecretHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling Cognito user list request for {PoolId}.")]
+    private partial void LogHandlingListUsers(string poolId);
+
+    [LoggerMessage(LogLevel.Trace, "Cognito user list request handled. Success: {Success}")]
+    private partial void LogListUsersHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling Cognito user get request for {PoolId}/{Username}.")]
+    private partial void LogHandlingGetUser(string poolId, string username);
+
+    [LoggerMessage(LogLevel.Trace, "Cognito user get request handled. Success: {Success}")]
+    private partial void LogGetUserHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling Cognito user create request for {Username}.")]
+    private partial void LogHandlingCreateUser(string username);
+
+    [LoggerMessage(LogLevel.Trace, "Cognito user create request handled. Success: {Success}")]
+    private partial void LogCreateUserHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling Cognito user delete request for {Username}.")]
+    private partial void LogHandlingDeleteUser(string username);
+
+    [LoggerMessage(LogLevel.Trace, "Cognito user delete request handled. Success: {Success}")]
+    private partial void LogDeleteUserHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling Cognito user password request for {Username}.")]
+    private partial void LogHandlingSetUserPassword(string username);
+
+    [LoggerMessage(LogLevel.Trace, "Cognito user password request handled. Success: {Success}")]
+    private partial void LogSetUserPasswordHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling Cognito user enabled request for {Username}.")]
+    private partial void LogHandlingSetUserEnabled(string username);
+
+    [LoggerMessage(LogLevel.Trace, "Cognito user enabled request handled. Success: {Success}")]
+    private partial void LogSetUserEnabledHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling Cognito token request for client {ClientId} and user {Username}.")]
+    private partial void LogHandlingRequestToken(string clientId, string username);
+
+    [LoggerMessage(LogLevel.Trace, "Cognito token request handled. Success: {Success}")]
+    private partial void LogRequestTokenHandled(bool success);
 }

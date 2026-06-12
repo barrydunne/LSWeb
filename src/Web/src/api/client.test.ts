@@ -247,6 +247,14 @@ import {
   createUserPoolClient,
   updateUserPoolClient,
   deleteUserPoolClient,
+  regenerateUserPoolClientSecret,
+  requestCognitoToken,
+  getCognitoUsers,
+  getCognitoUser,
+  createCognitoUser,
+  deleteCognitoUser,
+  setCognitoUserPassword,
+  setCognitoUserEnabled,
   getHttpApis,
   getHttpApi,
   createHttpApi,
@@ -8669,6 +8677,13 @@ describe('createUserPool', () => {
       mfaConfiguration: 'OFF',
       usernameAttributes: ['email'],
       autoVerifiedAttributes: ['email'],
+      passwordPolicy: {
+        minimumLength: 8,
+        requireUppercase: true,
+        requireLowercase: true,
+        requireNumbers: true,
+        requireSymbols: false,
+      },
     };
 
     const result = await createUserPool(request, controller.signal);
@@ -8691,6 +8706,7 @@ describe('createUserPool', () => {
         mfaConfiguration: null,
         usernameAttributes: [],
         autoVerifiedAttributes: [],
+        passwordPolicy: null,
       }),
     ).rejects.toThrow('Cognito user pool create request failed with status 400');
   });
@@ -8945,6 +8961,311 @@ describe('deleteUserPoolClient', () => {
 
     await expect(deleteUserPoolClient('eu-west-1_abc123', 'missing')).rejects.toThrow(
       'Cognito user pool client delete request failed with status 404',
+    );
+  });
+});
+
+describe('regenerateUserPoolClientSecret', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the regenerate request and returns the recreated client', async () => {
+    const payload = {
+      clientId: 'client-2',
+      clientName: 'web',
+      userPoolId: 'eu-west-1_abc123',
+      clientSecret: 'new-secret',
+      generateSecret: true,
+      explicitAuthFlows: ['ALLOW_USER_SRP_AUTH'],
+      allowedOAuthFlows: ['code'],
+      allowedOAuthScopes: ['openid'],
+      callbackURLs: ['https://app/callback'],
+      allowedOAuthFlowsUserPoolClient: true,
+      creationDate: '2024-01-01T00:00:00+00:00',
+      lastModifiedDate: '2024-01-01T00:00:00+00:00',
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await regenerateUserPoolClientSecret('eu-west-1_abc 123', 'client 1', controller.signal);
+
+    expect(result.clientId).toBe('client-2');
+    expect(result.clientSecret).toBe('new-secret');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cognito/user-pools/eu-west-1_abc%20123/clients/client%201/regenerate-secret',
+      {
+        method: 'POST',
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      regenerateUserPoolClientSecret('eu-west-1_abc123', 'client-1'),
+    ).rejects.toThrow('Cognito user pool client secret regenerate request failed with status 400');
+  });
+});
+
+describe('requestCognitoToken', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the credentials and returns the issued tokens', async () => {
+    const payload = {
+      accessToken: 'access-token',
+      idToken: 'id-token',
+      refreshToken: 'refresh-token',
+      tokenType: 'Bearer',
+      expiresIn: 3600,
+      claims: [{ name: 'sub', value: 'abc' }],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const request = { username: 'alice', password: 'Passw0rd!' };
+
+    const result = await requestCognitoToken('eu-west-1_abc 123', 'client 1', request, controller.signal);
+
+    expect(result.accessToken).toBe('access-token');
+    expect(result.claims[0].name).toBe('sub');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cognito/user-pools/eu-west-1_abc%20123/clients/client%201/token',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      requestCognitoToken('eu-west-1_abc123', 'client-1', { username: 'alice', password: 'x' }),
+    ).rejects.toThrow('Cognito token request failed with status 400');
+  });
+});
+
+describe('getCognitoUsers', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed users with the encoded pool id when the request succeeds', async () => {
+    const payload = {
+      users: [
+        { username: 'alice', status: 'CONFIRMED', enabled: true, createdDate: '2024-01-01T00:00:00+00:00' },
+      ],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getCognitoUsers('eu-west-1_abc 123', controller.signal);
+
+    expect(result.users).toHaveLength(1);
+    expect(result.users[0].username).toBe('alice');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cognito/user-pools/eu-west-1_abc%20123/users',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getCognitoUsers('eu-west-1_abc123')).rejects.toThrow(
+      'Cognito users request failed with status 503',
+    );
+  });
+});
+
+describe('getCognitoUser', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed user with encoded ids when the request succeeds', async () => {
+    const payload = {
+      username: 'alice',
+      status: 'CONFIRMED',
+      enabled: true,
+      attributes: [{ name: 'email', value: 'alice@example.com' }],
+      createdDate: '2024-01-01T00:00:00+00:00',
+      lastModifiedDate: '2024-01-02T00:00:00+00:00',
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await getCognitoUser('eu-west-1_abc 123', 'alice b', controller.signal);
+
+    expect(result.username).toBe('alice');
+    expect(result.attributes[0].name).toBe('email');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cognito/user-pools/eu-west-1_abc%20123/users/alice%20b',
+      { signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getCognitoUser('eu-west-1_abc123', 'missing')).rejects.toThrow(
+      'Cognito user request failed with status 404',
+    );
+  });
+});
+
+describe('createCognitoUser', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the user create request and returns the created user', async () => {
+    const payload = {
+      username: 'alice',
+      status: 'FORCE_CHANGE_PASSWORD',
+      enabled: true,
+      attributes: [{ name: 'email', value: 'alice@example.com' }],
+      createdDate: '2024-01-01T00:00:00+00:00',
+      lastModifiedDate: '2024-01-01T00:00:00+00:00',
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const request = {
+      username: 'alice',
+      attributes: [{ name: 'email', value: 'alice@example.com' }],
+      temporaryPassword: 'Temp123!',
+    };
+
+    const result = await createCognitoUser('eu-west-1_abc 123', request, controller.signal);
+
+    expect(result.username).toBe('alice');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cognito/user-pools/eu-west-1_abc%20123/users',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      createCognitoUser('eu-west-1_abc123', {
+        username: 'alice',
+        attributes: [],
+        temporaryPassword: null,
+      }),
+    ).rejects.toThrow('Cognito user create request failed with status 400');
+  });
+});
+
+describe('deleteCognitoUser', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('deletes the user with encoded ids', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await deleteCognitoUser('eu-west-1_abc 123', 'alice b', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cognito/user-pools/eu-west-1_abc%20123/users/alice%20b',
+      {
+        method: 'DELETE',
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(deleteCognitoUser('eu-west-1_abc123', 'missing')).rejects.toThrow(
+      'Cognito user delete request failed with status 404',
+    );
+  });
+});
+
+describe('setCognitoUserPassword', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the password request with encoded ids', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+    const request = { password: 'NewPass1!', permanent: true };
+
+    await setCognitoUserPassword('eu-west-1_abc 123', 'alice b', request, controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cognito/user-pools/eu-west-1_abc%20123/users/alice%20b/password',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      setCognitoUserPassword('eu-west-1_abc123', 'alice', { password: 'NewPass1!', permanent: false }),
+    ).rejects.toThrow('Cognito user password request failed with status 400');
+  });
+});
+
+describe('setCognitoUserEnabled', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the enabled request with encoded ids', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await setCognitoUserEnabled('eu-west-1_abc 123', 'alice b', false, controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/cognito/user-pools/eu-west-1_abc%20123/users/alice%20b/enabled',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: false }),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(setCognitoUserEnabled('eu-west-1_abc123', 'alice', true)).rejects.toThrow(
+      'Cognito user enabled request failed with status 400',
     );
   });
 });

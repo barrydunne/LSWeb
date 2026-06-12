@@ -6,9 +6,12 @@ import { CognitoDetailView } from './CognitoDetailView';
 import {
   createUserPoolClient,
   deleteUserPoolClient,
+  getCognitoUsers,
   getUserPool,
   getUserPoolClient,
   getUserPoolClients,
+  regenerateUserPoolClientSecret,
+  requestCognitoToken,
   updateUserPoolClient,
 } from '../../api/client';
 import type {
@@ -25,6 +28,9 @@ const getUserPoolClientMock = vi.mocked(getUserPoolClient);
 const createUserPoolClientMock = vi.mocked(createUserPoolClient);
 const updateUserPoolClientMock = vi.mocked(updateUserPoolClient);
 const deleteUserPoolClientMock = vi.mocked(deleteUserPoolClient);
+const getCognitoUsersMock = vi.mocked(getCognitoUsers);
+const regenerateUserPoolClientSecretMock = vi.mocked(regenerateUserPoolClientSecret);
+const requestCognitoTokenMock = vi.mocked(requestCognitoToken);
 
 const detailResult: UserPoolDetailResult = {
   id: 'eu-west-1_abc123',
@@ -36,6 +42,13 @@ const detailResult: UserPoolDetailResult = {
   autoVerifiedAttributes: ['email'],
   creationDate: '2024-01-01T00:00:00+00:00',
   lastModifiedDate: '2024-01-02T00:00:00+00:00',
+  passwordPolicy: {
+    minimumLength: 8,
+    requireUppercase: true,
+    requireLowercase: true,
+    requireNumbers: false,
+    requireSymbols: false,
+  },
 };
 
 const clientsResult: UserPoolClientListResult = {
@@ -57,6 +70,12 @@ const clientDetailResult: UserPoolClientDetailResult = {
   lastModifiedDate: '2024-01-02T00:00:00+00:00',
 };
 
+const regeneratedClientDetailResult: UserPoolClientDetailResult = {
+  ...clientDetailResult,
+  clientId: 'client-2',
+  clientSecret: 'rotated-secret',
+};
+
 function renderView(resourceId = 'eu-west-1_abc123') {
   return render(
     <MemoryRouter>
@@ -73,6 +92,7 @@ describe('CognitoDetailView', () => {
     createUserPoolClientMock.mockResolvedValue(clientDetailResult);
     updateUserPoolClientMock.mockResolvedValue(undefined);
     deleteUserPoolClientMock.mockResolvedValue(undefined);
+    getCognitoUsersMock.mockResolvedValue({ users: [] });
   });
 
   afterEach(() => {
@@ -127,6 +147,9 @@ describe('CognitoDetailView', () => {
     expect(screen.getByTestId('cognito-detail-modified')).toHaveTextContent(
       '2024-01-02T00:00:00+00:00',
     );
+    expect(screen.getByTestId('cognito-detail-password-policy')).toHaveTextContent(
+      'Min 8; uppercase, lowercase',
+    );
   });
 
   it('renders placeholders when optional fields are absent', async () => {
@@ -139,6 +162,7 @@ describe('CognitoDetailView', () => {
       autoVerifiedAttributes: [],
       creationDate: null,
       lastModifiedDate: null,
+      passwordPolicy: null,
     });
 
     renderView();
@@ -152,6 +176,49 @@ describe('CognitoDetailView', () => {
     expect(screen.getByTestId('cognito-detail-auto-verified-attributes')).toHaveTextContent('—');
     expect(screen.getByTestId('cognito-detail-created')).toHaveTextContent('—');
     expect(screen.getByTestId('cognito-detail-modified')).toHaveTextContent('—');
+    expect(screen.getByTestId('cognito-detail-password-policy')).toHaveTextContent('—');
+  });
+
+  it('shows the password policy with no complexity rules', async () => {
+    getUserPoolMock.mockResolvedValue({
+      ...detailResult,
+      passwordPolicy: {
+        minimumLength: 6,
+        requireUppercase: false,
+        requireLowercase: false,
+        requireNumbers: false,
+        requireSymbols: false,
+      },
+    });
+
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('cognito-detail-view')).toBeInTheDocument());
+
+    expect(screen.getByTestId('cognito-detail-password-policy')).toHaveTextContent(
+      'Min 6; no complexity rules',
+    );
+  });
+
+  it('shows the password policy requiring numbers and symbols', async () => {
+    getUserPoolMock.mockResolvedValue({
+      ...detailResult,
+      passwordPolicy: {
+        minimumLength: 12,
+        requireUppercase: false,
+        requireLowercase: false,
+        requireNumbers: true,
+        requireSymbols: true,
+      },
+    });
+
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('cognito-detail-view')).toBeInTheDocument());
+
+    expect(screen.getByTestId('cognito-detail-password-policy')).toHaveTextContent(
+      'Min 12; numbers, symbols',
+    );
   });
 });
 
@@ -163,6 +230,8 @@ describe('CognitoDetailView app clients', () => {
     createUserPoolClientMock.mockResolvedValue(clientDetailResult);
     updateUserPoolClientMock.mockResolvedValue(undefined);
     deleteUserPoolClientMock.mockResolvedValue(undefined);
+    getCognitoUsersMock.mockResolvedValue({ users: [] });
+    regenerateUserPoolClientSecretMock.mockResolvedValue(regeneratedClientDetailResult);
   });
 
   afterEach(() => {
@@ -211,7 +280,9 @@ describe('CognitoDetailView app clients', () => {
     await user.click(screen.getByTestId('cognito-client-create-toggle'));
     await user.type(screen.getByTestId('cognito-client-create-name'), 'mobile');
     await user.click(screen.getByTestId('cognito-client-create-generate-secret'));
-    await user.type(screen.getByTestId('cognito-client-create-auth-flows'), 'ALLOW_USER_SRP_AUTH');
+    await user.click(
+      screen.getByTestId('cognito-client-create-auth-flow-ALLOW_USER_SRP_AUTH'),
+    );
     await user.type(screen.getByTestId('cognito-client-create-oauth-flows'), 'code');
     await user.type(screen.getByTestId('cognito-client-create-oauth-scopes'), 'openid, email');
     await user.type(screen.getByTestId('cognito-client-create-callbacks'), 'https://app/callback');
@@ -364,9 +435,12 @@ describe('CognitoDetailView app clients', () => {
     await user.clear(nameInput);
     await user.type(nameInput, 'web-renamed');
 
-    const authFlows = screen.getByTestId('cognito-client-edit-auth-flows');
-    await user.clear(authFlows);
-    await user.type(authFlows, 'ALLOW_USER_PASSWORD_AUTH');
+    await user.click(
+      screen.getByTestId('cognito-client-edit-auth-flow-ALLOW_USER_SRP_AUTH'),
+    );
+    await user.click(
+      screen.getByTestId('cognito-client-edit-auth-flow-ALLOW_USER_PASSWORD_AUTH'),
+    );
 
     const oauthFlows = screen.getByTestId('cognito-client-edit-oauth-flows');
     await user.clear(oauthFlows);
@@ -467,5 +541,127 @@ describe('CognitoDetailView app clients', () => {
     await user.click(screen.getByTestId('confirm-accept'));
 
     await waitFor(() => expect(screen.getByTestId('cognito-clients-error')).toBeInTheDocument());
+  });
+
+  it('regenerates the client secret and reveals the new one', async () => {
+    const user = userEvent.setup();
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('cognito-clients-list')).toBeInTheDocument());
+
+    await user.click(screen.getByTestId('cognito-client-view'));
+    await waitFor(() => expect(screen.getByTestId('cognito-client-detail')).toBeInTheDocument());
+
+    await user.click(screen.getByTestId('cognito-client-regenerate-secret'));
+
+    await waitFor(() =>
+      expect(regenerateUserPoolClientSecretMock).toHaveBeenCalledWith('eu-west-1_abc123', 'client-1'),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('cognito-client-detail-id')).toHaveTextContent('client-2'),
+    );
+    expect(screen.getByTestId('cognito-client-detail-secret')).toHaveTextContent('rotated-secret');
+    expect(getUserPoolClientsMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('shows an error when regenerating the client secret fails', async () => {
+    regenerateUserPoolClientSecretMock.mockRejectedValue(new Error('boom'));
+    const user = userEvent.setup();
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('cognito-clients-list')).toBeInTheDocument());
+
+    await user.click(screen.getByTestId('cognito-client-view'));
+    await waitFor(() => expect(screen.getByTestId('cognito-client-detail')).toBeInTheDocument());
+
+    await user.click(screen.getByTestId('cognito-client-regenerate-secret'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('cognito-client-regenerate-error')).toBeInTheDocument(),
+    );
+  });
+
+  it('requests a token and shows the issued tokens and claims', async () => {
+    requestCognitoTokenMock.mockResolvedValue({
+      accessToken: 'access-token',
+      idToken: 'id-token',
+      refreshToken: 'refresh-token',
+      tokenType: 'Bearer',
+      expiresIn: 3600,
+      claims: [{ name: 'sub', value: 'abc' }],
+    });
+    const user = userEvent.setup();
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('cognito-clients-list')).toBeInTheDocument());
+
+    await user.click(screen.getByTestId('cognito-client-view'));
+    await waitFor(() => expect(screen.getByTestId('cognito-client-detail')).toBeInTheDocument());
+
+    await user.type(screen.getByTestId('cognito-client-token-username'), 'alice');
+    await user.type(screen.getByTestId('cognito-client-token-password'), 'Passw0rd!');
+    await user.click(screen.getByTestId('cognito-client-token-submit'));
+
+    await waitFor(() =>
+      expect(requestCognitoTokenMock).toHaveBeenCalledWith('eu-west-1_abc123', 'client-1', {
+        username: 'alice',
+        password: 'Passw0rd!',
+      }),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('cognito-client-token-result')).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId('cognito-client-token-access')).toHaveTextContent('access-token');
+    expect(screen.getByTestId('cognito-client-token-id')).toHaveTextContent('id-token');
+    expect(screen.getByTestId('cognito-client-token-refresh')).toHaveTextContent('refresh-token');
+    expect(screen.getByTestId('cognito-client-token-type')).toHaveTextContent('Bearer');
+    expect(screen.getByTestId('cognito-client-token-expires')).toHaveTextContent('3600');
+    expect(screen.getByTestId('cognito-client-token-claims')).toHaveTextContent('sub: abc');
+  });
+
+  it('shows placeholders and no claims when the token response is empty', async () => {
+    requestCognitoTokenMock.mockResolvedValue({
+      accessToken: null,
+      idToken: null,
+      refreshToken: null,
+      tokenType: null,
+      expiresIn: null,
+      claims: [],
+    });
+    const user = userEvent.setup();
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('cognito-clients-list')).toBeInTheDocument());
+
+    await user.click(screen.getByTestId('cognito-client-view'));
+    await waitFor(() => expect(screen.getByTestId('cognito-client-detail')).toBeInTheDocument());
+
+    await user.type(screen.getByTestId('cognito-client-token-username'), 'alice');
+    await user.type(screen.getByTestId('cognito-client-token-password'), 'Passw0rd!');
+    await user.click(screen.getByTestId('cognito-client-token-submit'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('cognito-client-token-claims-empty')).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId('cognito-client-token-access')).toHaveTextContent('—');
+  });
+
+  it('shows an error when the token request fails', async () => {
+    requestCognitoTokenMock.mockRejectedValue(new Error('boom'));
+    const user = userEvent.setup();
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('cognito-clients-list')).toBeInTheDocument());
+
+    await user.click(screen.getByTestId('cognito-client-view'));
+    await waitFor(() => expect(screen.getByTestId('cognito-client-detail')).toBeInTheDocument());
+
+    await user.type(screen.getByTestId('cognito-client-token-username'), 'alice');
+    await user.type(screen.getByTestId('cognito-client-token-password'), 'Passw0rd!');
+    await user.click(screen.getByTestId('cognito-client-token-submit'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('cognito-client-token-error')).toBeInTheDocument(),
+    );
   });
 });

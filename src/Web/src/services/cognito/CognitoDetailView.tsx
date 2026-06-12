@@ -7,9 +7,12 @@ import {
   getUserPool,
   getUserPoolClient,
   getUserPoolClients,
+  regenerateUserPoolClientSecret,
+  requestCognitoToken,
   updateUserPoolClient,
 } from '../../api/client';
 import type {
+  CognitoTokenResult,
   UserPoolClientDetailResult,
   UserPoolClientSummaryItem,
   UserPoolDetailResult,
@@ -17,6 +20,7 @@ import type {
 import type { ServiceDetailViewProps } from '../serviceViewRegistry';
 import { RawJsonViewer } from '../../components/RawJsonViewer';
 import { ConfirmationHost } from '../../components/ConfirmationHost';
+import { CognitoUsersSection } from './CognitoUsersSection';
 
 const containerStyle: CSSProperties = {
   display: 'flex',
@@ -126,8 +130,41 @@ type SaveState = 'idle' | 'saving' | 'error';
 
 const MASKED_SECRET = '\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022';
 
+const EXPLICIT_AUTH_FLOWS = [
+  'ALLOW_USER_PASSWORD_AUTH',
+  'ALLOW_USER_SRP_AUTH',
+  'ALLOW_REFRESH_TOKEN_AUTH',
+  'ALLOW_CUSTOM_AUTH',
+  'ALLOW_ADMIN_USER_PASSWORD_AUTH',
+];
+
+function toggleFlow(flows: string[], flow: string): string[] {
+  return flows.includes(flow) ? flows.filter((entry) => entry !== flow) : [...flows, flow];
+}
+
 function formatAttributes(attributes: string[]): string {
   return attributes.length === 0 ? '—' : attributes.join(', ');
+}
+
+function formatPasswordPolicy(policy: UserPoolDetailResult['passwordPolicy']): string {
+  if (policy === null) {
+    return '—';
+  }
+  const requirements: string[] = [];
+  if (policy.requireUppercase) {
+    requirements.push('uppercase');
+  }
+  if (policy.requireLowercase) {
+    requirements.push('lowercase');
+  }
+  if (policy.requireNumbers) {
+    requirements.push('numbers');
+  }
+  if (policy.requireSymbols) {
+    requirements.push('symbols');
+  }
+  const suffix = requirements.length === 0 ? 'no complexity rules' : requirements.join(', ');
+  return `Min ${policy.minimumLength}; ${suffix}`;
 }
 
 function parseList(value: string): string[] {
@@ -145,7 +182,7 @@ export function CognitoDetailView({ resourceId }: ServiceDetailViewProps) {
   const [showCreate, setShowCreate] = useState(false);
   const [createName, setCreateName] = useState('');
   const [createGenerateSecret, setCreateGenerateSecret] = useState(false);
-  const [createExplicitAuthFlows, setCreateExplicitAuthFlows] = useState('');
+  const [createExplicitAuthFlows, setCreateExplicitAuthFlows] = useState<string[]>([]);
   const [createAllowedOAuthFlows, setCreateAllowedOAuthFlows] = useState('');
   const [createAllowedOAuthScopes, setCreateAllowedOAuthScopes] = useState('');
   const [createCallbackUrls, setCreateCallbackUrls] = useState('');
@@ -155,10 +192,16 @@ export function CognitoDetailView({ resourceId }: ServiceDetailViewProps) {
   const [selectedClient, setSelectedClient] = useState<UserPoolClientDetailResult | null>(null);
   const [selectedState, setSelectedState] = useState<'idle' | 'loading' | 'error'>('idle');
   const [secretRevealed, setSecretRevealed] = useState(false);
+  const [regenerateState, setRegenerateState] = useState<SaveState>('idle');
+
+  const [tokenUsername, setTokenUsername] = useState('');
+  const [tokenPassword, setTokenPassword] = useState('');
+  const [tokenState, setTokenState] = useState<'idle' | 'loading' | 'error'>('idle');
+  const [tokenResult, setTokenResult] = useState<CognitoTokenResult | null>(null);
 
   const [editing, setEditing] = useState(false);
   const [editName, setEditName] = useState('');
-  const [editExplicitAuthFlows, setEditExplicitAuthFlows] = useState('');
+  const [editExplicitAuthFlows, setEditExplicitAuthFlows] = useState<string[]>([]);
   const [editAllowedOAuthFlows, setEditAllowedOAuthFlows] = useState('');
   const [editAllowedOAuthScopes, setEditAllowedOAuthScopes] = useState('');
   const [editCallbackUrls, setEditCallbackUrls] = useState('');
@@ -191,7 +234,7 @@ export function CognitoDetailView({ resourceId }: ServiceDetailViewProps) {
     createUserPoolClient(resourceId, {
       clientName: createName,
       generateSecret: createGenerateSecret,
-      explicitAuthFlows: parseList(createExplicitAuthFlows),
+      explicitAuthFlows: createExplicitAuthFlows,
       allowedOAuthFlows: parseList(createAllowedOAuthFlows),
       allowedOAuthScopes: parseList(createAllowedOAuthScopes),
       callbackURLs: parseList(createCallbackUrls),
@@ -201,7 +244,7 @@ export function CognitoDetailView({ resourceId }: ServiceDetailViewProps) {
         setCreateState('idle');
         setCreateName('');
         setCreateGenerateSecret(false);
-        setCreateExplicitAuthFlows('');
+        setCreateExplicitAuthFlows([]);
         setCreateAllowedOAuthFlows('');
         setCreateAllowedOAuthScopes('');
         setCreateCallbackUrls('');
@@ -217,6 +260,11 @@ export function CognitoDetailView({ resourceId }: ServiceDetailViewProps) {
       setSelectedState('loading');
       setSecretRevealed(false);
       setEditing(false);
+      setRegenerateState('idle');
+      setTokenResult(null);
+      setTokenState('idle');
+      setTokenUsername('');
+      setTokenPassword('');
       getUserPoolClient(resourceId, clientId)
         .then((client) => {
           setSelectedClient(client);
@@ -229,7 +277,7 @@ export function CognitoDetailView({ resourceId }: ServiceDetailViewProps) {
 
   const handleStartEdit = (client: UserPoolClientDetailResult) => {
     setEditName(client.clientName);
-    setEditExplicitAuthFlows(client.explicitAuthFlows.join(', '));
+    setEditExplicitAuthFlows([...client.explicitAuthFlows]);
     setEditAllowedOAuthFlows(client.allowedOAuthFlows.join(', '));
     setEditAllowedOAuthScopes(client.allowedOAuthScopes.join(', '));
     setEditCallbackUrls(client.callbackURLs.join(', '));
@@ -242,7 +290,7 @@ export function CognitoDetailView({ resourceId }: ServiceDetailViewProps) {
     setEditState('saving');
     updateUserPoolClient(resourceId, clientId, {
       clientName: editName,
-      explicitAuthFlows: parseList(editExplicitAuthFlows),
+      explicitAuthFlows: editExplicitAuthFlows,
       allowedOAuthFlows: parseList(editAllowedOAuthFlows),
       allowedOAuthScopes: parseList(editAllowedOAuthScopes),
       callbackURLs: parseList(editCallbackUrls),
@@ -270,6 +318,33 @@ export function CognitoDetailView({ resourceId }: ServiceDetailViewProps) {
     },
     [refreshClients, resourceId],
   );
+
+  const handleRegenerateSecret = (clientId: string) => {
+    setRegenerateState('saving');
+    regenerateUserPoolClientSecret(resourceId, clientId)
+      .then((client) => {
+        setSelectedClient(client);
+        setSecretRevealed(true);
+        setEditing(false);
+        setRegenerateState('idle');
+        refreshClients();
+      })
+      .catch(() => setRegenerateState('error'));
+  };
+
+  const handleRequestToken = (clientId: string) => {
+    setTokenState('loading');
+    setTokenResult(null);
+    requestCognitoToken(resourceId, clientId, {
+      username: tokenUsername,
+      password: tokenPassword,
+    })
+      .then((result) => {
+        setTokenResult(result);
+        setTokenState('idle');
+      })
+      .catch(() => setTokenState('error'));
+  };
 
   if (state.kind === 'loading') {
     return (
@@ -332,6 +407,12 @@ export function CognitoDetailView({ resourceId }: ServiceDetailViewProps) {
           </span>
         </div>
         <div style={rowStyle}>
+          <span style={labelStyle}>Password policy</span>
+          <span data-testid="cognito-detail-password-policy" style={valueStyle}>
+            {formatPasswordPolicy(userPool.passwordPolicy)}
+          </span>
+        </div>
+        <div style={rowStyle}>
           <span style={labelStyle}>Created</span>
           <span data-testid="cognito-detail-created" style={valueStyle}>
             {userPool.creationDate ?? '—'}
@@ -347,6 +428,8 @@ export function CognitoDetailView({ resourceId }: ServiceDetailViewProps) {
           <RawJsonViewer value={userPool} title="Raw user pool" />
         </div>
       </div>
+
+      <CognitoUsersSection poolId={resourceId} />
 
       <div data-testid="cognito-clients-section" style={clientsSectionStyle}>
         <Heading as="h3" style={{ fontSize: 16 }}>
@@ -385,17 +468,20 @@ export function CognitoDetailView({ resourceId }: ServiceDetailViewProps) {
               <span style={labelStyle}>Generate secret</span>
             </label>
             <div style={fieldRowStyle}>
-              <label style={labelStyle} htmlFor="cognito-client-create-auth-flows">
-                Explicit auth flows (comma separated)
-              </label>
-              <input
-                id="cognito-client-create-auth-flows"
-                type="text"
-                data-testid="cognito-client-create-auth-flows"
-                style={inputStyle}
-                value={createExplicitAuthFlows}
-                onChange={(event) => setCreateExplicitAuthFlows(event.target.value)}
-              />
+              <span style={labelStyle}>Explicit auth flows</span>
+              {EXPLICIT_AUTH_FLOWS.map((flow) => (
+                <label key={flow} style={checkboxRowStyle}>
+                  <input
+                    type="checkbox"
+                    data-testid={`cognito-client-create-auth-flow-${flow}`}
+                    checked={createExplicitAuthFlows.includes(flow)}
+                    onChange={() =>
+                      setCreateExplicitAuthFlows((current) => toggleFlow(current, flow))
+                    }
+                  />
+                  <span style={labelStyle}>{flow}</span>
+                </label>
+              ))}
             </div>
             <div style={fieldRowStyle}>
               <label style={labelStyle} htmlFor="cognito-client-create-oauth-flows">
@@ -551,6 +637,22 @@ export function CognitoDetailView({ resourceId }: ServiceDetailViewProps) {
                 )}
               </div>
             </div>
+            <div style={checkboxRowStyle}>
+              <button
+                type="button"
+                data-testid="cognito-client-regenerate-secret"
+                style={buttonStyle}
+                disabled={regenerateState === 'saving'}
+                onClick={() => handleRegenerateSecret(selectedClient.clientId)}
+              >
+                {regenerateState === 'saving' ? 'Regenerating\u2026' : 'Regenerate secret'}
+              </button>
+              {regenerateState === 'error' ? (
+                <span data-testid="cognito-client-regenerate-error" style={messageStyle}>
+                  Unable to regenerate the secret.
+                </span>
+              ) : null}
+            </div>
             <div style={rowStyle}>
               <span style={labelStyle}>Explicit auth flows</span>
               <span data-testid="cognito-client-detail-auth-flows" style={valueStyle}>
@@ -599,17 +701,20 @@ export function CognitoDetailView({ resourceId }: ServiceDetailViewProps) {
                   />
                 </div>
                 <div style={fieldRowStyle}>
-                  <label style={labelStyle} htmlFor="cognito-client-edit-auth-flows">
-                    Explicit auth flows (comma separated)
-                  </label>
-                  <input
-                    id="cognito-client-edit-auth-flows"
-                    type="text"
-                    data-testid="cognito-client-edit-auth-flows"
-                    style={inputStyle}
-                    value={editExplicitAuthFlows}
-                    onChange={(event) => setEditExplicitAuthFlows(event.target.value)}
-                  />
+                  <span style={labelStyle}>Explicit auth flows</span>
+                  {EXPLICIT_AUTH_FLOWS.map((flow) => (
+                    <label key={flow} style={checkboxRowStyle}>
+                      <input
+                        type="checkbox"
+                        data-testid={`cognito-client-edit-auth-flow-${flow}`}
+                        checked={editExplicitAuthFlows.includes(flow)}
+                        onChange={() =>
+                          setEditExplicitAuthFlows((current) => toggleFlow(current, flow))
+                        }
+                      />
+                      <span style={labelStyle}>{flow}</span>
+                    </label>
+                  ))}
                 </div>
                 <div style={fieldRowStyle}>
                   <label style={labelStyle} htmlFor="cognito-client-edit-oauth-flows">
@@ -675,6 +780,99 @@ export function CognitoDetailView({ resourceId }: ServiceDetailViewProps) {
                 ) : null}
               </div>
             ) : null}
+            <div data-testid="cognito-client-token-section" style={formStyle}>
+              <span style={labelStyle}>Token endpoint testing</span>
+              <div style={fieldRowStyle}>
+                <label style={labelStyle} htmlFor="cognito-client-token-username">
+                  Username
+                </label>
+                <input
+                  id="cognito-client-token-username"
+                  type="text"
+                  data-testid="cognito-client-token-username"
+                  style={inputStyle}
+                  value={tokenUsername}
+                  onChange={(event) => setTokenUsername(event.target.value)}
+                />
+              </div>
+              <div style={fieldRowStyle}>
+                <label style={labelStyle} htmlFor="cognito-client-token-password">
+                  Password
+                </label>
+                <input
+                  id="cognito-client-token-password"
+                  type="password"
+                  data-testid="cognito-client-token-password"
+                  style={inputStyle}
+                  value={tokenPassword}
+                  onChange={(event) => setTokenPassword(event.target.value)}
+                />
+              </div>
+              <button
+                type="button"
+                data-testid="cognito-client-token-submit"
+                style={buttonStyle}
+                disabled={tokenState === 'loading'}
+                onClick={() => handleRequestToken(selectedClient.clientId)}
+              >
+                {tokenState === 'loading' ? 'Requesting\u2026' : 'Request token'}
+              </button>
+              {tokenState === 'error' ? (
+                <p data-testid="cognito-client-token-error" style={messageStyle}>
+                  Unable to request a token.
+                </p>
+              ) : null}
+              {tokenState === 'idle' && tokenResult !== null ? (
+                <div data-testid="cognito-client-token-result" style={sectionStyle}>
+                  <div style={rowStyle}>
+                    <span style={labelStyle}>Access token</span>
+                    <span data-testid="cognito-client-token-access" style={valueStyle}>
+                      {tokenResult.accessToken ?? '—'}
+                    </span>
+                  </div>
+                  <div style={rowStyle}>
+                    <span style={labelStyle}>ID token</span>
+                    <span data-testid="cognito-client-token-id" style={valueStyle}>
+                      {tokenResult.idToken ?? '—'}
+                    </span>
+                  </div>
+                  <div style={rowStyle}>
+                    <span style={labelStyle}>Refresh token</span>
+                    <span data-testid="cognito-client-token-refresh" style={valueStyle}>
+                      {tokenResult.refreshToken ?? '—'}
+                    </span>
+                  </div>
+                  <div style={rowStyle}>
+                    <span style={labelStyle}>Token type</span>
+                    <span data-testid="cognito-client-token-type" style={valueStyle}>
+                      {tokenResult.tokenType ?? '—'}
+                    </span>
+                  </div>
+                  <div style={rowStyle}>
+                    <span style={labelStyle}>Expires in</span>
+                    <span data-testid="cognito-client-token-expires" style={valueStyle}>
+                      {tokenResult.expiresIn ?? '—'}
+                    </span>
+                  </div>
+                  <div style={rowStyle}>
+                    <span style={labelStyle}>Claims</span>
+                    {tokenResult.claims.length === 0 ? (
+                      <span data-testid="cognito-client-token-claims-empty" style={valueStyle}>
+                        —
+                      </span>
+                    ) : (
+                      <div data-testid="cognito-client-token-claims" style={sectionStyle}>
+                        {tokenResult.claims.map((claim) => (
+                          <span key={claim.name} style={valueStyle}>
+                            {claim.name}: {claim.value}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
           </div>
         ) : null}
       </div>

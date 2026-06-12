@@ -46,7 +46,7 @@ internal sealed partial class CreateUserPoolCommandHandler : ICommandHandler<Cre
             cancellationToken);
 
         var specification = new UserPoolSpecification(
-            request.Name, request.MfaConfiguration, request.UsernameAttributes, request.AutoVerifiedAttributes);
+            request.Name, request.MfaConfiguration, request.UsernameAttributes, request.AutoVerifiedAttributes, request.PasswordPolicy);
         var result = await _client.CreateUserPoolAsync(specification, cancellationToken);
         if (!result.IsSuccess)
         {

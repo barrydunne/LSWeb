@@ -1,0 +1,1505 @@
+
+[1m[46m RUN [49m[22m [36mv3.2.6 [39m[90mC:/Dev/LocalStackWeb/src/Web[39m
+      [2mCoverage enabled with [22m[33mv8[39m
+
+ [32mΓ£ô[39m src/services/apigateway/ApiGatewayStagesSection.test.tsx [2m([22m[2m21 tests[22m[2m)[22m[33m 3411[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m ApiGatewayStagesSection[2m > [22mcreates a deployment with a description [33m 317[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m ApiGatewayStagesSection[2m > [22mcreates a stage from the selected deployment [33m 519[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m ApiGatewayStagesSection[2m > [22mupdates a stage from the detail panel [33m 591[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m ApiGatewayStagesSection[2m > [22mupdates a stage with a null description and ignores malformed variable lines [33m 586[2mms[22m[39m
+ [32mΓ£ô[39m src/services/apigateway/ApiGatewayResourcesSection.test.tsx [2m([22m[2m35 tests[22m[2m)[22m[33m 4176[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m ApiGatewayResourcesSection[2m > [22madds a resource under the root when no parent is selected [33m 308[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m ApiGatewayResourcesSection[2m > [22madds a method with the selected http method and authorization type [33m 1027[2mms[22m[39m
+stderr | src/services/cognito/CognitoDetailView.test.tsx > CognitoDetailView > shows a loading state before the user pool arrives
+An update to CognitoDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/apigatewayv2/ApiGatewayV2DetailView.test.tsx > ApiGatewayV2DetailView > shows a loading state before the API arrives
+An update to ApiGatewayV2DetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to ApiGatewayV2DetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to ApiGatewayV2DetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to ApiGatewayV2DetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/scheduler/SchedulerListView.test.tsx > SchedulerListView > shows a loading state before schedules arrive
+An update to SchedulerListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/eventbridge/EventBridgeListView.test.tsx > EventBridgeListView > shows a loading state before rules arrive
+An update to ScheduledRulesSection inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/components/GlobalSearchBar.test.tsx > GlobalSearchBar > renders the search input without a results panel initially
+An update to GlobalSearchBar inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/sqs/SqsDetailView.test.tsx > SqsDetailView > renders the queue name and peek hint by default
+An update to SqsDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SqsDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SqsDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SqsDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SqsDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SqsDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SqsDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SqsDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/sqs/SqsDetailView.test.tsx > SqsDetailView > switches the hint when consume mode is selected
+An update to SqsDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SqsDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SqsDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SqsDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SqsDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SqsDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SqsDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SqsDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/components/GlobalSearchBar.test.tsx > GlobalSearchBar > shows a loading indicator immediately while the debounce is pending
+An update to GlobalSearchBar inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/s3/S3DetailView.test.tsx > S3DetailView > shows a loading state before objects arrive
+An update to S3StorageSummaryCard inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/cloudformation/CloudFormationDetailView.test.tsx > CloudFormationDetailView > shows a loading state before the stack arrives
+An update to CloudFormationDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CloudFormationDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CloudFormationDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/scheduler/SchedulerListView.test.tsx > SchedulerListView > reloads the schedules when auto-refresh fires
+An update to SchedulerListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SchedulerListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/cloudformation/CloudFormationListView.test.tsx > CloudFormationListView > reloads the stacks when auto-refresh fires
+An update to CloudFormationListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/scheduler/SchedulerListView.test.tsx > SchedulerListView > reloads the schedules when auto-refresh fires
+An update to SchedulerListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SchedulerListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/cloudformation/CloudFormationListView.test.tsx > CloudFormationListView > reloads the stacks when auto-refresh fires
+An update to CloudFormationListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+[90mstdout[2m | src/components/SnapshotPanel.test.tsx[2m > [22m[2mSnapshotPanel[2m > [22m[2mexports workspace snapshot on button click
+[22m[39mSnapshot exported: 10 resource(s) captured
+
+stderr | src/services/cloudwatch-logs/CloudWatchLogsDetailView.test.tsx > CloudWatchLogsDetailView > starts a live tail stream when follow is enabled
+An update to CloudWatchLogsDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/cloudwatch-logs/CloudWatchLogsDetailView.test.tsx > CloudWatchLogsDetailView > filters live events using the search box
+An update to CloudWatchLogsDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CloudWatchLogsDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+[90mstdout[2m | src/components/SnapshotPanel.test.tsx[2m > [22m[2mSnapshotPanel[2m > [22m[2mimports snapshot from file
+[22m[39mSnapshot exported: undefined resource(s) captured
+
+[90mstdout[2m | src/components/SnapshotPanel.test.tsx[2m > [22m[2mSnapshotPanel[2m > [22m[2mimports snapshot from file
+[22m[39mSnapshot imported: 5 of 5 resource(s) created
+
+stderr | src/services/eventbridge/EventBridgeListView.test.tsx > EventBridgeListView > reloads the rules when auto-refresh fires
+An update to ScheduledRulesSection inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/eventbridge/EventBridgeListView.test.tsx > EventBridgeListView > reloads the rules when auto-refresh fires
+An update to EventBridgeListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/eventbridge/EventBridgeListView.test.tsx > EventBridgeListView > reloads the rules when auto-refresh fires
+An update to ResourceLink inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/eventbridge/EventBridgeListView.test.tsx > EventBridgeListView > reloads the rules when auto-refresh fires
+An update to EventBridgeListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/components/SnapshotPanel.test.tsx > SnapshotPanel > shows error message on export failure
+Export failed: Export failed
+
+stderr | src/components/SnapshotPanel.test.tsx > SnapshotPanel > shows a generic export error when the failure is not an Error
+Export failed: Failed to export snapshot
+
+ [32mΓ£ô[39m src/components/ConfirmationHost.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 1198[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m ConfirmationHost[2m > [22mconfirms the action in a single click after arming [33m 586[2mms[22m[39m
+ [32mΓ£ô[39m src/services/cloudformation/CloudFormationListView.test.tsx [2m([22m[2m16 tests[22m[2m)[22m[33m 1221[2mms[22m[39m
+[90mstdout[2m | src/components/SnapshotPanel.test.tsx[2m > [22m[2mSnapshotPanel[2m > [22m[2mshows the last import summary including a failure count
+[22m[39mSnapshot imported: 3 of 5 resource(s) created (2 failed)
+
+stderr | src/services/s3/S3DetailView.test.tsx > S3DetailView > highlights the dropzone while dragging and clears on leave
+Removing a style property during rerender (borderColor) when a conflicting property is set (border) can lead to styling bugs. To avoid this, don't mix shorthand and non-shorthand properties for the same value; instead, replace the shorthand with separate values.
+
+stderr | src/components/SnapshotPanel.test.tsx > SnapshotPanel > shows an error message when the import request fails
+Import failed: Import boom
+
+ [32mΓ£ô[39m src/services/cloudwatch-logs/CloudWatchLogsDetailView.test.tsx [2m([22m[2m30 tests[22m[2m)[22m[33m 1527[2mms[22m[39m
+ [32mΓ£ô[39m src/components/SeedTemplatesPanel.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 1488[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m SeedTemplatesPanel[2m > [22mdoes not apply the template when the confirmation is declined [33m 377[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m SeedTemplatesPanel[2m > [22mkeeps a second template pending when an earlier apply settles [33m 303[2mms[22m[39m
+stderr | src/components/SnapshotPanel.test.tsx > SnapshotPanel > shows a generic import error when the failure is not an Error
+Import failed: Failed to import snapshot
+
+stderr | src/components/SnapshotPanel.test.tsx > SnapshotPanel > shows an error message when the file is not valid JSON
+Import error: Invalid snapshot file format
+
+stderr | src/services/eventbridge/EventBridgeListView.test.tsx > EventBridgeListView > shows a loading state for scheduled rules before they arrive
+An update to EventBridgeListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ [32mΓ£ô[39m src/components/GlobalSearchBar.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 1526[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m GlobalSearchBar[2m > [22mhides the results panel and clears the query after a result is clicked [33m 698[2mms[22m[39m
+ [32mΓ£ô[39m src/services/scheduler/SchedulerListView.test.tsx [2m([22m[2m22 tests[22m[2m)[22m[33m 1687[2mms[22m[39m
+ [32mΓ£ô[39m src/components/SnapshotPanel.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[33m 1731[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m SnapshotPanel[2m > [22mrenders export and import buttons [33m 432[2mms[22m[39m
+ [32mΓ£ô[39m src/services/cloudformation/CloudFormationDetailView.test.tsx [2m([22m[2m25 tests[22m[2m)[22m[33m 1521[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m CloudFormationDetailView[2m > [22mrenders the resources table with cross-links for managed types [33m 458[2mms[22m[39m
+stderr | src/services/eventbridge/EventBridgeListView.test.tsx > EventBridgeListView > refreshes the scheduled rules and clears the detail panel
+An update to ScheduledRulesSection inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/eventbridge/EventBridgeListView.test.tsx > EventBridgeListView > refreshes the scheduled rules and clears the detail panel
+An update to EventBridgeListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ [32mΓ£ô[39m src/services/apigatewayv2/ApiGatewayV2RouteTestSection.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[33m 1996[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m ApiGatewayV2RouteTestSection[2m > [22mshows an unauthorized banner when the request is rejected without a token [33m 670[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m ApiGatewayV2RouteTestSection[2m > [22mshows an authorized banner and body when a valid token is supplied [33m 1138[2mms[22m[39m
+stderr | src/services/eventbridge/EventBridgeListView.test.tsx > EventBridgeListView > refreshes the scheduled rules and clears the detail panel
+An update to ResourceLink inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/eventbridge/EventBridgeListView.test.tsx > EventBridgeListView > refreshes the scheduled rules and clears the detail panel
+An update to ScheduledRulesSection inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/eventbridge/EventBridgeListView.test.tsx > EventBridgeListView > refreshes the scheduled rules and clears the detail panel
+An update to ScheduledRulesSection inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ [32mΓ£ô[39m src/services/lambda/LambdaDetailView.test.tsx [2m([22m[2m13 tests[22m[2m)[22m[33m 1933[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m LambdaDetailView[2m > [22mswitches between the overview and environment tabs [33m 500[2mms[22m[39m
+ [32mΓ£ô[39m src/services/secrets-manager/SecretsManagerDetailView.test.tsx [2m([22m[2m13 tests[22m[2m)[22m[33m 2244[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m SecretsManagerDetailView[2m > [22mrefetches with the reveal flag toggled [33m 375[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m SecretsManagerDetailView[2m > [22msaves a new value after confirmation and refetches [33m 588[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m SecretsManagerDetailView[2m > [22mshows a save error when the update fails [33m 459[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m SecretsManagerDetailView[2m > [22mreloads the version stages after saving a new value [33m 530[2mms[22m[39m
+ [32mΓ£ô[39m src/services/lambda/LambdaEnvironmentTab.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 2356[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m LambdaEnvironmentTab[2m > [22mreveals and hides every sensitive value with the global control [33m 486[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m LambdaEnvironmentTab[2m > [22mreveals only the clicked row when its sensitive badge is clicked [33m 346[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m LambdaEnvironmentTab[2m > [22madds, edits and removes variable rows [33m 556[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m LambdaEnvironmentTab[2m > [22msaves the variables after confirmation and shows a status message [33m 491[2mms[22m[39m
+stderr | src/services/eventbridge/EventBridgeListView.test.tsx > EventBridgeListView > disables the create submit until name and schedule are provided
+An update to ResourceLink inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/eventbridge/EventBridgeListView.test.tsx > EventBridgeListView > disables the create submit while a create is in flight
+An update to CreateScheduledRuleForm inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CreateScheduledRuleForm inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CreateScheduledRuleForm inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CreateScheduledRuleForm inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CreateScheduledRuleForm inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to CreateScheduledRuleForm inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to ScheduledRulesSection inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to ScheduledRulesSection inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to ScheduledRulesSection inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ [32mΓ£ô[39m src/services/lambda/LambdaTestTab.test.tsx [2m([22m[2m16 tests[22m[2m)[22m[33m 3024[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m LambdaTestTab[2m > [22minvokes the function with the edited payload and shows the result [33m 567[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m LambdaTestTab[2m > [22mpopulates the payload when a template is selected [33m 355[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m LambdaTestTab[2m > [22msaves the current payload under the entered name and reloads the list [33m 422[2mms[22m[39m
+stderr | src/services/sqs/SqsDetailView.test.tsx > SqsDetailView > does not render the FIFO id fields for a standard queue
+An update to SqsDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SqsDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SqsDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SqsDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SqsDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SqsDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SqsDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to SqsDetailView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ [32mΓ£ô[39m src/services/ssm-parameter-store/SsmParameterStoreDetailView.test.tsx [2m([22m[2m16 tests[22m[2m)[22m[33m 3281[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m SsmParameterStoreDetailView[2m > [22mrefetches with the reveal flag toggled [33m 362[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m SsmParameterStoreDetailView[2m > [22msaves a new value after confirmation and refetches [33m 517[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m SsmParameterStoreDetailView[2m > [22mshows a save error when the update fails [33m 445[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m SsmParameterStoreDetailView[2m > [22mreloads the history after a successful save when shown [33m 654[2mms[22m[39m
+ [32mΓ£ô[39m src/services/s3/S3DetailView.test.tsx [2m([22m[2m48 tests[22m[2m)[22m[33m 3300[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m S3DetailView[2m > [22mhighlights the dropzone while dragging and clears on leave [33m 363[2mms[22m[39m
+ [32mΓ£ô[39m src/services/cloudformation/CloudFormationChangeSetPanel.test.tsx [2m([22m[2m17 tests[22m[2m)[22m[33m 942[2mms[22m[39m
+stderr | src/services/eventbridge/EventBridgeListView.test.tsx > EventBridgeListView > disables actions while a mutation is in flight
+An update to ScheduledRuleActions inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to ScheduledRulesSection inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to ScheduledRulesSection inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/eventbridge/EventBridgeListView.test.tsx > EventBridgeListView > disables actions while a mutation is in flight
+An update to ScheduledRulesSection inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ [32mΓ£ô[39m src/services/eventbridge/EventBridgeListView.test.tsx [2m([22m[2m41 tests[22m[2m)[22m[33m 3716[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m EventBridgeListView[2m > [22mrenders each target as a resolved resource link [33m 468[2mms[22m[39m
+ [32mΓ£ô[39m src/services/sqs/SqsDetailView.test.tsx [2m([22m[2m41 tests[22m[2m)[22m[33m 3908[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m SqsDetailView[2m > [22mdeletes a message and removes it from the list [33m 601[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m SqsDetailView[2m > [22mshows an error state when deleting fails [33m 341[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m SqsDetailView[2m > [22mignores a completed delete when the view is no longer showing messages [33m 363[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m SqsDetailView[2m > [22mpurges the queue and clears the message list [33m 345[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m SqsDetailView[2m > [22mshows an error state when purging fails [33m 325[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m SqsDetailView[2m > [22mignores a completed purge when the view is no longer showing messages [33m 318[2mms[22m[39m
+ [32mΓ£ô[39m src/services/iam/IamRoleDetailView.test.tsx [2m([22m[2m25 tests[22m[2m)[22m[33m 991[2mms[22m[39m
+ [32mΓ£ô[39m src/services/cognito/CognitoUsersSection.test.tsx [2m([22m[2m18 tests[22m[2m)[22m[33m 5359[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m CognitoUsersSection[2m > [22mtoggles and submits the create user form [33m 1337[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m CognitoUsersSection[2m > [22mcreates a user without email or temporary password [33m 410[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m CognitoUsersSection[2m > [22mshows an error when create fails [33m 367[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m CognitoUsersSection[2m > [22mresets a user password [33m 577[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m CognitoUsersSection[2m > [22mshows an error when setting the password fails [33m 435[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m CognitoUsersSection[2m > [22mdeletes a user and clears the selection [33m 392[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m CognitoUsersSection[2m > [22mkeeps the selection when deleting a different user [33m 386[2mms[22m[39m
+stderr | src/pages/HomePage.test.tsx > HomePage > shows a loading message while the catalogue is pending
+An update to SeedTemplatesPanel inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to HomePage inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/apigateway/ApiGatewayListView.test.tsx > ApiGatewayListView > reloads the REST APIs when auto-refresh fires
+An update to ApiGatewayListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/apigateway/ApiGatewayListView.test.tsx > ApiGatewayListView > reloads the REST APIs when auto-refresh fires
+An update to ApiGatewayListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/acm/AcmListView.test.tsx > AcmListView > reloads the certificates when auto-refresh fires
+An update to AcmListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ [32mΓ£ô[39m src/components/RawJsonViewer.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 1036[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m RawJsonViewer[2m > [22mtoggles between hidden and shown [33m 367[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m RawJsonViewer[2m > [22mresets the copied state after hiding and showing again [33m 356[2mms[22m[39m
+stderr | src/services/acm/AcmListView.test.tsx > AcmListView > reloads the certificates when auto-refresh fires
+An update to AcmListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ [32mΓ£ô[39m src/pages/HomePage.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[33m 958[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m HomePage[2m > [22mlists recently-viewed resources when the store returns references [33m 405[2mms[22m[39m
+ [32mΓ£ô[39m src/services/apigateway/ApiGatewayAuthorizersSection.test.tsx [2m([22m[2m24 tests[22m[2m)[22m[33m 11023[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m ApiGatewayAuthorizersSection[2m > [22mcreates an authorizer from the selected user pool [33m 928[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m ApiGatewayAuthorizersSection[2m > [22mcreates an authorizer with a null identity source when left blank [33m 359[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m ApiGatewayAuthorizersSection[2m > [22mshows an add error when the selected pool has no ARN [33m 398[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m ApiGatewayAuthorizersSection[2m > [22mshows an add error when the create request fails [33m 373[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m ApiGatewayAuthorizersSection[2m > [22mcreates a token authorizer from the guided form [33m 1503[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m ApiGatewayAuthorizersSection[2m > [22mrejects a token authorizer with a non-absolute issuer [33m 353[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m ApiGatewayAuthorizersSection[2m > [22mrejects a token authorizer with a non-https issuer [33m 720[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m ApiGatewayAuthorizersSection[2m > [22mrejects a token authorizer with no audience [33m 674[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m ApiGatewayAuthorizersSection[2m > [22mrejects a token authorizer with an identity source that is not a request value [33m 1123[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m ApiGatewayAuthorizersSection[2m > [22mrejects a token authorizer with an identity source that is only the prefix [33m 1103[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m ApiGatewayAuthorizersSection[2m > [22mrejects a token authorizer with no authorizer URI [33m 798[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m ApiGatewayAuthorizersSection[2m > [22mshows an error when the token authorizer create request fails [33m 1773[2mms[22m[39m
+ [32mΓ£ô[39m src/services/cloudformation/CloudFormationExportsPanel.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 863[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m CloudFormationExportsPanel[2m > [22mrenders exports with the exporting stack linked from its ARN [33m 358[2mms[22m[39m
+ [32mΓ£ô[39m src/services/apigateway/ApiGatewayListView.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[33m 996[2mms[22m[39m
+ [32mΓ£ô[39m src/services/iam/IamUserDetailView.test.tsx [2m([22m[2m19 tests[22m[2m)[22m[33m 948[2mms[22m[39m
+ [32mΓ£ô[39m src/services/acm/AcmListView.test.tsx [2m([22m[2m13 tests[22m[2m)[22m[33m 827[2mms[22m[39m
+ [32mΓ£ô[39m src/services/sns/SnsDetailView.test.tsx [2m([22m[2m21 tests[22m[2m)[22m[33m 984[2mms[22m[39m
+ [32mΓ£ô[39m src/services/iam/IamAccountPanel.test.tsx [2m([22m[2m22 tests[22m[2m)[22m[33m 823[2mms[22m[39m
+ [32mΓ£ô[39m src/components/CopyAsCliButton.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 635[2mms[22m[39m
+ [32mΓ£ô[39m src/services/ssm-parameter-store/SsmParameterStoreListView.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[33m 656[2mms[22m[39m
+ [32mΓ£ô[39m src/services/lambda/LambdaEventSourcesTab.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 696[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m LambdaEventSourcesTab[2m > [22mdisables an enabled mapping and reloads [33m 322[2mms[22m[39m
+ [32mΓ£ô[39m src/components/ActivityLogPanel.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 633[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m ActivityLogPanel[2m > [22mcollapses and expands the entry list [33m 393[2mms[22m[39m
+stderr | src/services/apigatewayv2/ApiGatewayV2ListView.test.tsx > ApiGatewayV2ListView > reloads the APIs when auto-refresh fires
+An update to ApiGatewayV2ListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/apigatewayv2/ApiGatewayV2ListView.test.tsx > ApiGatewayV2ListView > reloads the APIs when auto-refresh fires
+An update to ApiGatewayV2ListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/cognito/CognitoListView.test.tsx > CognitoListView > reloads the user pools when auto-refresh fires
+An update to CognitoListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/cognito/CognitoListView.test.tsx > CognitoListView > reloads the user pools when auto-refresh fires
+An update to CognitoListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/dynamodb/DynamoDbListView.test.tsx > DynamoDbListView > reloads the tables when auto-refresh fires
+An update to DynamoDbListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/dynamodb/DynamoDbListView.test.tsx > DynamoDbListView > reloads the tables when auto-refresh fires
+An update to DynamoDbListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/dynamodb/DynamoDbQueryPanel.test.tsx > DynamoDbQueryPanel > hides key conditions in scan mode and restores them in query mode
+Removing a style property during rerender (borderColor) when a conflicting property is set (border) can lead to styling bugs. To avoid this, don't mix shorthand and non-shorthand properties for the same value; instead, replace the shorthand with separate values.
+Removing a style property during rerender (borderColor) when a conflicting property is set (border) can lead to styling bugs. To avoid this, don't mix shorthand and non-shorthand properties for the same value; instead, replace the shorthand with separate values.
+
+ [32mΓ£ô[39m src/services/apigatewayv2/ApiGatewayV2ListView.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[33m 705[2mms[22m[39m
+ [32mΓ£ô[39m src/services/cognito/CognitoListView.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[33m 680[2mms[22m[39m
+ [32mΓ£ô[39m src/services/dynamodb/DynamoDbListView.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[33m 716[2mms[22m[39m
+ [32mΓ£ô[39m src/api/client.test.ts [2m([22m[2m581 tests[22m[2m)[22m[33m 584[2mms[22m[39m
+stderr | src/services/dynamodb/DynamoDbQueryPanel.test.tsx > DynamoDbQueryPanel > sends a scan request without key conditions
+Removing a style property during rerender (borderColor) when a conflicting property is set (border) can lead to styling bugs. To avoid this, don't mix shorthand and non-shorthand properties for the same value; instead, replace the shorthand with separate values.
+
+ [32mΓ£ô[39m src/services/dynamodb/DynamoDbQueryPanel.test.tsx [2m([22m[2m13 tests[22m[2m)[22m[33m 713[2mms[22m[39m
+ [32mΓ£ô[39m src/services/secrets-manager/SecretsManagerListView.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 641[2mms[22m[39m
+ [32mΓ£ô[39m src/services/iam/IamGroupsPanel.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 558[2mms[22m[39m
+ [32mΓ£ô[39m src/services/apigatewayv2/ApiGatewayV2DetailView.test.tsx [2m([22m[2m89 tests[22m[2m)[22m[33m 10295[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m ApiGatewayV2DetailView[2m > [22mupdates the API from the form and refreshes the detail [33m 327[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m ApiGatewayV2DetailView[2m > [22medits the CORS policy from the form [33m 350[2mms[22m[39m
+stderr | src/services/sqs/SqsListView.test.tsx > SqsListView > reloads the queues when auto-refresh fires
+An update to SqsListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/sqs/SqsListView.test.tsx > SqsListView > reloads the queues when auto-refresh fires
+An update to SqsListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ [32mΓ£ô[39m src/services/cognito/CognitoDetailView.test.tsx [2m([22m[2m28 tests[22m[2m)[22m[33m 11515[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m CognitoDetailView app clients[2m > [22mcreates an app client and refreshes the list [33m 2358[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m CognitoDetailView app clients[2m > [22mshows an error when creating an app client fails [33m 479[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m CognitoDetailView app clients[2m > [22mshows the selected client detail and toggles the secret [33m 422[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m CognitoDetailView app clients[2m > [22medits the selected client [33m 2812[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m CognitoDetailView app clients[2m > [22mshows an error when editing the client fails [33m 408[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m CognitoDetailView app clients[2m > [22mdeletes an app client and clears the selection [33m 410[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m CognitoDetailView app clients[2m > [22mregenerates the client secret and reveals the new one [33m 367[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m CognitoDetailView app clients[2m > [22mshows an error when regenerating the client secret fails [33m 323[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m CognitoDetailView app clients[2m > [22mrequests a token and shows the issued tokens and claims [33m 805[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m CognitoDetailView app clients[2m > [22mshows placeholders and no claims when the token response is empty [33m 787[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m CognitoDetailView app clients[2m > [22mshows an error when the token request fails [33m 833[2mms[22m[39m
+stderr | src/services/sns/SnsListView.test.tsx > SnsListView > reloads the topics when auto-refresh fires
+An update to SnsListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ [32mΓ£ô[39m src/services/sqs/SqsListView.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[33m 693[2mms[22m[39m
+ [32mΓ£ô[39m src/services/iam/IamPoliciesPanel.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 626[2mms[22m[39m
+ [32mΓ£ô[39m src/services/iam/IamUsersPanel.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 689[2mms[22m[39m
+stderr | src/services/sns/SnsListView.test.tsx > SnsListView > reloads the topics when auto-refresh fires
+An update to SnsListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ [32mΓ£ô[39m src/components/DataListShell.test.tsx [2m([22m[2m23 tests[22m[2m)[22m[33m 582[2mms[22m[39m
+ [32mΓ£ô[39m src/services/iam/IamGroupDetailView.test.tsx [2m([22m[2m15 tests[22m[2m)[22m[33m 641[2mms[22m[39m
+ [32mΓ£ô[39m src/services/sns/SnsListView.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[33m 545[2mms[22m[39m
+ [32mΓ£ô[39m src/services/scheduler/SchedulerDetailView.test.tsx [2m([22m[2m13 tests[22m[2m)[22m[33m 558[2mms[22m[39m
+ [32mΓ£ô[39m src/services/iam/IamRolesPanel.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 599[2mms[22m[39m
+ [32mΓ£ô[39m src/services/lambda/LambdaInsightsTab.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 586[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m LambdaInsightsTab[2m > [22mreloads insights when the refresh button is clicked [33m 382[2mms[22m[39m
+stderr | src/services/cloudwatch-logs/CloudWatchLogsListView.test.tsx > CloudWatchLogsListView > reloads the groups when auto-refresh fires
+An update to CloudWatchLogsListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/cloudwatch-logs/CloudWatchLogsListView.test.tsx > CloudWatchLogsListView > reloads the groups when auto-refresh fires
+An update to CloudWatchLogsListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ [32mΓ£ô[39m src/services/cloudwatch-logs/CloudWatchLogsListView.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 522[2mms[22m[39m
+ [32mΓ£ô[39m src/components/DashboardPage.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[33m 578[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m DashboardPage[2m > [22mrefreshes the catalogue after the user confirms the single-click action [33m 467[2mms[22m[39m
+ [32mΓ£ô[39m src/services/lambda/LambdaLogsTab.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 487[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m LambdaLogsTab[2m > [22mreloads log events when the refresh button is clicked [33m 312[2mms[22m[39m
+ [32mΓ£ô[39m src/services/s3/S3ListView.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 531[2mms[22m[39m
+ [32mΓ£ô[39m src/services/dynamodb/DynamoDbItemsPanel.test.tsx [2m([22m[2m14 tests[22m[2m)[22m[33m 503[2mms[22m[39m
+ [32mΓ£ô[39m src/pages/DiagnosticsPage.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 494[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m DiagnosticsPage[2m > [22mre-requests revealed values when the toggle is clicked [33m 362[2mms[22m[39m
+ [32mΓ£ô[39m src/services/apigateway/ApiGatewayProtectedRouteVerificationSection.test.tsx [2m([22m[2m18 tests[22m[2m)[22m[33m 463[2mms[22m[39m
+ [32mΓ£ô[39m src/components/NotificationCenter.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 433[2mms[22m[39m
+ [32mΓ£ô[39m src/components/ServiceCard.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 383[2mms[22m[39m
+ [32mΓ£ô[39m src/services/apigateway/ApiGatewayDetailView.test.tsx [2m([22m[2m10 tests[22m[2m)[22m[33m 412[2mms[22m[39m
+ [32mΓ£ô[39m src/services/lambda/LambdaListView.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[33m 425[2mms[22m[39m
+ [32mΓ£ô[39m src/services/cloudformation/CloudFormationStackForm.test.tsx [2m([22m[2m14 tests[22m[2m)[22m[32m 260[2mms[22m[39m
+ [32mΓ£ô[39m src/services/iam/IamPolicyDetailView.test.tsx [2m([22m[2m11 tests[22m[2m)[22m[33m 496[2mms[22m[39m
+ [32mΓ£ô[39m src/components/Toast.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 371[2mms[22m[39m
+ [32mΓ£ô[39m src/services/s3/S3ConfigurationPanel.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[32m 243[2mms[22m[39m
+ [32mΓ£ô[39m src/services/step-functions/StepFunctionsExecutionsPanel.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[33m 337[2mms[22m[39m
+stderr | src/services/step-functions/StepFunctionsListView.test.tsx > StepFunctionsListView > reloads the state machines when auto-refresh fires
+An update to StepFunctionsListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/step-functions/StepFunctionsListView.test.tsx > StepFunctionsListView > reloads the state machines when auto-refresh fires
+An update to StepFunctionsListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ [32mΓ£ô[39m src/services/step-functions/StepFunctionsListView.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[33m 304[2mms[22m[39m
+ [32mΓ£ô[39m src/services/apigateway/ApiGatewayCorsSection.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[33m 320[2mms[22m[39m
+ [32mΓ£ô[39m src/components/MaskedValueField.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[33m 436[2mms[22m[39m
+   [33m[2mΓ£ô[22m[39m MaskedValueField[2m > [22mshows a reveal toggle that invokes the callback [33m 364[2mms[22m[39m
+ [32mΓ£ô[39m src/services/apigateway/ApiGatewayTestInvokeSection.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[32m 280[2mms[22m[39m
+ [32mΓ£ô[39m src/services/dynamodb/DynamoDbStatementPanel.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[32m 269[2mms[22m[39m
+ [32mΓ£ô[39m src/services/iam/IamListView.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 225[2mms[22m[39m
+ [32mΓ£ô[39m src/pages/ResourceDetailPage.test.tsx [2m([22m[2m9 tests[22m[2m)[22m[32m 262[2mms[22m[39m
+stderr | src/services/route53/Route53ListView.test.tsx > Route53ListView > reloads the hosted zones when auto-refresh fires
+An update to Route53ListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/services/route53/Route53ListView.test.tsx > Route53ListView > reloads the hosted zones when auto-refresh fires
+An update to Route53ListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ [32mΓ£ô[39m src/services/route53/Route53ListView.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 257[2mms[22m[39m
+ [32mΓ£ô[39m src/services/dynamodb/DynamoDbDetailView.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[32m 181[2mms[22m[39m
+ [32mΓ£ô[39m src/services/cloudformation/CloudFormationDriftPanel.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[32m 180[2mms[22m[39m
+stderr | src/services/ses/SesListView.test.tsx > SesListView > reloads the identities when auto-refresh fires
+An update to SesListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ [32mΓ£ô[39m src/services/iam/IamDetailView.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[32m 175[2mms[22m[39m
+stderr | src/services/ses/SesListView.test.tsx > SesListView > reloads the identities when auto-refresh fires
+An update to SesListView inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ [32mΓ£ô[39m src/services/ses/SesListView.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 257[2mms[22m[39m
+ [32mΓ£ô[39m src/services/step-functions/StepFunctionsDetailView.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[32m 190[2mms[22m[39m
+ [32mΓ£ô[39m src/components/ServiceCatalogueGrid.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[32m 185[2mms[22m[39m
+ [32mΓ£ô[39m src/App.test.tsx [2m([22m[2m2 tests[22m[2m)[22m[32m 152[2mms[22m[39m
+stderr | src/pages/SearchResultsPage.test.tsx > SearchResultsPage > groups matches by service and sorts the groups by service key
+An update to ResourceLink inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to ResourceLink inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+An update to ResourceLink inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ [32mΓ£ô[39m src/pages/SearchResultsPage.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[32m 161[2mms[22m[39m
+ [32mΓ£ô[39m src/services/s3/S3StorageSummaryCard.test.tsx [2m([22m[2m3 tests[22m[2m)[22m[32m 108[2mms[22m[39m
+ [32mΓ£ô[39m src/pages/ServicePage.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 140[2mms[22m[39m
+ [32mΓ£ô[39m src/services/iam/components/PolicyDocumentEditor.test.tsx [2m([22m[2m15 tests[22m[2m)[22m[32m 135[2mms[22m[39m
+ [32mΓ£ô[39m src/services/step-functions/StepFunctionsExecutionHistoryPanel.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 150[2mms[22m[39m
+ [32mΓ£ô[39m src/components/KeyboardShortcuts.test.tsx [2m([22m[2m12 tests[22m[2m)[22m[32m 151[2mms[22m[39m
+ [32mΓ£ô[39m src/components/HealthBanner.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[32m 132[2mms[22m[39m
+stderr | src/components/AutoRefreshToggle.test.tsx > AutoRefreshToggle > refreshes on the selected interval once enabled
+An update to AutoRefreshToggle inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/components/AutoRefreshToggle.test.tsx > AutoRefreshToggle > re-fetches on the chosen interval after the interval changes
+An update to AutoRefreshToggle inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/components/AutoRefreshToggle.test.tsx > AutoRefreshToggle > stops refreshing when toggled back off
+An update to AutoRefreshToggle inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+stderr | src/components/AutoRefreshToggle.test.tsx > AutoRefreshToggle > pauses while the tab is hidden and resumes when visible again
+An update to AutoRefreshToggle inside a test was not wrapped in act(...).
+
+When testing, code that causes React state updates should be wrapped into act(...):
+
+act(() => {
+  /* fire events that update state */
+});
+/* assert on the output */
+
+This ensures that you're testing the behavior the user would see in the browser. Learn more at https://react.dev/link/wrap-tests-with-act
+
+ [32mΓ£ô[39m src/components/AutoRefreshToggle.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 136[2mms[22m[39m
+ [32mΓ£ô[39m src/services/iam/components/TagEditor.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 111[2mms[22m[39m
+ [32mΓ£ô[39m src/components/ResourceLink.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 115[2mms[22m[39m
+ [32mΓ£ô[39m src/api/notifications.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32mΓ£ô[39m src/services/s3/formatBytes.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32mΓ£ô[39m src/services/serviceViewRegistry.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32mΓ£ô[39m src/components/ConnectivityIndicator.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 87[2mms[22m[39m
+ [32mΓ£ô[39m src/services/iam/components/PermissionsBoundaryControl.test.tsx [2m([22m[2m5 tests[22m[2m)[22m[32m 102[2mms[22m[39m
+ [32mΓ£ô[39m src/services/registerServiceViews.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32mΓ£ô[39m src/hooks/useConfirm.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 26[2mms[22m[39m
+ [32mΓ£ô[39m src/services/step-functions/StateMachineGraph.test.tsx [2m([22m[2m8 tests[22m[2m)[22m[32m 68[2mms[22m[39m
+ [32mΓ£ô[39m src/components/Breadcrumbs.test.tsx [2m([22m[2m6 tests[22m[2m)[22m[32m 81[2mms[22m[39m
+ [32mΓ£ô[39m src/services/lambda/LambdaLayersTab.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 75[2mms[22m[39m
+ [32mΓ£ô[39m src/services/dynamodb/DynamoDbSchemaPanel.test.tsx [2m([22m[2m7 tests[22m[2m)[22m[32m 68[2mms[22m[39m
+ [32mΓ£ô[39m src/pages/NotFoundPage.test.tsx [2m([22m[2m1 test[22m[2m)[22m[32m 57[2mms[22m[39m
+ [32mΓ£ô[39m src/components/EmptyState.test.tsx [2m([22m[2m4 tests[22m[2m)[22m[32m 54[2mms[22m[39m
+
+[2m Test Files [22m [1m[32m107 passed[39m[22m[90m (107)[39m
+[2m      Tests [22m [1m[32m1865 passed[39m[22m[90m (1865)[39m
+[2m   Start at [22m 19:45:36
+[2m   Duration [22m 31.51s[2m (transform 7.65s, setup 41.28s, collect 230.48s, tests 118.12s, environment 186.49s, prepare 29.45s)[22m
+
+[34m % [39m[2mCoverage report from [22m[33mv8[39m
+-------------------|---------|----------|---------|---------|-------------------
+File               | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s 
+-------------------|---------|----------|---------|---------|-------------------
+All files          |     100 |      100 |     100 |     100 |                   
+ src               |     100 |      100 |     100 |     100 |                   
+  App.tsx          |     100 |      100 |     100 |     100 |                   
+ src/api           |     100 |      100 |     100 |     100 |                   
+  client.ts        |     100 |      100 |     100 |     100 |                   
+  notifications.ts |     100 |      100 |     100 |     100 |                   
+ src/components    |     100 |      100 |     100 |     100 |                   
+  ...yLogPanel.tsx |     100 |      100 |     100 |     100 |                   
+  ...eshToggle.tsx |     100 |      100 |     100 |     100 |                   
+  Breadcrumbs.tsx  |     100 |      100 |     100 |     100 |                   
+  ...ationHost.tsx |     100 |      100 |     100 |     100 |                   
+  ...Indicator.tsx |     100 |      100 |     100 |     100 |                   
+  ...CliButton.tsx |     100 |      100 |     100 |     100 |                   
+  ...boardPage.tsx |     100 |      100 |     100 |     100 |                   
+  ...ListShell.tsx |     100 |      100 |     100 |     100 |                   
+  EmptyState.tsx   |     100 |      100 |     100 |     100 |                   
+  ...SearchBar.tsx |     100 |      100 |     100 |     100 |                   
+  HealthBanner.tsx |     100 |      100 |     100 |     100 |                   
+  ...Shortcuts.tsx |     100 |      100 |     100 |     100 |                   
+  ...alueField.tsx |     100 |      100 |     100 |     100 |                   
+  ...ionCenter.tsx |     100 |      100 |     100 |     100 |                   
+  ...sonViewer.tsx |     100 |      100 |     100 |     100 |                   
+  ResourceLink.tsx |     100 |      100 |     100 |     100 |                   
+  ...atesPanel.tsx |     100 |      100 |     100 |     100 |                   
+  ServiceCard.tsx  |     100 |      100 |     100 |     100 |                   
+  ...logueGrid.tsx |     100 |      100 |     100 |     100 |                   
+  ...shotPanel.tsx |     100 |      100 |     100 |     100 |                   
+  Toast.tsx        |     100 |      100 |     100 |     100 |                   
+ src/hooks         |     100 |      100 |     100 |     100 |                   
+  ...gueService.ts |     100 |      100 |     100 |     100 |                   
+  useConfirm.ts    |     100 |      100 |     100 |     100 |                   
+ src/pages         |     100 |      100 |     100 |     100 |                   
+  ...sticsPage.tsx |     100 |      100 |     100 |     100 |                   
+  HomePage.tsx     |     100 |      100 |     100 |     100 |                   
+  NotFoundPage.tsx |     100 |      100 |     100 |     100 |                   
+  ...etailPage.tsx |     100 |      100 |     100 |     100 |                   
+  ...sultsPage.tsx |     100 |      100 |     100 |     100 |                   
+  ServicePage.tsx  |     100 |      100 |     100 |     100 |                   
+ src/services      |     100 |      100 |     100 |     100 |                   
+  ...rviceViews.ts |     100 |      100 |     100 |     100 |                   
+  ...wRegistry.tsx |     100 |      100 |     100 |     100 |                   
+ src/services/acm  |     100 |      100 |     100 |     100 |                   
+  AcmListView.tsx  |     100 |      100 |     100 |     100 |                   
+ ...ces/apigateway |     100 |      100 |     100 |     100 |                   
+  ...rsSection.tsx |     100 |      100 |     100 |     100 |                   
+  ...rsSection.tsx |     100 |      100 |     100 |     100 |                   
+  ...etailView.tsx |     100 |      100 |     100 |     100 |                   
+  ...yListView.tsx |     100 |      100 |     100 |     100 |                   
+  ...onSection.tsx |     100 |      100 |     100 |     100 |                   
+  ...esSection.tsx |     100 |      100 |     100 |     100 |                   
+  ...esSection.tsx |     100 |      100 |     100 |     100 |                   
+  ...keSection.tsx |     100 |      100 |     100 |     100 |                   
+ ...s/apigatewayv2 |     100 |      100 |     100 |     100 |                   
+  ...etailView.tsx |     100 |      100 |     100 |     100 |                   
+  ...2ListView.tsx |     100 |      100 |     100 |     100 |                   
+  ...stSection.tsx |     100 |      100 |     100 |     100 |                   
+ ...cloudformation |     100 |      100 |     100 |     100 |                   
+  ...eSetPanel.tsx |     100 |      100 |     100 |     100 |                   
+  ...etailView.tsx |     100 |      100 |     100 |     100 |                   
+  ...riftPanel.tsx |     100 |      100 |     100 |     100 |                   
+  ...ortsPanel.tsx |     100 |      100 |     100 |     100 |                   
+  ...nListView.tsx |     100 |      100 |     100 |     100 |                   
+  ...StackForm.tsx |     100 |      100 |     100 |     100 |                   
+ ...loudwatch-logs |     100 |      100 |     100 |     100 |                   
+  ...etailView.tsx |     100 |      100 |     100 |     100 |                   
+  ...sListView.tsx |     100 |      100 |     100 |     100 |                   
+ ...rvices/cognito |     100 |      100 |     100 |     100 |                   
+  ...etailView.tsx |     100 |      100 |     100 |     100 |                   
+  ...oListView.tsx |     100 |      100 |     100 |     100 |                   
+  ...rsSection.tsx |     100 |      100 |     100 |     100 |                   
+ ...vices/dynamodb |     100 |      100 |     100 |     100 |                   
+  ...etailView.tsx |     100 |      100 |     100 |     100 |                   
+  ...temsPanel.tsx |     100 |      100 |     100 |     100 |                   
+  ...bListView.tsx |     100 |      100 |     100 |     100 |                   
+  ...ueryPanel.tsx |     100 |      100 |     100 |     100 |                   
+  ...hemaPanel.tsx |     100 |      100 |     100 |     100 |                   
+  ...mentPanel.tsx |     100 |      100 |     100 |     100 |                   
+ ...es/eventbridge |     100 |      100 |     100 |     100 |                   
+  ...eListView.tsx |     100 |      100 |     100 |     100 |                   
+ src/services/iam  |     100 |      100 |     100 |     100 |                   
+  ...ountPanel.tsx |     100 |      100 |     100 |     100 |                   
+  ...etailView.tsx |     100 |      100 |     100 |     100 |                   
+  ...etailView.tsx |     100 |      100 |     100 |     100 |                   
+  ...oupsPanel.tsx |     100 |      100 |     100 |     100 |                   
+  IamListView.tsx  |     100 |      100 |     100 |     100 |                   
+  ...ciesPanel.tsx |     100 |      100 |     100 |     100 |                   
+  ...etailView.tsx |     100 |      100 |     100 |     100 |                   
+  ...etailView.tsx |     100 |      100 |     100 |     100 |                   
+  ...olesPanel.tsx |     100 |      100 |     100 |     100 |                   
+  ...etailView.tsx |     100 |      100 |     100 |     100 |                   
+  ...sersPanel.tsx |     100 |      100 |     100 |     100 |                   
+ ...iam/components |     100 |      100 |     100 |     100 |                   
+  ...ryControl.tsx |     100 |      100 |     100 |     100 |                   
+  ...entEditor.tsx |     100 |      100 |     100 |     100 |                   
+  TagEditor.tsx    |     100 |      100 |     100 |     100 |                   
+  ...cyDocument.ts |     100 |      100 |     100 |     100 |                   
+ ...ervices/lambda |     100 |      100 |     100 |     100 |                   
+  ...etailView.tsx |     100 |      100 |     100 |     100 |                   
+  ...onmentTab.tsx |     100 |      100 |     100 |     100 |                   
+  ...ourcesTab.tsx |     100 |      100 |     100 |     100 |                   
+  ...sightsTab.tsx |     100 |      100 |     100 |     100 |                   
+  ...LayersTab.tsx |     100 |      100 |     100 |     100 |                   
+  ...aListView.tsx |     100 |      100 |     100 |     100 |                   
+  ...daLogsTab.tsx |     100 |      100 |     100 |     100 |                   
+  ...daTestTab.tsx |     100 |      100 |     100 |     100 |                   
+ ...rvices/route53 |     100 |      100 |     100 |     100 |                   
+  ...3ListView.tsx |     100 |      100 |     100 |     100 |                   
+ src/services/s3   |     100 |      100 |     100 |     100 |                   
+  ...tionPanel.tsx |     100 |      100 |     100 |     100 |                   
+  S3DetailView.tsx |     100 |      100 |     100 |     100 |                   
+  S3ListView.tsx   |     100 |      100 |     100 |     100 |                   
+  ...mmaryCard.tsx |     100 |      100 |     100 |     100 |                   
+  formatBytes.ts   |     100 |      100 |     100 |     100 |                   
+ ...ices/scheduler |     100 |      100 |     100 |     100 |                   
+  ...etailView.tsx |     100 |      100 |     100 |     100 |                   
+  ...rListView.tsx |     100 |      100 |     100 |     100 |                   
+ ...ecrets-manager |     100 |      100 |     100 |     100 |                   
+  ...etailView.tsx |     100 |      100 |     100 |     100 |                   
+  ...rListView.tsx |     100 |      100 |     100 |     100 |                   
+ src/services/ses  |     100 |      100 |     100 |     100 |                   
+  SesListView.tsx  |     100 |      100 |     100 |     100 |                   
+ src/services/sns  |     100 |      100 |     100 |     100 |                   
+  ...etailView.tsx |     100 |      100 |     100 |     100 |                   
+  SnsListView.tsx  |     100 |      100 |     100 |     100 |                   
+ src/services/sqs  |     100 |      100 |     100 |     100 |                   
+  ...etailView.tsx |     100 |      100 |     100 |     100 |                   
+  SqsListView.tsx  |     100 |      100 |     100 |     100 |                   
+ ...arameter-store |     100 |      100 |     100 |     100 |                   
+  ...etailView.tsx |     100 |      100 |     100 |     100 |                   
+  ...eListView.tsx |     100 |      100 |     100 |     100 |                   
+ ...step-functions |     100 |      100 |     100 |     100 |                   
+  ...hineGraph.tsx |     100 |      100 |     100 |     100 |                   
+  ...etailView.tsx |     100 |      100 |     100 |     100 |                   
+  ...toryPanel.tsx |     100 |      100 |     100 |     100 |                   
+  ...ionsPanel.tsx |     100 |      100 |     100 |     100 |                   
+  ...sListView.tsx |     100 |      100 |     100 |     100 |                   
+  aslGraph.ts      |     100 |      100 |     100 |     100 |                   
+-------------------|---------|----------|---------|---------|-------------------

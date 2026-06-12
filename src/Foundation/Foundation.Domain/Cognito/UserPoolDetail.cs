@@ -14,6 +14,7 @@ namespace Foundation.Domain.Cognito;
 /// <param name="AutoVerifiedAttributes">The attributes that Cognito automatically verifies (for example <c>email</c> or <c>phone_number</c>).</param>
 /// <param name="CreationDate">The moment the user pool was created, if reported.</param>
 /// <param name="LastModifiedDate">The moment the user pool was last modified, if reported.</param>
+/// <param name="PasswordPolicy">The password complexity rules enforced by the pool, if reported.</param>
 public sealed record UserPoolDetail(
     string Id,
     string Name,
@@ -23,4 +24,5 @@ public sealed record UserPoolDetail(
     IReadOnlyList<string> UsernameAttributes,
     IReadOnlyList<string> AutoVerifiedAttributes,
     DateTimeOffset? CreationDate,
-    DateTimeOffset? LastModifiedDate);
+    DateTimeOffset? LastModifiedDate,
+    PasswordPolicy? PasswordPolicy);

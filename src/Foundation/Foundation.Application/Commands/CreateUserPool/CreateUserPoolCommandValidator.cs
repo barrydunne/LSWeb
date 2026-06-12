@@ -8,6 +8,8 @@ namespace Foundation.Application.Commands.CreateUserPool;
 internal sealed partial class CreateUserPoolCommandValidator : AbstractValidator<CreateUserPoolCommand>
 {
     private const int MaxNameLength = 128;
+    private const int MinPasswordPolicyLength = 6;
+    private const int MaxPasswordPolicyLength = 99;
 
     private static readonly string[] _allowedMfaModes = ["OFF", "ON", "OPTIONAL"];
     private static readonly string[] _allowedUsernameAttributes = ["email", "phone_number", "preferred_username"];
@@ -39,6 +41,11 @@ internal sealed partial class CreateUserPoolCommandValidator : AbstractValidator
         RuleForEach(_ => _.AutoVerifiedAttributes)
             .Must(attribute => _allowedAutoVerifiedAttributes.Contains(attribute))
                 .WithMessage("Auto-verified attributes may only be email or phone_number.");
+
+        RuleFor(_ => _.PasswordPolicy!.MinimumLength)
+            .InclusiveBetween(MinPasswordPolicyLength, MaxPasswordPolicyLength)
+                .WithMessage($"Password minimum length must be between {MinPasswordPolicyLength} and {MaxPasswordPolicyLength}.")
+            .When(_ => _.PasswordPolicy is not null);
     }
 
     public override async Task<ValidationResult> ValidateAsync(

@@ -30,6 +30,7 @@ public sealed record UserPoolSummaryResponse(
 /// <param name="AutoVerifiedAttributes">The attributes that Cognito automatically verifies.</param>
 /// <param name="CreationDate">The moment the user pool was created, or <see langword="null"/> when not reported.</param>
 /// <param name="LastModifiedDate">The moment the user pool was last modified, or <see langword="null"/> when not reported.</param>
+/// <param name="PasswordPolicy">The password complexity rules enforced by the pool, or <see langword="null"/> when not reported.</param>
 public sealed record UserPoolDetailResponse(
     string Id,
     string Name,
@@ -39,7 +40,23 @@ public sealed record UserPoolDetailResponse(
     IReadOnlyList<string> UsernameAttributes,
     IReadOnlyList<string> AutoVerifiedAttributes,
     DateTimeOffset? CreationDate,
-    DateTimeOffset? LastModifiedDate);
+    DateTimeOffset? LastModifiedDate,
+    PasswordPolicyModel? PasswordPolicy);
+
+/// <summary>
+/// The password complexity rules of an Amazon Cognito user pool.
+/// </summary>
+/// <param name="MinimumLength">The minimum number of characters a password must contain.</param>
+/// <param name="RequireUppercase">Whether passwords must contain at least one uppercase letter.</param>
+/// <param name="RequireLowercase">Whether passwords must contain at least one lowercase letter.</param>
+/// <param name="RequireNumbers">Whether passwords must contain at least one digit.</param>
+/// <param name="RequireSymbols">Whether passwords must contain at least one symbol.</param>
+public sealed record PasswordPolicyModel(
+    int MinimumLength,
+    bool RequireUppercase,
+    bool RequireLowercase,
+    bool RequireNumbers,
+    bool RequireSymbols);
 
 /// <summary>
 /// The configuration supplied when creating an Amazon Cognito user pool.
@@ -48,11 +65,13 @@ public sealed record UserPoolDetailResponse(
 /// <param name="MfaConfiguration">The multi-factor authentication configuration (<c>OFF</c>, <c>ON</c> or <c>OPTIONAL</c>), or <see langword="null"/> to use the backend default.</param>
 /// <param name="UsernameAttributes">The attributes that may be used as a username when signing in, or <see langword="null"/> for none.</param>
 /// <param name="AutoVerifiedAttributes">The attributes that Cognito automatically verifies, or <see langword="null"/> for none.</param>
+/// <param name="PasswordPolicy">The password complexity rules to enforce, or <see langword="null"/> to use the backend default.</param>
 public sealed record UserPoolCreateRequest(
     string Name,
     string? MfaConfiguration,
     IReadOnlyList<string>? UsernameAttributes,
-    IReadOnlyList<string>? AutoVerifiedAttributes);
+    IReadOnlyList<string>? AutoVerifiedAttributes,
+    PasswordPolicyModel? PasswordPolicy);
 
 /// <summary>
 /// The identifier of a newly created Amazon Cognito user pool.
@@ -143,3 +162,111 @@ public sealed record UserPoolClientUpdateRequest(
     IReadOnlyList<string>? AllowedOAuthScopes,
     IReadOnlyList<string>? CallbackURLs,
     bool AllowedOAuthFlowsUserPoolClient);
+
+/// <summary>
+/// The users within an Amazon Cognito user pool.
+/// </summary>
+/// <param name="Users">The user summaries, ordered as returned by the backend.</param>
+public sealed record CognitoUserListResponse(
+    IReadOnlyList<CognitoUserSummaryResponse> Users);
+
+/// <summary>
+/// A concise view of an Amazon Cognito user as it appears in a list.
+/// </summary>
+/// <param name="Username">The unique username of the user within the pool.</param>
+/// <param name="Status">The account status of the user.</param>
+/// <param name="Enabled">Whether the user account is enabled and able to sign in.</param>
+/// <param name="CreatedDate">The moment the user was created, or <see langword="null"/> when not reported.</param>
+public sealed record CognitoUserSummaryResponse(
+    string Username,
+    string Status,
+    bool Enabled,
+    DateTimeOffset? CreatedDate);
+
+/// <summary>
+/// A single attribute of an Amazon Cognito user.
+/// </summary>
+/// <param name="Name">The name of the attribute.</param>
+/// <param name="Value">The value of the attribute.</param>
+public sealed record CognitoUserAttributeResponse(
+    string Name,
+    string Value);
+
+/// <summary>
+/// The full configuration of an Amazon Cognito user.
+/// </summary>
+/// <param name="Username">The unique username of the user within the pool.</param>
+/// <param name="Status">The account status of the user.</param>
+/// <param name="Enabled">Whether the user account is enabled and able to sign in.</param>
+/// <param name="Attributes">The attributes recorded against the user.</param>
+/// <param name="CreatedDate">The moment the user was created, or <see langword="null"/> when not reported.</param>
+/// <param name="LastModifiedDate">The moment the user was last modified, or <see langword="null"/> when not reported.</param>
+public sealed record CognitoUserDetailResponse(
+    string Username,
+    string Status,
+    bool Enabled,
+    IReadOnlyList<CognitoUserAttributeResponse> Attributes,
+    DateTimeOffset? CreatedDate,
+    DateTimeOffset? LastModifiedDate);
+
+/// <summary>
+/// A single attribute supplied when creating an Amazon Cognito user.
+/// </summary>
+/// <param name="Name">The name of the attribute.</param>
+/// <param name="Value">The value of the attribute.</param>
+public sealed record CognitoUserAttributeRequest(
+    string Name,
+    string Value);
+
+/// <summary>
+/// The configuration supplied when creating an Amazon Cognito user.
+/// </summary>
+/// <param name="Username">The unique username of the user to create.</param>
+/// <param name="Attributes">The attributes to record against the user, or <see langword="null"/> for none.</param>
+/// <param name="TemporaryPassword">An optional temporary password to assign to the new user.</param>
+public sealed record CognitoUserCreateRequest(
+    string Username,
+    IReadOnlyList<CognitoUserAttributeRequest>? Attributes,
+    string? TemporaryPassword);
+
+/// <summary>
+/// The configuration supplied when setting an Amazon Cognito user's password.
+/// </summary>
+/// <param name="Password">The new password to assign.</param>
+/// <param name="Permanent">Whether the password is permanent rather than a temporary one.</param>
+public sealed record CognitoUserPasswordRequest(
+    string Password,
+    bool Permanent);
+
+/// <summary>
+/// The configuration supplied when enabling or disabling an Amazon Cognito user.
+/// </summary>
+/// <param name="Enabled">Whether the account should be enabled.</param>
+public sealed record CognitoUserEnabledRequest(
+    bool Enabled);
+
+/// <summary>
+/// The credentials supplied when requesting bearer tokens for an Amazon Cognito app client.
+/// </summary>
+/// <param name="Username">The username to authenticate.</param>
+/// <param name="Password">The password to authenticate with.</param>
+public sealed record CognitoTokenRequest(
+    string Username,
+    string Password);
+
+/// <summary>
+/// The tokens issued for an Amazon Cognito app client and the decoded identity token claims.
+/// </summary>
+/// <param name="AccessToken">The issued access token, or <see langword="null"/> when none was issued.</param>
+/// <param name="IdToken">The issued identity token, or <see langword="null"/> when none was issued.</param>
+/// <param name="RefreshToken">The issued refresh token, or <see langword="null"/> when none was issued.</param>
+/// <param name="TokenType">The type of the issued tokens, or <see langword="null"/> when not reported.</param>
+/// <param name="ExpiresIn">The number of seconds until the access token expires, or <see langword="null"/> when not reported.</param>
+/// <param name="Claims">The claims decoded from the identity token.</param>
+public sealed record CognitoTokenResponse(
+    string? AccessToken,
+    string? IdToken,
+    string? RefreshToken,
+    string? TokenType,
+    int? ExpiresIn,
+    IReadOnlyList<CognitoUserAttributeResponse> Claims);

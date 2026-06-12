@@ -25,6 +25,32 @@ public class CreateUserPoolCommandHandlerTests
         => new(_client, _publisher, _activityLog, _searchRefresh, NullLogger<CreateUserPoolCommandHandler>.Instance);
 
     [Fact]
+    public async Task Handle_ForwardsPasswordPolicyOntoSpecification()
+    {
+        // Arrange
+        _client
+            .CreateUserPoolAsync(Arg.Any<UserPoolSpecification>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<string>>("eu-west-1_abc123"));
+        var sut = CreateSut();
+        var command = new CreateUserPoolCommand(
+            "customers", "OFF", ["email"], ["email"], new PasswordPolicy(10, true, false, true, false));
+
+        // Act
+        await sut.Handle(command, TestContext.Current.CancellationToken);
+
+        // Assert
+        await _client.Received(1).CreateUserPoolAsync(
+            Arg.Is<UserPoolSpecification>(specification =>
+                specification.PasswordPolicy != null
+                && specification.PasswordPolicy.MinimumLength == 10
+                && specification.PasswordPolicy.RequireUppercase
+                && !specification.PasswordPolicy.RequireLowercase
+                && specification.PasswordPolicy.RequireNumbers
+                && !specification.PasswordPolicy.RequireSymbols),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task Handle_WhenCreateSucceeds_PublishesSuccessAndRefreshesSearch()
     {
         // Arrange

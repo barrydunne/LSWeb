@@ -5152,6 +5152,15 @@ export interface UserPoolDetailResult {
   autoVerifiedAttributes: string[];
   creationDate: string | null;
   lastModifiedDate: string | null;
+  passwordPolicy: PasswordPolicy | null;
+}
+
+export interface PasswordPolicy {
+  minimumLength: number;
+  requireUppercase: boolean;
+  requireLowercase: boolean;
+  requireNumbers: boolean;
+  requireSymbols: boolean;
 }
 
 export async function getUserPool(
@@ -5173,6 +5182,7 @@ export interface UserPoolCreateRequest {
   mfaConfiguration: string | null;
   usernameAttributes: string[];
   autoVerifiedAttributes: string[];
+  passwordPolicy: PasswordPolicy | null;
 }
 
 export interface UserPoolCreatedResult {
@@ -5332,6 +5342,208 @@ export async function deleteUserPoolClient(
   );
   if (!response.ok) {
     throw new Error(`Cognito user pool client delete request failed with status ${response.status}`);
+  }
+}
+
+export async function regenerateUserPoolClientSecret(
+  poolId: string,
+  clientId: string,
+  signal?: AbortSignal,
+): Promise<UserPoolClientDetailResult> {
+  const response = await fetch(
+    `/api/services/cognito/user-pools/${encodeURIComponent(poolId)}/clients/${encodeURIComponent(clientId)}/regenerate-secret`,
+    {
+      method: 'POST',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(
+      `Cognito user pool client secret regenerate request failed with status ${response.status}`,
+    );
+  }
+  return (await response.json()) as UserPoolClientDetailResult;
+}
+
+export interface CognitoTokenClaim {
+  name: string;
+  value: string;
+}
+
+export interface CognitoTokenResult {
+  accessToken: string | null;
+  idToken: string | null;
+  refreshToken: string | null;
+  tokenType: string | null;
+  expiresIn: number | null;
+  claims: CognitoTokenClaim[];
+}
+
+export interface CognitoTokenRequest {
+  username: string;
+  password: string;
+}
+
+export async function requestCognitoToken(
+  poolId: string,
+  clientId: string,
+  request: CognitoTokenRequest,
+  signal?: AbortSignal,
+): Promise<CognitoTokenResult> {
+  const response = await fetch(
+    `/api/services/cognito/user-pools/${encodeURIComponent(poolId)}/clients/${encodeURIComponent(clientId)}/token`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Cognito token request failed with status ${response.status}`);
+  }
+  return (await response.json()) as CognitoTokenResult;
+}
+
+export interface CognitoUserSummaryItem {
+  username: string;
+  status: string;
+  enabled: boolean;
+  createdDate: string | null;
+}
+
+export interface CognitoUserListResult {
+  users: CognitoUserSummaryItem[];
+}
+
+export async function getCognitoUsers(
+  poolId: string,
+  signal?: AbortSignal,
+): Promise<CognitoUserListResult> {
+  const response = await fetch(
+    `/api/services/cognito/user-pools/${encodeURIComponent(poolId)}/users`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`Cognito users request failed with status ${response.status}`);
+  }
+  return (await response.json()) as CognitoUserListResult;
+}
+
+export interface CognitoUserAttributeItem {
+  name: string;
+  value: string;
+}
+
+export interface CognitoUserDetailResult {
+  username: string;
+  status: string;
+  enabled: boolean;
+  attributes: CognitoUserAttributeItem[];
+  createdDate: string | null;
+  lastModifiedDate: string | null;
+}
+
+export async function getCognitoUser(
+  poolId: string,
+  username: string,
+  signal?: AbortSignal,
+): Promise<CognitoUserDetailResult> {
+  const response = await fetch(
+    `/api/services/cognito/user-pools/${encodeURIComponent(poolId)}/users/${encodeURIComponent(username)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`Cognito user request failed with status ${response.status}`);
+  }
+  return (await response.json()) as CognitoUserDetailResult;
+}
+
+export interface CognitoUserCreateRequest {
+  username: string;
+  attributes: CognitoUserAttributeItem[];
+  temporaryPassword: string | null;
+}
+
+export async function createCognitoUser(
+  poolId: string,
+  request: CognitoUserCreateRequest,
+  signal?: AbortSignal,
+): Promise<CognitoUserDetailResult> {
+  const response = await fetch(
+    `/api/services/cognito/user-pools/${encodeURIComponent(poolId)}/users`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Cognito user create request failed with status ${response.status}`);
+  }
+  return (await response.json()) as CognitoUserDetailResult;
+}
+
+export async function deleteCognitoUser(
+  poolId: string,
+  username: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/cognito/user-pools/${encodeURIComponent(poolId)}/users/${encodeURIComponent(username)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Cognito user delete request failed with status ${response.status}`);
+  }
+}
+
+export interface CognitoUserPasswordRequest {
+  password: string;
+  permanent: boolean;
+}
+
+export async function setCognitoUserPassword(
+  poolId: string,
+  username: string,
+  request: CognitoUserPasswordRequest,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/cognito/user-pools/${encodeURIComponent(poolId)}/users/${encodeURIComponent(username)}/password`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Cognito user password request failed with status ${response.status}`);
+  }
+}
+
+export async function setCognitoUserEnabled(
+  poolId: string,
+  username: string,
+  enabled: boolean,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/cognito/user-pools/${encodeURIComponent(poolId)}/users/${encodeURIComponent(username)}/enabled`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Cognito user enabled request failed with status ${response.status}`);
   }
 }
 

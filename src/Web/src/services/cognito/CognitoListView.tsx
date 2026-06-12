@@ -31,6 +31,12 @@ const fieldRowStyle: CSSProperties = {
 
 const labelStyle: CSSProperties = { fontSize: 12, opacity: 0.7 };
 
+const checkboxRowStyle: CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6,
+};
+
 const inputStyle: CSSProperties = {
   fontSize: 13,
   padding: '4px 8px',
@@ -82,6 +88,11 @@ export function CognitoListView({ serviceKey }: ServiceListViewProps) {
   const [mfaConfiguration, setMfaConfiguration] = useState('OFF');
   const [usernameAttributes, setUsernameAttributes] = useState('');
   const [autoVerifiedAttributes, setAutoVerifiedAttributes] = useState('');
+  const [passwordMinLength, setPasswordMinLength] = useState('8');
+  const [requireUppercase, setRequireUppercase] = useState(true);
+  const [requireLowercase, setRequireLowercase] = useState(true);
+  const [requireNumbers, setRequireNumbers] = useState(true);
+  const [requireSymbols, setRequireSymbols] = useState(false);
   const [createState, setCreateState] = useState<CreateState>('idle');
 
   useEffect(() => {
@@ -104,12 +115,24 @@ export function CognitoListView({ serviceKey }: ServiceListViewProps) {
       mfaConfiguration,
       usernameAttributes: parseAttributes(usernameAttributes),
       autoVerifiedAttributes: parseAttributes(autoVerifiedAttributes),
+      passwordPolicy: {
+        minimumLength: Number(passwordMinLength) || 8,
+        requireUppercase,
+        requireLowercase,
+        requireNumbers,
+        requireSymbols,
+      },
     })
       .then(() => {
         setCreateState('created');
         setPoolName('');
         setUsernameAttributes('');
         setAutoVerifiedAttributes('');
+        setPasswordMinLength('8');
+        setRequireUppercase(true);
+        setRequireLowercase(true);
+        setRequireNumbers(true);
+        setRequireSymbols(false);
         setShowCreate(false);
         refresh();
       })
@@ -243,6 +266,55 @@ export function CognitoListView({ serviceKey }: ServiceListViewProps) {
               onChange={(event) => setAutoVerifiedAttributes(event.target.value)}
             />
           </div>
+          <div style={fieldRowStyle}>
+            <label style={labelStyle} htmlFor="cognito-create-password-length">
+              Password minimum length
+            </label>
+            <input
+              id="cognito-create-password-length"
+              type="number"
+              data-testid="cognito-create-password-length"
+              style={inputStyle}
+              value={passwordMinLength}
+              onChange={(event) => setPasswordMinLength(event.target.value)}
+            />
+          </div>
+          <label style={checkboxRowStyle}>
+            <input
+              type="checkbox"
+              data-testid="cognito-create-require-uppercase"
+              checked={requireUppercase}
+              onChange={(event) => setRequireUppercase(event.target.checked)}
+            />
+            <span style={labelStyle}>Require uppercase</span>
+          </label>
+          <label style={checkboxRowStyle}>
+            <input
+              type="checkbox"
+              data-testid="cognito-create-require-lowercase"
+              checked={requireLowercase}
+              onChange={(event) => setRequireLowercase(event.target.checked)}
+            />
+            <span style={labelStyle}>Require lowercase</span>
+          </label>
+          <label style={checkboxRowStyle}>
+            <input
+              type="checkbox"
+              data-testid="cognito-create-require-numbers"
+              checked={requireNumbers}
+              onChange={(event) => setRequireNumbers(event.target.checked)}
+            />
+            <span style={labelStyle}>Require numbers</span>
+          </label>
+          <label style={checkboxRowStyle}>
+            <input
+              type="checkbox"
+              data-testid="cognito-create-require-symbols"
+              checked={requireSymbols}
+              onChange={(event) => setRequireSymbols(event.target.checked)}
+            />
+            <span style={labelStyle}>Require symbols</span>
+          </label>
           <button
             type="button"
             data-testid="cognito-create-submit"

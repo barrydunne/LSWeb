@@ -11,12 +11,13 @@ public class CreateUserPoolClientCommandValidatorTests
     private static CreateUserPoolClientCommand Valid(
         string userPoolId = "eu-west-1_abc123",
         string clientName = "web",
-        IReadOnlyList<string>? allowedOAuthFlows = null)
+        IReadOnlyList<string>? allowedOAuthFlows = null,
+        IReadOnlyList<string>? explicitAuthFlows = null)
         => new(
             userPoolId,
             clientName,
             false,
-            [],
+            explicitAuthFlows ?? ["ALLOW_USER_SRP_AUTH"],
             allowedOAuthFlows ?? ["code"],
             [],
             [],
@@ -72,5 +73,23 @@ public class CreateUserPoolClientCommandValidatorTests
             Valid(allowedOAuthFlows: ["password"]), TestContext.Current.CancellationToken);
         result.IsValid.Should().BeFalse();
         result.Errors.Should().Contain(_ => _.ErrorMessage.Contains("Allowed OAuth flows"));
+    }
+
+    [Fact]
+    public async Task ValidateAsync_WhenExplicitAuthFlowValid_IsValid()
+    {
+        var result = await _sut.ValidateAsync(
+            Valid(explicitAuthFlows: ["ALLOW_USER_PASSWORD_AUTH", "ALLOW_REFRESH_TOKEN_AUTH"]),
+            TestContext.Current.CancellationToken);
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ValidateAsync_WhenExplicitAuthFlowInvalid_ReturnsError()
+    {
+        var result = await _sut.ValidateAsync(
+            Valid(explicitAuthFlows: ["ALLOW_BOGUS_AUTH"]), TestContext.Current.CancellationToken);
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(_ => _.ErrorMessage.Contains("Explicit auth flows"));
     }
 }

@@ -1,4 +1,5 @@
 using Foundation.Application.Commands.CreateUserPool;
+using Foundation.Domain.Cognito;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace Foundation.UnitTests.Application.Commands.CreateUserPool;
@@ -12,18 +13,49 @@ public class CreateUserPoolCommandValidatorTests
         string name = "customers",
         string? mfaConfiguration = "OFF",
         IReadOnlyList<string>? usernameAttributes = null,
-        IReadOnlyList<string>? autoVerifiedAttributes = null)
+        IReadOnlyList<string>? autoVerifiedAttributes = null,
+        PasswordPolicy? passwordPolicy = null)
         => new(
             name,
             mfaConfiguration,
             usernameAttributes ?? ["email"],
-            autoVerifiedAttributes ?? ["email"]);
+            autoVerifiedAttributes ?? ["email"],
+            passwordPolicy);
 
     [Fact]
     public async Task ValidateAsync_WhenValid_IsValid()
     {
         var result = await _sut.ValidateAsync(Valid(), TestContext.Current.CancellationToken);
         result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ValidateAsync_WhenPasswordPolicyValid_IsValid()
+    {
+        var result = await _sut.ValidateAsync(
+            Valid(passwordPolicy: new PasswordPolicy(8, true, true, true, true)),
+            TestContext.Current.CancellationToken);
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ValidateAsync_WhenPasswordPolicyMinimumLengthTooSmall_ReturnsError()
+    {
+        var result = await _sut.ValidateAsync(
+            Valid(passwordPolicy: new PasswordPolicy(3, false, false, false, false)),
+            TestContext.Current.CancellationToken);
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(_ => _.ErrorMessage.Contains("Password minimum length"));
+    }
+
+    [Fact]
+    public async Task ValidateAsync_WhenPasswordPolicyMinimumLengthTooLarge_ReturnsError()
+    {
+        var result = await _sut.ValidateAsync(
+            Valid(passwordPolicy: new PasswordPolicy(200, false, false, false, false)),
+            TestContext.Current.CancellationToken);
+        result.IsValid.Should().BeFalse();
+        result.Errors.Should().Contain(_ => _.ErrorMessage.Contains("Password minimum length"));
     }
 
     [Fact]

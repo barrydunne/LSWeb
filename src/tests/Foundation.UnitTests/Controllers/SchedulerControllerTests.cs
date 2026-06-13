@@ -94,7 +94,8 @@ public class SchedulerControllerTests
             null,
             "arn:aws:scheduler:eu-west-1:000000000000:schedule/default/nightly",
             DateTimeOffset.UnixEpoch,
-            DateTimeOffset.UnixEpoch);
+            DateTimeOffset.UnixEpoch,
+            "{\"payload\":1}");
         GetScheduleQuery? captured = null;
         _sender
             .Send(Arg.Do<GetScheduleQuery>(query => captured = query), Arg.Any<CancellationToken>())
@@ -122,6 +123,7 @@ public class SchedulerControllerTests
         ok.Value.Arn.Should().Be("arn:aws:scheduler:eu-west-1:000000000000:schedule/default/nightly");
         ok.Value.CreationDate.Should().Be(DateTimeOffset.UnixEpoch);
         ok.Value.LastModificationDate.Should().Be(DateTimeOffset.UnixEpoch);
+        ok.Value.TargetInput.Should().Be("{\"payload\":1}");
         captured.Should().NotBeNull();
         captured!.Name.Should().Be("nightly");
         captured.GroupName.Should().Be("default");
@@ -160,7 +162,8 @@ public class SchedulerControllerTests
             "arn:aws:iam::000000000000:role/scheduler",
             "OFF",
             null,
-            "ENABLED");
+            "ENABLED",
+            "{\"payload\":1}");
         CreateScheduleCommand? captured = null;
         _sender
             .Send(Arg.Do<CreateScheduleCommand>(command => captured = command), Arg.Any<CancellationToken>())
@@ -178,6 +181,7 @@ public class SchedulerControllerTests
         captured.GroupName.Should().Be("default");
         captured.ScheduleExpression.Should().Be("rate(5 minutes)");
         captured.State.Should().Be("ENABLED");
+        captured.TargetInput.Should().Be("{\"payload\":1}");
     }
 
     [Fact]
@@ -196,7 +200,8 @@ public class SchedulerControllerTests
             "arn:aws:iam::000000000000:role/scheduler",
             "OFF",
             null,
-            "ENABLED");
+            "ENABLED",
+            null);
         _sender
             .Send(Arg.Any<CreateScheduleCommand>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<Result>(new Error("boom")));
@@ -224,7 +229,8 @@ public class SchedulerControllerTests
             "arn:aws:iam::000000000000:role/scheduler",
             "FLEXIBLE",
             15,
-            "DISABLED");
+            "DISABLED",
+            "{\"payload\":1}");
         UpdateScheduleCommand? captured = null;
         _sender
             .Send(Arg.Do<UpdateScheduleCommand>(command => captured = command), Arg.Any<CancellationToken>())
@@ -244,6 +250,7 @@ public class SchedulerControllerTests
         captured.FlexibleTimeWindowMode.Should().Be("FLEXIBLE");
         captured.MaximumWindowInMinutes.Should().Be(15);
         captured.State.Should().Be("DISABLED");
+        captured.TargetInput.Should().Be("{\"payload\":1}");
     }
 
     [Fact]
@@ -260,7 +267,8 @@ public class SchedulerControllerTests
             "arn:aws:iam::000000000000:role/scheduler",
             "OFF",
             null,
-            "ENABLED");
+            "ENABLED",
+            null);
         _sender
             .Send(Arg.Any<UpdateScheduleCommand>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<Result>(new Error("boom")));

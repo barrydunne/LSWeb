@@ -92,7 +92,8 @@ public partial class SchedulerController : ControllerBase
                 schedule.Schedule.MaximumWindowInMinutes,
                 schedule.Schedule.Arn,
                 schedule.Schedule.CreationDate,
-                schedule.Schedule.LastModificationDate)),
+                schedule.Schedule.LastModificationDate,
+                schedule.Schedule.TargetInput)),
             error => error.AsHttpResult());
     }
 
@@ -121,7 +122,8 @@ public partial class SchedulerController : ControllerBase
                 request.RoleArn,
                 request.FlexibleTimeWindowMode,
                 request.MaximumWindowInMinutes,
-                request.State),
+                request.State,
+                request.TargetInput),
             cancellationToken);
         LogCreateScheduleHandled(result.IsSuccess);
         return result.Match(
@@ -158,7 +160,8 @@ public partial class SchedulerController : ControllerBase
                 request.RoleArn,
                 request.FlexibleTimeWindowMode,
                 request.MaximumWindowInMinutes,
-                request.State),
+                request.State,
+                request.TargetInput),
             cancellationToken);
         LogUpdateScheduleHandled(result.IsSuccess);
         return result.Match(

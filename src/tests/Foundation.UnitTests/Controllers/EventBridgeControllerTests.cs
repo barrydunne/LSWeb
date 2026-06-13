@@ -1,13 +1,18 @@
 using AspNet.KickStarter.FunctionalResult;
 using Foundation.Api.Controllers;
 using Foundation.Api.Models;
+using Foundation.Application.Commands.CreateEventBridgeEventBus;
+using Foundation.Application.Commands.DeleteEventBridgeEventBus;
 using Foundation.Application.Commands.DeleteScheduledRule;
 using Foundation.Application.Commands.PutEventBridgeEvent;
+using Foundation.Application.Commands.PutEventBridgeRule;
 using Foundation.Application.Commands.PutScheduledRule;
 using Foundation.Application.Commands.PutScheduledRuleTargets;
 using Foundation.Application.Commands.RemoveScheduledRuleTargets;
 using Foundation.Application.Commands.SetScheduledRuleState;
+using Foundation.Application.Queries.GetEventBridgeRule;
 using Foundation.Application.Queries.GetScheduledRule;
+using Foundation.Application.Queries.ListEventBridgeEventBuses;
 using Foundation.Application.Queries.ListEventBridgeRules;
 using Foundation.Application.Queries.ListEventBridgeTargets;
 using Foundation.Application.Queries.ListScheduledRules;
@@ -27,6 +32,297 @@ public class EventBridgeControllerTests
 
     private EventBridgeController CreateSut()
         => new(_sender, _logger);
+
+    [Fact]
+    public async Task GetRule_WhenQuerySucceeds_ReturnsOkWithPattern()
+    {
+        // Arrange
+        var detail = new EventBridgeRuleDetail(
+            "orders-rule",
+            "arn:aws:events:eu-west-1:000000000000:rule/orders-rule",
+            "default",
+            "ENABLED",
+            null,
+            "desc",
+            null,
+            null,
+            "{\"source\":[\"my.app\"]}");
+        _sender
+            .Send(Arg.Any<GetEventBridgeRuleQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<GetEventBridgeRuleQueryResult>>(
+                new GetEventBridgeRuleQueryResult(detail)));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.GetRule("orders-rule", null, TestContext.Current.CancellationToken);
+
+        // Assert
+        var ok = result.Should().BeOfType<Ok<RuleDetailResponse>>().Subject;
+        ok.Value!.Name.Should().Be("orders-rule");
+        ok.Value.Arn.Should().Be("arn:aws:events:eu-west-1:000000000000:rule/orders-rule");
+        ok.Value.EventBusName.Should().Be("default");
+        ok.Value.State.Should().Be("ENABLED");
+        ok.Value.ScheduleExpression.Should().BeNull();
+        ok.Value.Description.Should().Be("desc");
+        ok.Value.RoleArn.Should().BeNull();
+        ok.Value.ManagedBy.Should().BeNull();
+        ok.Value.EventPattern.Should().Be("{\"source\":[\"my.app\"]}");
+    }
+
+    [Fact]
+    public async Task GetRule_WhenQueryFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<GetEventBridgeRuleQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<GetEventBridgeRuleQueryResult>>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.GetRule("missing", null, TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task CreateRule_WhenCommandSucceeds_ReturnsCreated()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<PutEventBridgeRuleCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+        var request = new RulePutRequest(
+            "orders-rule", "{\"source\":[\"my.app\"]}", "ENABLED", null, null);
+
+        // Act
+        var result = await sut.CreateRule(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        var created = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        created.StatusCode.Should().Be(StatusCodes.Status201Created);
+        await _sender.Received(1).Send(
+            Arg.Is<PutEventBridgeRuleCommand>(command => command.EventPattern == "{\"source\":[\"my.app\"]}"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CreateRule_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<PutEventBridgeRuleCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var sut = CreateSut();
+        var request = new RulePutRequest(
+            "orders-rule", "{\"source\":[\"my.app\"]}", "DISABLED", "desc", "bus");
+
+        // Act
+        var result = await sut.CreateRule(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task PutRuleTargets_WhenCommandSucceeds_ReturnsNoContent()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<PutScheduledRuleTargetsCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+        var request = new RuleTargetsPutRequest(
+        [
+            new RuleTargetRequest("t1", "arn:aws:lambda:eu-west-1:000000000000:function:fn", null, null),
+        ]);
+
+        // Act
+        var result = await sut.PutRuleTargets(
+            "orders-rule", null, request, TestContext.Current.CancellationToken);
+
+        // Assert
+        var noContent = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        noContent.StatusCode.Should().Be(StatusCodes.Status204NoContent);
+        await _sender.Received(1).Send(
+            Arg.Is<PutScheduledRuleTargetsCommand>(command =>
+                command.RuleName == "orders-rule" && command.Targets.Count == 1),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PutRuleTargets_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<PutScheduledRuleTargetsCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var sut = CreateSut();
+        var request = new RuleTargetsPutRequest(
+        [
+            new RuleTargetRequest("t1", "arn:aws:lambda:eu-west-1:000000000000:function:fn", "role", "{}"),
+        ]);
+
+        // Act
+        var result = await sut.PutRuleTargets(
+            "orders-rule", "bus", request, TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task RemoveRuleTargets_WhenCommandSucceeds_ReturnsNoContent()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<RemoveScheduledRuleTargetsCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+        var request = new RuleTargetsRemoveRequest(["t1"]);
+
+        // Act
+        var result = await sut.RemoveRuleTargets(
+            "orders-rule", null, request, TestContext.Current.CancellationToken);
+
+        // Assert
+        var noContent = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        noContent.StatusCode.Should().Be(StatusCodes.Status204NoContent);
+    }
+
+    [Fact]
+    public async Task RemoveRuleTargets_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<RemoveScheduledRuleTargetsCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var sut = CreateSut();
+        var request = new RuleTargetsRemoveRequest(["t1"]);
+
+        // Act
+        var result = await sut.RemoveRuleTargets(
+            "orders-rule", "bus", request, TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task ListEventBuses_WhenQuerySucceeds_ReturnsOkWithBuses()
+    {
+        // Arrange
+        IReadOnlyList<EventBridgeEventBus> buses =
+        [
+            new("orders-bus", "arn:aws:events:eu-west-1:000000000000:event-bus/orders-bus"),
+        ];
+        _sender
+            .Send(Arg.Any<ListEventBridgeEventBusesQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<ListEventBridgeEventBusesQueryResult>>(
+                new ListEventBridgeEventBusesQueryResult(buses)));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.ListEventBuses(TestContext.Current.CancellationToken);
+
+        // Assert
+        var ok = result.Should().BeOfType<Ok<EventBusListResponse>>().Subject;
+        var bus = ok.Value!.Buses.Should().ContainSingle().Subject;
+        bus.Name.Should().Be("orders-bus");
+        bus.Arn.Should().Be("arn:aws:events:eu-west-1:000000000000:event-bus/orders-bus");
+    }
+
+    [Fact]
+    public async Task ListEventBuses_WhenQueryFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<ListEventBridgeEventBusesQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<ListEventBridgeEventBusesQueryResult>>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.ListEventBuses(TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task CreateEventBus_WhenCommandSucceeds_ReturnsCreated()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<CreateEventBridgeEventBusCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.CreateEventBus(
+            new EventBusCreateRequest("orders-bus"), TestContext.Current.CancellationToken);
+
+        // Assert
+        var created = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        created.StatusCode.Should().Be(StatusCodes.Status201Created);
+    }
+
+    [Fact]
+    public async Task CreateEventBus_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<CreateEventBridgeEventBusCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.CreateEventBus(
+            new EventBusCreateRequest("orders-bus"), TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task DeleteEventBus_WhenCommandSucceeds_ReturnsNoContent()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<DeleteEventBridgeEventBusCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.DeleteEventBus("orders-bus", TestContext.Current.CancellationToken);
+
+        // Assert
+        var noContent = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        noContent.StatusCode.Should().Be(StatusCodes.Status204NoContent);
+    }
+
+    [Fact]
+    public async Task DeleteEventBus_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<DeleteEventBridgeEventBusCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.DeleteEventBus("orders-bus", TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
 
     [Fact]
     public async Task ListRules_WhenQuerySucceeds_ReturnsOkWithRules()
@@ -142,7 +438,8 @@ public class EventBridgeControllerTests
             "rate(1 hour)",
             "Runs hourly",
             "arn:aws:iam::000000000000:role/scheduler",
-            "events.amazonaws.com");
+            "events.amazonaws.com",
+            null);
         GetScheduledRuleQuery? captured = null;
         _sender
             .Send(

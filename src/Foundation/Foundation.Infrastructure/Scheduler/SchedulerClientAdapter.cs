@@ -76,7 +76,8 @@ internal sealed class SchedulerClientAdapter : ISchedulerClient
                     response.FlexibleTimeWindow?.MaximumWindowInMinutes,
                     response.Arn ?? string.Empty,
                     ToTimestamp(response.CreationDate),
-                    ToTimestamp(response.LastModificationDate));
+                    ToTimestamp(response.LastModificationDate),
+                    string.IsNullOrEmpty(response.Target?.Input) ? null : response.Target.Input);
             },
             cancellationToken);
 
@@ -242,6 +243,8 @@ internal sealed class SchedulerClientAdapter : ISchedulerClient
             request.StartDate = specification.StartDate.Value.UtcDateTime;
         if (specification.EndDate is not null)
             request.EndDate = specification.EndDate.Value.UtcDateTime;
+        if (!string.IsNullOrEmpty(specification.TargetInput))
+            request.Target.Input = specification.TargetInput;
     }
 
     private static void ApplyOptional(UpdateScheduleRequest request, ScheduleSpecification specification)
@@ -254,6 +257,8 @@ internal sealed class SchedulerClientAdapter : ISchedulerClient
             request.StartDate = specification.StartDate.Value.UtcDateTime;
         if (specification.EndDate is not null)
             request.EndDate = specification.EndDate.Value.UtcDateTime;
+        if (!string.IsNullOrEmpty(specification.TargetInput))
+            request.Target.Input = specification.TargetInput;
     }
 
     private static DomainScheduleSummary ToSummary(Amazon.Scheduler.Model.ScheduleSummary schedule)

@@ -1,12 +1,17 @@
 using AspNet.KickStarter.FunctionalResult.Extensions;
 using Foundation.Api.Models;
+using Foundation.Application.Commands.CreateEventBridgeEventBus;
+using Foundation.Application.Commands.DeleteEventBridgeEventBus;
 using Foundation.Application.Commands.DeleteScheduledRule;
 using Foundation.Application.Commands.PutEventBridgeEvent;
+using Foundation.Application.Commands.PutEventBridgeRule;
 using Foundation.Application.Commands.PutScheduledRule;
 using Foundation.Application.Commands.PutScheduledRuleTargets;
 using Foundation.Application.Commands.RemoveScheduledRuleTargets;
 using Foundation.Application.Commands.SetScheduledRuleState;
+using Foundation.Application.Queries.GetEventBridgeRule;
 using Foundation.Application.Queries.GetScheduledRule;
+using Foundation.Application.Queries.ListEventBridgeEventBuses;
 using Foundation.Application.Queries.ListEventBridgeRules;
 using Foundation.Application.Queries.ListEventBridgeTargets;
 using Foundation.Application.Queries.ListScheduledRules;
@@ -62,6 +67,178 @@ public partial class EventBridgeController : ControllerBase
                         rule.Description,
                         rule.ScheduleExpression))
                     .ToList())),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Gets the full configuration of a single EventBridge rule, including its event pattern.
+    /// </summary>
+    /// <param name="name">The name of the rule to describe.</param>
+    /// <param name="bus">The event bus the rule belongs to, or <c>null</c> to use the default bus.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 200 result carrying the rule detail.</returns>
+    [HttpGet("rules/{name}")]
+    [ProducesResponseType(typeof(RuleDetailResponse), StatusCodes.Status200OK)]
+    public async Task<IResult> GetRule(
+        string name, [FromQuery] string? bus, CancellationToken cancellationToken)
+    {
+        LogHandlingGetRule(name);
+        var result = await _sender.Send(new GetEventBridgeRuleQuery(name, bus), cancellationToken);
+        LogGetRuleHandled(result.IsSuccess);
+        return result.Match(
+            detail => Results.Ok(new RuleDetailResponse(
+                detail.Rule.Name,
+                detail.Rule.Arn,
+                detail.Rule.EventBusName,
+                detail.Rule.State,
+                detail.Rule.ScheduleExpression,
+                detail.Rule.Description,
+                detail.Rule.RoleArn,
+                detail.Rule.ManagedBy,
+                detail.Rule.EventPattern)),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Creates or updates an EventBridge event-pattern rule.
+    /// </summary>
+    /// <param name="request">The rule name, event pattern, state and optional description and bus.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 201 result locating the created rule.</returns>
+    [HttpPost("rules")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    public async Task<IResult> CreateRule(
+        [FromBody] RulePutRequest request, CancellationToken cancellationToken)
+    {
+        LogHandlingCreateRule(request.Name);
+        var result = await _sender.Send(
+            new PutEventBridgeRuleCommand(
+                request.Name,
+                request.EventPattern,
+                request.State,
+                request.Description,
+                request.EventBusName),
+            cancellationToken);
+        LogCreateRuleHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.Created(
+                $"/api/services/eventbridge/rules/{Uri.EscapeDataString(request.Name)}", null),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Adds or replaces targets on an EventBridge rule.
+    /// </summary>
+    /// <param name="name">The name of the rule whose targets to write.</param>
+    /// <param name="bus">The event bus the rule belongs to, or <c>null</c> to use the default bus.</param>
+    /// <param name="request">The targets to add or replace.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 204 result on success.</returns>
+    [HttpPut("rules/{name}/targets")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IResult> PutRuleTargets(
+        string name, [FromQuery] string? bus,
+        [FromBody] RuleTargetsPutRequest request, CancellationToken cancellationToken)
+    {
+        LogHandlingPutRuleTargets(name, request.Targets.Count);
+        var result = await _sender.Send(
+            new PutScheduledRuleTargetsCommand(
+                name,
+                bus,
+                request.Targets
+                    .Select(target => new EventBridgeTargetSpecification(
+                        target.Id,
+                        target.Arn,
+                        target.RoleArn,
+                        target.Input))
+                    .ToList()),
+            cancellationToken);
+        LogPutRuleTargetsHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.NoContent(),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Removes targets from an EventBridge rule.
+    /// </summary>
+    /// <param name="name">The name of the rule whose targets to remove.</param>
+    /// <param name="bus">The event bus the rule belongs to, or <c>null</c> to use the default bus.</param>
+    /// <param name="request">The identifiers of the targets to remove.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 204 result on success.</returns>
+    [HttpDelete("rules/{name}/targets")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IResult> RemoveRuleTargets(
+        string name, [FromQuery] string? bus,
+        [FromBody] RuleTargetsRemoveRequest request, CancellationToken cancellationToken)
+    {
+        LogHandlingRemoveRuleTargets(name, request.Ids.Count);
+        var result = await _sender.Send(
+            new RemoveScheduledRuleTargetsCommand(name, bus, request.Ids), cancellationToken);
+        LogRemoveRuleTargetsHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.NoContent(),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Lists the EventBridge event buses available on the backend.
+    /// </summary>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 200 result carrying the event bus summaries.</returns>
+    [HttpGet("event-buses")]
+    [ProducesResponseType(typeof(EventBusListResponse), StatusCodes.Status200OK)]
+    public async Task<IResult> ListEventBuses(CancellationToken cancellationToken)
+    {
+        LogHandlingListEventBuses();
+        var result = await _sender.Send(new ListEventBridgeEventBusesQuery(), cancellationToken);
+        LogListEventBusesHandled(result.IsSuccess);
+        return result.Match(
+            buses => Results.Ok(new EventBusListResponse(
+                buses.Buses
+                    .Select(bus => new EventBusSummaryResponse(bus.Name, bus.Arn))
+                    .ToList())),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Creates a custom EventBridge event bus.
+    /// </summary>
+    /// <param name="request">The name of the event bus to create.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 201 result locating the created event bus.</returns>
+    [HttpPost("event-buses")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    public async Task<IResult> CreateEventBus(
+        [FromBody] EventBusCreateRequest request, CancellationToken cancellationToken)
+    {
+        LogHandlingCreateEventBus(request.Name);
+        var result = await _sender.Send(
+            new CreateEventBridgeEventBusCommand(request.Name), cancellationToken);
+        LogCreateEventBusHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.Created(
+                $"/api/services/eventbridge/event-buses/{Uri.EscapeDataString(request.Name)}", null),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Deletes a custom EventBridge event bus. The default bus cannot be deleted.
+    /// </summary>
+    /// <param name="name">The name of the event bus to delete.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 204 result on success.</returns>
+    [HttpDelete("event-buses/{name}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IResult> DeleteEventBus(string name, CancellationToken cancellationToken)
+    {
+        LogHandlingDeleteEventBus(name);
+        var result = await _sender.Send(
+            new DeleteEventBridgeEventBusCommand(name), cancellationToken);
+        LogDeleteEventBusHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.NoContent(),
             error => error.AsHttpResult());
     }
 
@@ -333,6 +510,48 @@ public partial class EventBridgeController : ControllerBase
 
     [LoggerMessage(LogLevel.Trace, "EventBridge rule list request handled. Success: {Success}")]
     private partial void LogListRulesHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling EventBridge rule detail request for {Rule}.")]
+    private partial void LogHandlingGetRule(string rule);
+
+    [LoggerMessage(LogLevel.Trace, "EventBridge rule detail request handled. Success: {Success}")]
+    private partial void LogGetRuleHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling EventBridge create rule request for {Name}.")]
+    private partial void LogHandlingCreateRule(string name);
+
+    [LoggerMessage(LogLevel.Trace, "EventBridge create rule request handled. Success: {Success}")]
+    private partial void LogCreateRuleHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling EventBridge put {Count} target(s) on rule {Name}.")]
+    private partial void LogHandlingPutRuleTargets(string name, int count);
+
+    [LoggerMessage(LogLevel.Trace, "EventBridge put rule targets request handled. Success: {Success}")]
+    private partial void LogPutRuleTargetsHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling EventBridge remove {Count} target(s) from rule {Name}.")]
+    private partial void LogHandlingRemoveRuleTargets(string name, int count);
+
+    [LoggerMessage(LogLevel.Trace, "EventBridge remove rule targets request handled. Success: {Success}")]
+    private partial void LogRemoveRuleTargetsHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling EventBridge event bus list request.")]
+    private partial void LogHandlingListEventBuses();
+
+    [LoggerMessage(LogLevel.Trace, "EventBridge event bus list request handled. Success: {Success}")]
+    private partial void LogListEventBusesHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling EventBridge create event bus request for {Name}.")]
+    private partial void LogHandlingCreateEventBus(string name);
+
+    [LoggerMessage(LogLevel.Trace, "EventBridge create event bus request handled. Success: {Success}")]
+    private partial void LogCreateEventBusHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling EventBridge delete event bus request for {Name}.")]
+    private partial void LogHandlingDeleteEventBus(string name);
+
+    [LoggerMessage(LogLevel.Trace, "EventBridge delete event bus request handled. Success: {Success}")]
+    private partial void LogDeleteEventBusHandled(bool success);
 
     [LoggerMessage(LogLevel.Trace, "Handling EventBridge scheduled rule list request.")]
     private partial void LogHandlingListScheduledRules();

@@ -31,7 +31,8 @@ public class UpdateScheduleCommandHandlerTests
             "arn:aws:iam::000000000000:role/scheduler",
             "FLEXIBLE",
             15,
-            "DISABLED");
+            "DISABLED",
+            null);
 
     private UpdateScheduleCommandHandler CreateSut()
         => new(_client, _publisher, _activityLog, _searchRefresh, NullLogger<UpdateScheduleCommandHandler>.Instance);

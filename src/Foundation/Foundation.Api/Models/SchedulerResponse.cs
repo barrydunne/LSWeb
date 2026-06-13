@@ -40,6 +40,7 @@ public sealed record ScheduleSummaryResponse(
 /// <param name="Arn">The Amazon Resource Name that uniquely identifies the schedule.</param>
 /// <param name="CreationDate">The moment the schedule was created, or <see langword="null"/> when not reported.</param>
 /// <param name="LastModificationDate">The moment the schedule was last modified, or <see langword="null"/> when not reported.</param>
+/// <param name="TargetInput">A constant JSON payload passed to the target when the schedule runs, or <see langword="null"/> when none is configured.</param>
 public sealed record ScheduleDetailResponse(
     string Name,
     string GroupName,
@@ -55,7 +56,8 @@ public sealed record ScheduleDetailResponse(
     int? MaximumWindowInMinutes,
     string Arn,
     DateTimeOffset? CreationDate,
-    DateTimeOffset? LastModificationDate);
+    DateTimeOffset? LastModificationDate,
+    string? TargetInput);
 
 /// <summary>
 /// The configuration supplied when creating an EventBridge Scheduler schedule.
@@ -72,6 +74,7 @@ public sealed record ScheduleDetailResponse(
 /// <param name="FlexibleTimeWindowMode">The flexible time window mode, either <c>OFF</c> or <c>FLEXIBLE</c>.</param>
 /// <param name="MaximumWindowInMinutes">The maximum flexible time window in minutes, or <see langword="null"/> when the mode is off.</param>
 /// <param name="State">Whether the schedule is enabled or disabled.</param>
+/// <param name="TargetInput">A constant JSON payload passed to the target when the schedule runs, or <see langword="null"/> to pass no input.</param>
 public sealed record ScheduleCreateRequest(
     string Name,
     string GroupName,
@@ -84,7 +87,8 @@ public sealed record ScheduleCreateRequest(
     string RoleArn,
     string FlexibleTimeWindowMode,
     int? MaximumWindowInMinutes,
-    string State);
+    string State,
+    string? TargetInput);
 
 /// <summary>
 /// The configuration supplied when updating an existing EventBridge Scheduler schedule. The schedule
@@ -100,6 +104,7 @@ public sealed record ScheduleCreateRequest(
 /// <param name="FlexibleTimeWindowMode">The flexible time window mode, either <c>OFF</c> or <c>FLEXIBLE</c>.</param>
 /// <param name="MaximumWindowInMinutes">The maximum flexible time window in minutes, or <see langword="null"/> when the mode is off.</param>
 /// <param name="State">Whether the schedule is enabled or disabled.</param>
+/// <param name="TargetInput">A constant JSON payload passed to the target when the schedule runs, or <see langword="null"/> to pass no input.</param>
 public sealed record ScheduleUpdateRequest(
     string ScheduleExpression,
     string? ScheduleExpressionTimezone,
@@ -110,7 +115,8 @@ public sealed record ScheduleUpdateRequest(
     string RoleArn,
     string FlexibleTimeWindowMode,
     int? MaximumWindowInMinutes,
-    string State);
+    string State,
+    string? TargetInput);
 
 /// <summary>
 /// The EventBridge Scheduler schedule groups available on the backend.

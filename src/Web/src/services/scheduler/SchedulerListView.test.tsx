@@ -182,6 +182,12 @@ describe('SchedulerListView', () => {
     fireEvent.change(screen.getByTestId('scheduler-create-expression'), {
       target: { value: 'rate(5 minutes)' },
     });
+    fireEvent.change(screen.getByTestId('scheduler-create-timezone'), {
+      target: { value: 'Europe/Dublin' },
+    });
+    fireEvent.change(screen.getByTestId('scheduler-create-target-type'), {
+      target: { value: 'sqs' },
+    });
     fireEvent.change(screen.getByTestId('scheduler-create-target'), {
       target: { value: 'arn:aws:sqs:eu-west-1:000000000000:queue' },
     });
@@ -197,7 +203,7 @@ describe('SchedulerListView', () => {
       name: 'daily-job',
       groupName: 'jobs',
       scheduleExpression: 'rate(5 minutes)',
-      scheduleExpressionTimezone: null,
+      scheduleExpressionTimezone: 'Europe/Dublin',
       description: null,
       startDate: null,
       endDate: null,
@@ -206,6 +212,7 @@ describe('SchedulerListView', () => {
       flexibleTimeWindowMode: 'OFF',
       maximumWindowInMinutes: null,
       state: 'ENABLED',
+      targetInput: null,
     });
   });
 
@@ -219,6 +226,9 @@ describe('SchedulerListView', () => {
     });
     fireEvent.change(screen.getByTestId('scheduler-create-expression'), {
       target: { value: 'rate(1 hour)' },
+    });
+    fireEvent.change(screen.getByTestId('scheduler-create-target-type'), {
+      target: { value: 'sqs' },
     });
     fireEvent.change(screen.getByTestId('scheduler-create-target'), {
       target: { value: 'arn:aws:sqs:eu-west-1:000000000000:queue' },
@@ -263,6 +273,9 @@ describe('SchedulerListView', () => {
     fireEvent.change(screen.getByTestId('scheduler-create-name'), {
       target: { value: 'daily-job' },
     });
+    fireEvent.change(screen.getByTestId('scheduler-create-target-type'), {
+      target: { value: 'other' },
+    });
     fireEvent.click(screen.getByTestId('scheduler-create-submit'));
 
     expect(screen.getByTestId('scheduler-create-submit')).toBeDisabled();
@@ -282,10 +295,87 @@ describe('SchedulerListView', () => {
     fireEvent.change(screen.getByTestId('scheduler-create-name'), {
       target: { value: 'daily-job' },
     });
+    fireEvent.change(screen.getByTestId('scheduler-create-target-type'), {
+      target: { value: 'other' },
+    });
     fireEvent.click(screen.getByTestId('scheduler-create-submit'));
 
     await waitFor(() =>
       expect(screen.getByTestId('scheduler-create-error')).toBeInTheDocument(),
+    );
+  });
+
+  it('blocks creation when the ARN does not match the selected target type', async () => {
+    renderView();
+    await waitFor(() => expect(screen.getByTestId('scheduler-list-view')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('scheduler-create-toggle'));
+    fireEvent.change(screen.getByTestId('scheduler-create-name'), {
+      target: { value: 'daily-job' },
+    });
+    fireEvent.change(screen.getByTestId('scheduler-create-target-type'), {
+      target: { value: 'lambda' },
+    });
+    fireEvent.change(screen.getByTestId('scheduler-create-target'), {
+      target: { value: 'arn:aws:sqs:eu-west-1:000000000000:queue' },
+    });
+    fireEvent.click(screen.getByTestId('scheduler-create-submit'));
+
+    expect(screen.getByTestId('scheduler-create-error')).toHaveTextContent(
+      'does not look like a Lambda function ARN',
+    );
+    expect(createScheduleMock).not.toHaveBeenCalled();
+  });
+
+  it('blocks creation when the target payload is not valid JSON', async () => {
+    renderView();
+    await waitFor(() => expect(screen.getByTestId('scheduler-list-view')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('scheduler-create-toggle'));
+    fireEvent.change(screen.getByTestId('scheduler-create-name'), {
+      target: { value: 'daily-job' },
+    });
+    fireEvent.change(screen.getByTestId('scheduler-create-target-type'), {
+      target: { value: 'other' },
+    });
+    fireEvent.change(screen.getByTestId('scheduler-create-payload'), {
+      target: { value: 'not-json' },
+    });
+    fireEvent.click(screen.getByTestId('scheduler-create-submit'));
+
+    expect(screen.getByTestId('scheduler-create-error')).toHaveTextContent(
+      'must be valid JSON',
+    );
+    expect(createScheduleMock).not.toHaveBeenCalled();
+  });
+
+  it('creates a schedule with a target payload', async () => {
+    renderView();
+    await waitFor(() => expect(screen.getByTestId('scheduler-list-view')).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId('scheduler-create-toggle'));
+    fireEvent.change(screen.getByTestId('scheduler-create-name'), {
+      target: { value: 'daily-job' },
+    });
+    fireEvent.change(screen.getByTestId('scheduler-create-expression'), {
+      target: { value: 'rate(5 minutes)' },
+    });
+    fireEvent.change(screen.getByTestId('scheduler-create-target-type'), {
+      target: { value: 'lambda' },
+    });
+    fireEvent.change(screen.getByTestId('scheduler-create-target'), {
+      target: { value: 'arn:aws:lambda:eu-west-1:000000000000:function:job' },
+    });
+    fireEvent.change(screen.getByTestId('scheduler-create-role'), {
+      target: { value: 'arn:aws:iam::000000000000:role/scheduler' },
+    });
+    fireEvent.change(screen.getByTestId('scheduler-create-payload'), {
+      target: { value: '{"key":"value"}' },
+    });
+    fireEvent.click(screen.getByTestId('scheduler-create-submit'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('scheduler-create-status')).toBeInTheDocument(),
+    );
+    expect(createScheduleMock).toHaveBeenCalledWith(
+      expect.objectContaining({ targetInput: '{"key":"value"}' }),
     );
   });
 

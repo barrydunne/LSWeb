@@ -131,7 +131,14 @@ import {
   executeChangeSet,
   deleteChangeSet,
   getEventBridgeRules,
+  getEventBridgeRule,
+  createEventBridgeRule,
   getEventBridgeTargets,
+  putEventBridgeRuleTargets,
+  removeEventBridgeRuleTargets,
+  getEventBridgeEventBuses,
+  createEventBridgeEventBus,
+  deleteEventBridgeEventBus,
   putEventBridgeEvent,
   getScheduledRules,
   getScheduledRule,
@@ -4995,6 +5002,270 @@ describe('getEventBridgeRules', () => {
   });
 });
 
+describe('getEventBridgeRule', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed rule detail when the request succeeds', async () => {
+    const payload = {
+      name: 'orders-rule',
+      arn: 'arn:aws:events:eu-west-1:000000000000:rule/orders-rule',
+      eventBusName: 'default',
+      state: 'ENABLED',
+      scheduleExpression: null,
+      description: null,
+      roleArn: null,
+      managedBy: null,
+      eventPattern: '{"source":["my.app"]}',
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getEventBridgeRule('orders-rule', 'custom-bus');
+
+    expect(result.eventPattern).toBe('{"source":["my.app"]}');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/eventbridge/rules/orders-rule?bus=custom-bus',
+      { signal: undefined },
+    );
+  });
+
+  it('omits the bus query when no bus is supplied', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({}) });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await getEventBridgeRule('orders-rule');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/eventbridge/rules/orders-rule',
+      { signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getEventBridgeRule('missing')).rejects.toThrow(
+      'EventBridge rule request failed with status 404',
+    );
+  });
+});
+
+describe('createEventBridgeRule', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const request = {
+    name: 'orders-rule',
+    eventPattern: '{"source":["my.app"]}',
+    state: 'ENABLED',
+    description: null,
+    eventBusName: null,
+  };
+
+  it('posts the rule when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await createEventBridgeRule(request, controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/eventbridge/rules', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(createEventBridgeRule(request)).rejects.toThrow(
+      'EventBridge rule create request failed with status 400',
+    );
+  });
+});
+
+describe('putEventBridgeRuleTargets', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const targets = [
+    { id: 't1', arn: 'arn:aws:lambda:eu-west-1:000000000000:function:fn', roleArn: null, input: null },
+  ];
+
+  it('puts the targets when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await putEventBridgeRuleTargets('orders-rule', targets, 'bus-a', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/eventbridge/rules/orders-rule/targets?bus=bus-a',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targets }),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('omits the bus query when no bus is supplied', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await putEventBridgeRuleTargets('orders-rule', targets);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/eventbridge/rules/orders-rule/targets',
+      expect.objectContaining({ method: 'PUT' }),
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(putEventBridgeRuleTargets('orders-rule', targets)).rejects.toThrow(
+      'EventBridge put rule targets request failed with status 400',
+    );
+  });
+});
+
+describe('removeEventBridgeRuleTargets', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('deletes the targets when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await removeEventBridgeRuleTargets('orders-rule', ['t1'], 'bus-a', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/eventbridge/rules/orders-rule/targets?bus=bus-a',
+      {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: ['t1'] }),
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('omits the bus query when no bus is supplied', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await removeEventBridgeRuleTargets('orders-rule', ['t1']);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/eventbridge/rules/orders-rule/targets',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 409 }));
+
+    await expect(removeEventBridgeRuleTargets('orders-rule', ['t1'])).rejects.toThrow(
+      'EventBridge remove rule targets request failed with status 409',
+    );
+  });
+});
+
+describe('getEventBridgeEventBuses', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed buses when the request succeeds', async () => {
+    const payload = {
+      buses: [{ name: 'default', arn: 'arn:aws:events:eu-west-1:000000000000:event-bus/default' }],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getEventBridgeEventBuses();
+
+    expect(result.buses).toHaveLength(1);
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/eventbridge/event-buses', {
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 503 }));
+
+    await expect(getEventBridgeEventBuses()).rejects.toThrow(
+      'EventBridge event buses request failed with status 503',
+    );
+  });
+});
+
+describe('createEventBridgeEventBus', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the bus name when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await createEventBridgeEventBus('orders-bus', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/eventbridge/event-buses', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'orders-bus' }),
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(createEventBridgeEventBus('orders-bus')).rejects.toThrow(
+      'EventBridge event bus create request failed with status 400',
+    );
+  });
+});
+
+describe('deleteEventBridgeEventBus', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends a delete request when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await deleteEventBridgeEventBus('orders-bus', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/eventbridge/event-buses/orders-bus',
+      { method: 'DELETE', signal: controller.signal },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 409 }));
+
+    await expect(deleteEventBridgeEventBus('orders-bus')).rejects.toThrow(
+      'EventBridge event bus delete request failed with status 409',
+    );
+  });
+});
+
 describe('getEventBridgeTargets', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -8613,6 +8884,7 @@ describe('createSchedule', () => {
       flexibleTimeWindowMode: 'OFF',
       maximumWindowInMinutes: null,
       state: 'ENABLED',
+      targetInput: null,
     };
 
     await createSchedule(request, controller.signal);
@@ -8642,6 +8914,7 @@ describe('createSchedule', () => {
         flexibleTimeWindowMode: 'OFF',
         maximumWindowInMinutes: null,
         state: 'ENABLED',
+        targetInput: null,
       }),
     ).rejects.toThrow(
       'EventBridge Scheduler schedule create request failed with status 400',
@@ -8669,6 +8942,7 @@ describe('updateSchedule', () => {
       flexibleTimeWindowMode: 'FLEXIBLE',
       maximumWindowInMinutes: 15,
       state: 'DISABLED',
+      targetInput: null,
     };
 
     await updateSchedule('nightly/run', 'my group', request, controller.signal);
@@ -8699,6 +8973,7 @@ describe('updateSchedule', () => {
         flexibleTimeWindowMode: 'OFF',
         maximumWindowInMinutes: null,
         state: 'ENABLED',
+        targetInput: null,
       }),
     ).rejects.toThrow(
       'EventBridge Scheduler schedule update request failed with status 500',

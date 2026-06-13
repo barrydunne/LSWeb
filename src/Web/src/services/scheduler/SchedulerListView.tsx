@@ -85,6 +85,13 @@ type ListState =
 
 type CreateState = 'idle' | 'saving' | 'created' | 'error';
 
+const scheduleTargetTypes: { value: string; label: string; token: string | null }[] = [
+  { value: 'lambda', label: 'Lambda function', token: ':lambda:' },
+  { value: 'sqs', label: 'SQS queue', token: ':sqs:' },
+  { value: 'sns', label: 'SNS topic', token: ':sns:' },
+  { value: 'other', label: 'Other / custom ARN', token: null },
+];
+
 export function SchedulerListView({ serviceKey }: ServiceListViewProps) {
   const [state, setState] = useState<ListState>({ kind: 'loading' });
   const [reloadToken, setReloadToken] = useState(0);
@@ -97,12 +104,16 @@ export function SchedulerListView({ serviceKey }: ServiceListViewProps) {
   const [name, setName] = useState('');
   const [groupName, setGroupName] = useState('default');
   const [scheduleExpression, setScheduleExpression] = useState('');
+  const [scheduleExpressionTimezone, setScheduleExpressionTimezone] = useState('');
   const [targetArn, setTargetArn] = useState('');
+  const [targetType, setTargetType] = useState('lambda');
+  const [targetInput, setTargetInput] = useState('');
   const [roleArn, setRoleArn] = useState('');
   const [flexibleTimeWindowMode, setFlexibleTimeWindowMode] = useState('OFF');
   const [maximumWindowInMinutes, setMaximumWindowInMinutes] = useState('');
   const [scheduleState, setScheduleState] = useState('ENABLED');
   const [createState, setCreateState] = useState<CreateState>('idle');
+  const [createError, setCreateError] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -126,13 +137,32 @@ export function SchedulerListView({ serviceKey }: ServiceListViewProps) {
   }, []);
 
   const handleCreate = () => {
+    const trimmedArn = targetArn.trim();
+    const trimmedInput = targetInput.trim();
+    const selectedType = scheduleTargetTypes.find((candidate) => candidate.value === targetType);
+    if (selectedType?.token && !trimmedArn.includes(selectedType.token)) {
+      setCreateError(`The target ARN does not look like a ${selectedType.label} ARN (expected to contain "${selectedType.token}").`);
+      setCreateState('error');
+      return;
+    }
+    if (trimmedInput !== '') {
+      try {
+        JSON.parse(trimmedInput);
+      } catch {
+        setCreateError('The target payload must be valid JSON.');
+        setCreateState('error');
+        return;
+      }
+    }
+    setCreateError(null);
     setCreateState('saving');
     const trimmedWindow = maximumWindowInMinutes.trim();
     createSchedule({
       name,
       groupName,
       scheduleExpression,
-      scheduleExpressionTimezone: null,
+      scheduleExpressionTimezone:
+        scheduleExpressionTimezone.trim() === '' ? null : scheduleExpressionTimezone.trim(),
       description: null,
       startDate: null,
       endDate: null,
@@ -141,13 +171,16 @@ export function SchedulerListView({ serviceKey }: ServiceListViewProps) {
       flexibleTimeWindowMode,
       maximumWindowInMinutes: trimmedWindow === '' ? null : Number(trimmedWindow),
       state: scheduleState,
+      targetInput: trimmedInput === '' ? null : trimmedInput,
     })
       .then(() => {
         setCreateState('created');
         setName('');
         setGroupName('default');
         setScheduleExpression('');
+        setScheduleExpressionTimezone('');
         setTargetArn('');
+        setTargetInput('');
         setRoleArn('');
         setFlexibleTimeWindowMode('OFF');
         setMaximumWindowInMinutes('');
@@ -377,6 +410,38 @@ export function SchedulerListView({ serviceKey }: ServiceListViewProps) {
             />
           </div>
           <div style={fieldRowStyle}>
+            <label style={labelStyle} htmlFor="scheduler-create-timezone">
+              Timezone (optional)
+            </label>
+            <input
+              id="scheduler-create-timezone"
+              type="text"
+              data-testid="scheduler-create-timezone"
+              style={inputStyle}
+              placeholder="e.g. Europe/Dublin"
+              value={scheduleExpressionTimezone}
+              onChange={(event) => setScheduleExpressionTimezone(event.target.value)}
+            />
+          </div>
+          <div style={fieldRowStyle}>
+            <label style={labelStyle} htmlFor="scheduler-create-target-type">
+              Target type
+            </label>
+            <select
+              id="scheduler-create-target-type"
+              data-testid="scheduler-create-target-type"
+              style={inputStyle}
+              value={targetType}
+              onChange={(event) => setTargetType(event.target.value)}
+            >
+              {scheduleTargetTypes.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div style={fieldRowStyle}>
             <label style={labelStyle} htmlFor="scheduler-create-target">
               Target ARN
             </label>
@@ -387,6 +452,20 @@ export function SchedulerListView({ serviceKey }: ServiceListViewProps) {
               style={inputStyle}
               value={targetArn}
               onChange={(event) => setTargetArn(event.target.value)}
+            />
+          </div>
+          <div style={fieldRowStyle}>
+            <label style={labelStyle} htmlFor="scheduler-create-payload">
+              Target payload (optional JSON)
+            </label>
+            <input
+              id="scheduler-create-payload"
+              type="text"
+              data-testid="scheduler-create-payload"
+              style={inputStyle}
+              placeholder='e.g. {"key":"value"}'
+              value={targetInput}
+              onChange={(event) => setTargetInput(event.target.value)}
             />
           </div>
           <div style={fieldRowStyle}>
@@ -471,7 +550,7 @@ export function SchedulerListView({ serviceKey }: ServiceListViewProps) {
       ) : null}
       {createState === 'error' ? (
         <p data-testid="scheduler-create-error" style={messageStyle}>
-          Unable to create the schedule.
+          {createError ?? 'Unable to create the schedule.'}
         </p>
       ) : null}
       <DataListShell

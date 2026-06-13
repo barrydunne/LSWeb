@@ -63,6 +63,15 @@ public interface IEventBridgeClient
         EventBridgeRuleSpecification specification, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Create or update an event-pattern rule from the supplied specification.
+    /// </summary>
+    /// <param name="specification">The event-pattern rule configuration to apply.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A success result, or an error when the rule cannot be written.</returns>
+    Task<Result> PutEventPatternRuleAsync(
+        EventBridgeRulePatternSpecification specification, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Delete a rule by its name. The rule must have no remaining targets before it can be deleted.
     /// </summary>
     /// <param name="ruleName">The name of the rule to delete.</param>
@@ -119,4 +128,28 @@ public interface IEventBridgeClient
         string? eventBusName,
         IReadOnlyList<string> targetIds,
         CancellationToken cancellationToken);
+
+    /// <summary>
+    /// List the event buses available on the backend, including the default bus and any custom buses.
+    /// </summary>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The event buses, or an error when the backend cannot be reached.</returns>
+    Task<Result<IReadOnlyList<EventBridgeEventBus>>> ListEventBusesAsync(
+        CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Create a custom event bus with the supplied name.
+    /// </summary>
+    /// <param name="name">The name of the event bus to create.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A success result, or an error when the bus cannot be created.</returns>
+    Task<Result> CreateEventBusAsync(string name, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Delete a custom event bus by name. The default bus cannot be deleted.
+    /// </summary>
+    /// <param name="name">The name of the event bus to delete.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A success result, or an error when the bus cannot be deleted.</returns>
+    Task<Result> DeleteEventBusAsync(string name, CancellationToken cancellationToken);
 }

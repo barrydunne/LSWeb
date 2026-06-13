@@ -27,6 +27,7 @@ const detailResult: ScheduleDetailResult = {
   arn: 'arn:aws:scheduler:eu-west-1:000000000000:schedule/default/nightly',
   creationDate: '2024-01-01T00:00:00+00:00',
   lastModificationDate: '2024-01-02T00:00:00+00:00',
+  targetInput: null,
 };
 
 function renderView(resourceId = 'default/nightly') {
@@ -218,7 +219,7 @@ describe('SchedulerDetailView', () => {
     );
     expect(updateScheduleMock).toHaveBeenCalledWith('nightly', 'default', {
       scheduleExpression: 'rate(2 days)',
-      scheduleExpressionTimezone: null,
+      scheduleExpressionTimezone: 'UTC',
       description: null,
       startDate: null,
       endDate: null,
@@ -227,6 +228,7 @@ describe('SchedulerDetailView', () => {
       flexibleTimeWindowMode: 'OFF',
       maximumWindowInMinutes: 15,
       state: 'DISABLED',
+      targetInput: null,
     });
   });
 
@@ -299,5 +301,104 @@ describe('SchedulerDetailView', () => {
     await waitFor(() =>
       expect(screen.getByTestId('scheduler-detail-save-error')).toBeInTheDocument(),
     );
+  });
+
+  it('renders the target payload when present', async () => {
+    getScheduleMock.mockResolvedValue({
+      ...detailResult,
+      targetInput: '{"key":"value"}',
+    });
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('scheduler-detail-target-input')).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId('scheduler-detail-target-input')).toHaveTextContent('{"key":"value"}');
+  });
+
+  it('blocks the update when the target payload is not valid JSON', async () => {
+    renderView();
+    await waitFor(() =>
+      expect(screen.getByTestId('scheduler-detail-view')).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByTestId('scheduler-detail-edit-toggle'));
+
+    fireEvent.change(screen.getByTestId('scheduler-detail-edit-payload'), {
+      target: { value: 'not-json' },
+    });
+    fireEvent.click(screen.getByTestId('confirm-trigger'));
+    fireEvent.click(screen.getByTestId('confirm-accept'));
+
+    expect(screen.getByTestId('scheduler-detail-save-error')).toHaveTextContent(
+      'must be valid JSON',
+    );
+    expect(updateScheduleMock).not.toHaveBeenCalled();
+  });
+
+  it('saves the edited target payload and timezone after confirmation', async () => {
+    renderView();
+    await waitFor(() =>
+      expect(screen.getByTestId('scheduler-detail-view')).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByTestId('scheduler-detail-edit-toggle'));
+
+    expect(screen.getByTestId('scheduler-detail-edit-timezone')).toHaveValue('UTC');
+    fireEvent.change(screen.getByTestId('scheduler-detail-edit-timezone'), {
+      target: { value: 'Europe/Dublin' },
+    });
+    fireEvent.change(screen.getByTestId('scheduler-detail-edit-payload'), {
+      target: { value: '{"payload":1}' },
+    });
+    fireEvent.click(screen.getByTestId('confirm-trigger'));
+    fireEvent.click(screen.getByTestId('confirm-accept'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('scheduler-detail-save-status')).toBeInTheDocument(),
+    );
+    expect(updateScheduleMock).toHaveBeenCalledWith(
+      'nightly',
+      'default',
+      expect.objectContaining({
+        scheduleExpressionTimezone: 'Europe/Dublin',
+        targetInput: '{"payload":1}',
+      }),
+    );
+  });
+
+  it('saves a null timezone when the timezone field is cleared', async () => {
+    renderView();
+    await waitFor(() =>
+      expect(screen.getByTestId('scheduler-detail-view')).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByTestId('scheduler-detail-edit-toggle'));
+
+    fireEvent.change(screen.getByTestId('scheduler-detail-edit-timezone'), {
+      target: { value: '   ' },
+    });
+    fireEvent.click(screen.getByTestId('confirm-trigger'));
+    fireEvent.click(screen.getByTestId('confirm-accept'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('scheduler-detail-save-status')).toBeInTheDocument(),
+    );
+    expect(updateScheduleMock).toHaveBeenCalledWith(
+      'nightly',
+      'default',
+      expect.objectContaining({ scheduleExpressionTimezone: null }),
+    );
+  });
+
+  it('prefills an empty timezone field when the schedule has no timezone', async () => {
+    getScheduleMock.mockResolvedValue({
+      ...detailResult,
+      scheduleExpressionTimezone: null,
+    });
+    renderView();
+    await waitFor(() =>
+      expect(screen.getByTestId('scheduler-detail-view')).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByTestId('scheduler-detail-edit-toggle'));
+
+    expect(screen.getByTestId('scheduler-detail-edit-timezone')).toHaveValue('');
   });
 });

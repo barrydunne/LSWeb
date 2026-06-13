@@ -35,7 +35,8 @@ public class GetScheduleQueryHandlerTests
             null,
             "arn:aws:scheduler:eu-west-1:000000000000:schedule/default/nightly",
             DateTimeOffset.UnixEpoch,
-            DateTimeOffset.UnixEpoch);
+            DateTimeOffset.UnixEpoch,
+            null);
         _client
             .GetScheduleAsync("nightly", "default", Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Ok(schedule)));

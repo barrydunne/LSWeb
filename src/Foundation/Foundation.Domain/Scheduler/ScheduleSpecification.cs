@@ -15,6 +15,7 @@ namespace Foundation.Domain.Scheduler;
 /// <param name="FlexibleTimeWindowMode">The flexible time window mode, either <c>OFF</c> or <c>FLEXIBLE</c>.</param>
 /// <param name="MaximumWindowInMinutes">The maximum flexible time window in minutes, or <see langword="null"/> when the mode is off.</param>
 /// <param name="State">Whether the schedule is enabled or disabled.</param>
+/// <param name="TargetInput">A constant JSON payload passed to the target when the schedule runs, or <see langword="null"/> to pass no input.</param>
 public record ScheduleSpecification(
     string Name,
     string GroupName,
@@ -27,4 +28,5 @@ public record ScheduleSpecification(
     string RoleArn,
     string FlexibleTimeWindowMode,
     int? MaximumWindowInMinutes,
-    string State);
+    string State,
+    string? TargetInput);

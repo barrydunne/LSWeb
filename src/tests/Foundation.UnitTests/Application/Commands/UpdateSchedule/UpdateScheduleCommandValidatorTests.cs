@@ -29,7 +29,8 @@ public class UpdateScheduleCommandValidatorTests
             roleArn,
             flexibleTimeWindowMode,
             maximumWindowInMinutes,
-            state);
+            state,
+            null);
 
     [Fact]
     public async Task ValidateAsync_WhenValid_IsValid()

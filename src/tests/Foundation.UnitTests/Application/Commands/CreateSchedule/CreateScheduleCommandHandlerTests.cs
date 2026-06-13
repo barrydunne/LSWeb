@@ -31,7 +31,8 @@ public class CreateScheduleCommandHandlerTests
             "arn:aws:iam::000000000000:role/scheduler",
             "OFF",
             null,
-            "ENABLED");
+            "ENABLED",
+            null);
 
     private CreateScheduleCommandHandler CreateSut()
         => new(_client, _publisher, _activityLog, _searchRefresh, NullLogger<CreateScheduleCommandHandler>.Instance);

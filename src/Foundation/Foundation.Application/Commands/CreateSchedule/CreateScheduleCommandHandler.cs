@@ -57,7 +57,8 @@ internal sealed partial class CreateScheduleCommandHandler : ICommandHandler<Cre
             request.RoleArn,
             request.FlexibleTimeWindowMode,
             request.MaximumWindowInMinutes,
-            request.State);
+            request.State,
+            request.TargetInput);
 
         var result = await _client.CreateScheduleAsync(specification, cancellationToken);
         if (!result.IsSuccess)

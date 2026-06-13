@@ -57,7 +57,8 @@ internal sealed partial class UpdateScheduleCommandHandler : ICommandHandler<Upd
             request.RoleArn,
             request.FlexibleTimeWindowMode,
             request.MaximumWindowInMinutes,
-            request.State);
+            request.State,
+            request.TargetInput);
 
         var result = await _client.UpdateScheduleAsync(specification, cancellationToken);
         if (!result.IsSuccess)

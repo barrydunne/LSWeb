@@ -28,6 +28,7 @@ public class GetScheduledRuleQueryHandlerTests
             "rate(1 hour)",
             "Runs hourly",
             "arn:aws:iam::000000000000:role/scheduler",
+            null,
             null);
         _client
             .DescribeRuleAsync("hourly-report", null, Arg.Any<CancellationToken>())

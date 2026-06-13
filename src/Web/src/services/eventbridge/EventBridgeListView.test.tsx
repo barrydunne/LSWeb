@@ -5,6 +5,7 @@ import { EventBridgeListView } from './EventBridgeListView';
 import {
   getEventBridgeRules,
   getEventBridgeTargets,
+  getEventBridgeEventBuses,
   putEventBridgeEvent,
   getScheduledRules,
   getScheduledRule,
@@ -27,6 +28,7 @@ vi.mock('../../api/client');
 
 const getEventBridgeRulesMock = vi.mocked(getEventBridgeRules);
 const getEventBridgeTargetsMock = vi.mocked(getEventBridgeTargets);
+const getEventBridgeEventBusesMock = vi.mocked(getEventBridgeEventBuses);
 const putEventBridgeEventMock = vi.mocked(putEventBridgeEvent);
 const getScheduledRulesMock = vi.mocked(getScheduledRules);
 const getScheduledRuleMock = vi.mocked(getScheduledRule);
@@ -125,6 +127,7 @@ async function openScheduledDetail() {
 describe('EventBridgeListView', () => {
   beforeEach(() => {
     getEventBridgeRulesMock.mockResolvedValue(rulesResult);
+    getEventBridgeEventBusesMock.mockResolvedValue({ buses: [] });
     getEventBridgeTargetsMock.mockImplementation((ruleName) =>
       Promise.resolve(ruleName === 'orders-rule' ? ordersTargets : auditTargets),
     );

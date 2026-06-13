@@ -97,7 +97,8 @@ internal sealed class EventBridgeClientAdapter : IEventBridgeClient
                     string.IsNullOrWhiteSpace(response.ScheduleExpression) ? null : response.ScheduleExpression,
                     string.IsNullOrWhiteSpace(response.Description) ? null : response.Description,
                     string.IsNullOrWhiteSpace(response.RoleArn) ? null : response.RoleArn,
-                    string.IsNullOrWhiteSpace(response.ManagedBy) ? null : response.ManagedBy);
+                    string.IsNullOrWhiteSpace(response.ManagedBy) ? null : response.ManagedBy,
+                    string.IsNullOrWhiteSpace(response.EventPattern) ? null : response.EventPattern);
             },
             cancellationToken);
 
@@ -144,6 +145,32 @@ internal sealed class EventBridgeClientAdapter : IEventBridgeClient
                 {
                     Name = specification.Name,
                     ScheduleExpression = specification.ScheduleExpression,
+                    State = RuleState.FindValue(specification.State),
+                };
+                if (!string.IsNullOrWhiteSpace(specification.Description))
+                    request.Description = specification.Description;
+                if (!string.IsNullOrWhiteSpace(specification.EventBusName))
+                    request.EventBusName = specification.EventBusName;
+
+                await client.PutRuleAsync(request, token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    public async Task<Result> PutEventPatternRuleAsync(
+        EventBridgeRulePatternSpecification specification, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonEventBridgeClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var request = new PutRuleRequest
+                {
+                    Name = specification.Name,
+                    EventPattern = specification.EventPattern,
                     State = RuleState.FindValue(specification.State),
                 };
                 if (!string.IsNullOrWhiteSpace(specification.Description))
@@ -274,6 +301,61 @@ internal sealed class EventBridgeClientAdapter : IEventBridgeClient
         => failedEntryCount > 0
             ? new Error($"EventBridge reported {failedEntryCount} failed target entr{(failedEntryCount == 1 ? "y" : "ies")}: {errorMessage ?? "unknown error"}.")
             : Result.Success();
+
+    public Task<Result<IReadOnlyList<EventBridgeEventBus>>> ListEventBusesAsync(
+        CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonEventBridgeClient, IReadOnlyList<EventBridgeEventBus>>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var buses = new List<EventBridgeEventBus>();
+                string? nextToken = null;
+
+                do
+                {
+                    var response = await client.ListEventBusesAsync(
+                        new ListEventBusesRequest { NextToken = nextToken }, token);
+
+                    foreach (var bus in response.EventBuses ?? [])
+                        buses.Add(new EventBridgeEventBus(
+                            bus.Name ?? string.Empty,
+                            bus.Arn ?? string.Empty));
+
+                    nextToken = response.NextToken;
+                }
+                while (!string.IsNullOrEmpty(nextToken));
+
+                return buses;
+            },
+            cancellationToken);
+
+    public async Task<Result> CreateEventBusAsync(string name, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonEventBridgeClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                await client.CreateEventBusAsync(new CreateEventBusRequest { Name = name }, token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    public async Task<Result> DeleteEventBusAsync(string name, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonEventBridgeClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                await client.DeleteEventBusAsync(new DeleteEventBusRequest { Name = name }, token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
 
     private static Target ToTarget(EventBridgeTargetSpecification specification)
     {

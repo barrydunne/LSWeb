@@ -79,12 +79,15 @@ export function SchedulerDetailView({ resourceId }: ServiceDetailViewProps) {
   const [reloadToken, setReloadToken] = useState(0);
   const [showEdit, setShowEdit] = useState(false);
   const [editExpression, setEditExpression] = useState('');
+  const [editTimezone, setEditTimezone] = useState('');
   const [editTargetArn, setEditTargetArn] = useState('');
+  const [editTargetInput, setEditTargetInput] = useState('');
   const [editRoleArn, setEditRoleArn] = useState('');
   const [editMode, setEditMode] = useState('OFF');
   const [editWindow, setEditWindow] = useState('');
   const [editState, setEditState] = useState('ENABLED');
   const [saveState, setSaveState] = useState<SaveState>('idle');
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const { group, name } = useMemo(() => splitResourceId(resourceId), [resourceId]);
 
@@ -102,7 +105,9 @@ export function SchedulerDetailView({ resourceId }: ServiceDetailViewProps) {
       if (next && state.kind === 'ready') {
         setSaveState('idle');
         setEditExpression(state.schedule.scheduleExpression);
+        setEditTimezone(state.schedule.scheduleExpressionTimezone ?? '');
         setEditTargetArn(state.schedule.targetArn);
+        setEditTargetInput(state.schedule.targetInput ?? '');
         setEditRoleArn(state.schedule.roleArn);
         setEditMode(state.schedule.flexibleTimeWindowMode);
         setEditWindow(
@@ -117,11 +122,22 @@ export function SchedulerDetailView({ resourceId }: ServiceDetailViewProps) {
   };
 
   const handleSave = () => {
+    const trimmedInput = editTargetInput.trim();
+    if (trimmedInput !== '') {
+      try {
+        JSON.parse(trimmedInput);
+      } catch {
+        setSaveError('The target payload must be valid JSON.');
+        setSaveState('error');
+        return;
+      }
+    }
+    setSaveError(null);
     setSaveState('saving');
     const trimmedWindow = editWindow.trim();
     updateSchedule(name, group, {
       scheduleExpression: editExpression,
-      scheduleExpressionTimezone: null,
+      scheduleExpressionTimezone: editTimezone.trim() === '' ? null : editTimezone.trim(),
       description: null,
       startDate: null,
       endDate: null,
@@ -130,6 +146,7 @@ export function SchedulerDetailView({ resourceId }: ServiceDetailViewProps) {
       flexibleTimeWindowMode: editMode,
       maximumWindowInMinutes: trimmedWindow === '' ? null : Number(trimmedWindow),
       state: editState,
+      targetInput: trimmedInput === '' ? null : trimmedInput,
     })
       .then(() => {
         setSaveState('saved');
@@ -211,6 +228,12 @@ export function SchedulerDetailView({ resourceId }: ServiceDetailViewProps) {
         </span>
       </div>
       <div style={rowStyle}>
+        <span style={labelStyle}>Target payload</span>
+        <span data-testid="scheduler-detail-target-input" style={valueStyle}>
+          {schedule.targetInput ?? '\u2014'}
+        </span>
+      </div>
+      <div style={rowStyle}>
         <span style={labelStyle}>Role</span>
         <span data-testid="scheduler-detail-role" style={valueStyle}>
           <ResourceLink reference={schedule.roleArn} service="iam" />
@@ -270,6 +293,19 @@ export function SchedulerDetailView({ resourceId }: ServiceDetailViewProps) {
             />
           </div>
           <div style={rowStyle}>
+            <label style={labelStyle} htmlFor="scheduler-detail-edit-timezone">
+              Timezone
+            </label>
+            <input
+              id="scheduler-detail-edit-timezone"
+              type="text"
+              data-testid="scheduler-detail-edit-timezone"
+              style={inputStyle}
+              value={editTimezone}
+              onChange={(event) => setEditTimezone(event.target.value)}
+            />
+          </div>
+          <div style={rowStyle}>
             <label style={labelStyle} htmlFor="scheduler-detail-edit-target">
               Target ARN
             </label>
@@ -280,6 +316,19 @@ export function SchedulerDetailView({ resourceId }: ServiceDetailViewProps) {
               style={inputStyle}
               value={editTargetArn}
               onChange={(event) => setEditTargetArn(event.target.value)}
+            />
+          </div>
+          <div style={rowStyle}>
+            <label style={labelStyle} htmlFor="scheduler-detail-edit-payload">
+              Target payload (optional JSON)
+            </label>
+            <input
+              id="scheduler-detail-edit-payload"
+              type="text"
+              data-testid="scheduler-detail-edit-payload"
+              style={inputStyle}
+              value={editTargetInput}
+              onChange={(event) => setEditTargetInput(event.target.value)}
             />
           </div>
           <div style={rowStyle}>
@@ -361,7 +410,7 @@ export function SchedulerDetailView({ resourceId }: ServiceDetailViewProps) {
       ) : null}
       {saveState === 'error' ? (
         <p data-testid="scheduler-detail-save-error" style={messageStyle}>
-          Unable to update the schedule.
+          {saveError ?? 'Unable to update the schedule.'}
         </p>
       ) : null}
     </div>

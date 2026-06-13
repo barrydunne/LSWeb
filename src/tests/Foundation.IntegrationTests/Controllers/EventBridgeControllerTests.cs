@@ -197,4 +197,132 @@ public class EventBridgeControllerTests
             "/api/services/eventbridge/scheduled-rules", TestContext.Current.CancellationToken);
         listRules!.Rules.Should().NotContain(_ => _.Name == ruleName);
     }
+
+    [Fact]
+    public async Task GetRule_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
+    {
+        // Arrange
+        var client = _fixture.CreateClient();
+
+        // Act
+        var response = await client.GetAsync(
+            "/api/services/eventbridge/rules/integration-missing",
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().NotBe(HttpStatusCode.NotFound);
+        response.StatusCode.Should().NotBe(HttpStatusCode.MethodNotAllowed);
+    }
+
+    [Fact]
+    public async Task CreateRule_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
+    {
+        // Arrange
+        var client = _fixture.CreateClient();
+        var request = new RulePutRequest(
+            "integration-pattern-rule",
+            "{\"source\":[\"integration.app\"]}",
+            "ENABLED",
+            null,
+            null);
+
+        // Act
+        var response = await client.PostAsJsonAsync(
+            "/api/services/eventbridge/rules", request, TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().NotBe(HttpStatusCode.NotFound);
+        response.StatusCode.Should().NotBe(HttpStatusCode.MethodNotAllowed);
+    }
+
+    [Fact]
+    public async Task PutRuleTargets_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
+    {
+        // Arrange
+        var client = _fixture.CreateClient();
+        var request = new RuleTargetsPutRequest(
+        [
+            new RuleTargetRequest(
+                "t1", "arn:aws:lambda:eu-west-1:000000000000:function:fn", null, null),
+        ]);
+
+        // Act
+        var response = await client.PutAsJsonAsync(
+            "/api/services/eventbridge/rules/integration-missing/targets",
+            request,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().NotBe(HttpStatusCode.NotFound);
+        response.StatusCode.Should().NotBe(HttpStatusCode.MethodNotAllowed);
+    }
+
+    [Fact]
+    public async Task RemoveRuleTargets_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
+    {
+        // Arrange
+        var client = _fixture.CreateClient();
+        var request = new RuleTargetsRemoveRequest(["t1"]);
+
+        // Act
+        var response = await client.SendAsync(
+            new HttpRequestMessage(
+                HttpMethod.Delete,
+                "/api/services/eventbridge/rules/integration-missing/targets")
+            {
+                Content = JsonContent.Create(request),
+            },
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().NotBe(HttpStatusCode.NotFound);
+        response.StatusCode.Should().NotBe(HttpStatusCode.MethodNotAllowed);
+    }
+
+    [Fact]
+    public async Task ListEventBuses_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
+    {
+        // Arrange
+        var client = _fixture.CreateClient();
+
+        // Act
+        var response = await client.GetAsync(
+            "/api/services/eventbridge/event-buses", TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().NotBe(HttpStatusCode.NotFound);
+        response.StatusCode.Should().NotBe(HttpStatusCode.MethodNotAllowed);
+
+        if (response.StatusCode == HttpStatusCode.OK)
+        {
+            var payload = await response.Content.ReadFromJsonAsync<EventBusListResponse>(
+                TestContext.Current.CancellationToken);
+            payload.Should().NotBeNull();
+            payload!.Buses.Should().NotBeNull();
+        }
+    }
+
+    [Fact]
+    public async Task CreateAndDeleteEventBus_WhenRequested_ReachesEndpointsAndReturnsDefinedStatus()
+    {
+        // Arrange
+        var client = _fixture.CreateClient();
+        var busName = $"integration-bus-{Guid.NewGuid():N}";
+
+        // Act
+        var createResponse = await client.PostAsJsonAsync(
+            "/api/services/eventbridge/event-buses",
+            new EventBusCreateRequest(busName),
+            TestContext.Current.CancellationToken);
+
+        var deleteResponse = await client.DeleteAsync(
+            $"/api/services/eventbridge/event-buses/{busName}",
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        createResponse.StatusCode.Should().NotBe(HttpStatusCode.NotFound);
+        createResponse.StatusCode.Should().NotBe(HttpStatusCode.MethodNotAllowed);
+        deleteResponse.StatusCode.Should().NotBe(HttpStatusCode.NotFound);
+        deleteResponse.StatusCode.Should().NotBe(HttpStatusCode.MethodNotAllowed);
+    }
 }

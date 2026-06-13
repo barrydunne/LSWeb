@@ -20,6 +20,7 @@ namespace Foundation.Domain.Scheduler;
 /// <param name="Arn">The Amazon Resource Name of the schedule itself.</param>
 /// <param name="CreationDate">The moment the schedule was created, if reported.</param>
 /// <param name="LastModificationDate">The moment the schedule was last modified, if reported.</param>
+/// <param name="TargetInput">A constant JSON payload passed to the target when the schedule runs, if specified.</param>
 public sealed record ScheduleDetail(
     string Name,
     string GroupName,
@@ -35,4 +36,5 @@ public sealed record ScheduleDetail(
     int? MaximumWindowInMinutes,
     string Arn,
     DateTimeOffset? CreationDate,
-    DateTimeOffset? LastModificationDate);
+    DateTimeOffset? LastModificationDate,
+    string? TargetInput);

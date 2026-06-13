@@ -24,6 +24,9 @@ import type {
   ScheduledRuleDetail,
 } from '../../api/client';
 import type { ServiceListViewProps } from '../serviceViewRegistry';
+import { EventBridgePatternBuilder } from './EventBridgePatternBuilder';
+import { EventBridgeBusesManager } from './EventBridgeBusesManager';
+import { EventBridgeTargetsManager } from './EventBridgeTargetsManager';
 
 const messageStyle: CSSProperties = { fontSize: 14 };
 
@@ -892,6 +895,9 @@ export function EventBridgeListView({ serviceKey }: ServiceListViewProps) {
 
   return (
     <div>
+      <EventBridgeBusesManager />
+      <EventBridgePatternBuilder onCreated={refresh} />
+      <EventBridgeTargetsManager />
       <SendTestEventForm />
       {rulesContent}
       <ScheduledRulesSection serviceKey={serviceKey} />

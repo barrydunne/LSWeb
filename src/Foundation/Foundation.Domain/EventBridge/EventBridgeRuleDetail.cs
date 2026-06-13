@@ -11,6 +11,7 @@ namespace Foundation.Domain.EventBridge;
 /// <param name="Description">An optional human-readable description of the rule.</param>
 /// <param name="RoleArn">The IAM role the rule assumes when invoking targets, or <c>null</c> when none is configured.</param>
 /// <param name="ManagedBy">The principal that created the rule on the caller's behalf, or <c>null</c> for an unmanaged rule.</param>
+/// <param name="EventPattern">The event pattern JSON for an event-pattern rule, or <c>null</c> for a scheduled rule.</param>
 public sealed record EventBridgeRuleDetail(
     string Name,
     string Arn,
@@ -19,4 +20,5 @@ public sealed record EventBridgeRuleDetail(
     string? ScheduleExpression,
     string? Description,
     string? RoleArn,
-    string? ManagedBy);
+    string? ManagedBy,
+    string? EventPattern);

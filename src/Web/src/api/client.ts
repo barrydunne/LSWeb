@@ -4070,6 +4070,57 @@ export async function getEventBridgeRules(
   return (await response.json()) as EventBridgeRuleListResult;
 }
 
+export interface EventBridgeRuleDetail {
+  name: string;
+  arn: string;
+  eventBusName: string;
+  state: string;
+  scheduleExpression: string | null;
+  description: string | null;
+  roleArn: string | null;
+  managedBy: string | null;
+  eventPattern: string | null;
+}
+
+export async function getEventBridgeRule(
+  name: string,
+  bus?: string,
+  signal?: AbortSignal,
+): Promise<EventBridgeRuleDetail> {
+  const query = bus ? `?bus=${encodeURIComponent(bus)}` : '';
+  const response = await fetch(
+    `/api/services/eventbridge/rules/${encodeURIComponent(name)}${query}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`EventBridge rule request failed with status ${response.status}`);
+  }
+  return (await response.json()) as EventBridgeRuleDetail;
+}
+
+export interface CreateEventBridgeRuleRequest {
+  name: string;
+  eventPattern: string;
+  state: string;
+  description: string | null;
+  eventBusName: string | null;
+}
+
+export async function createEventBridgeRule(
+  request: CreateEventBridgeRuleRequest,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/eventbridge/rules', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`EventBridge rule create request failed with status ${response.status}`);
+  }
+}
+
 export interface EventBridgeTargetItem {
   id: string;
   arn: string;
@@ -4091,6 +4142,102 @@ export async function getEventBridgeTargets(
     throw new Error(`EventBridge targets request failed with status ${response.status}`);
   }
   return (await response.json()) as EventBridgeTargetListResult;
+}
+
+export interface EventBridgeEventBusItem {
+  name: string;
+  arn: string;
+}
+
+export interface EventBridgeEventBusListResult {
+  buses: EventBridgeEventBusItem[];
+}
+
+export async function getEventBridgeEventBuses(
+  signal?: AbortSignal,
+): Promise<EventBridgeEventBusListResult> {
+  const response = await fetch('/api/services/eventbridge/event-buses', { signal });
+  if (!response.ok) {
+    throw new Error(`EventBridge event buses request failed with status ${response.status}`);
+  }
+  return (await response.json()) as EventBridgeEventBusListResult;
+}
+
+export async function createEventBridgeEventBus(
+  name: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/eventbridge/event-buses', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`EventBridge event bus create request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteEventBridgeEventBus(
+  name: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/eventbridge/event-buses/${encodeURIComponent(name)}`,
+    { method: 'DELETE', signal },
+  );
+  if (!response.ok) {
+    throw new Error(`EventBridge event bus delete request failed with status ${response.status}`);
+  }
+}
+
+export interface EventBridgeRuleTargetInput {
+  id: string;
+  arn: string;
+  roleArn: string | null;
+  input: string | null;
+}
+
+export async function putEventBridgeRuleTargets(
+  ruleName: string,
+  targets: EventBridgeRuleTargetInput[],
+  bus?: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const query = bus ? `?bus=${encodeURIComponent(bus)}` : '';
+  const response = await fetch(
+    `/api/services/eventbridge/rules/${encodeURIComponent(ruleName)}/targets${query}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ targets }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`EventBridge put rule targets request failed with status ${response.status}`);
+  }
+}
+
+export async function removeEventBridgeRuleTargets(
+  ruleName: string,
+  ids: string[],
+  bus?: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const query = bus ? `?bus=${encodeURIComponent(bus)}` : '';
+  const response = await fetch(
+    `/api/services/eventbridge/rules/${encodeURIComponent(ruleName)}/targets${query}`,
+    {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`EventBridge remove rule targets request failed with status ${response.status}`);
+  }
 }
 
 export interface PutEventBridgeEventRequest {
@@ -5130,6 +5277,7 @@ export interface ScheduleDetailResult {
   arn: string;
   creationDate: string | null;
   lastModificationDate: string | null;
+  targetInput: string | null;
 }
 
 export async function getSchedule(
@@ -5160,6 +5308,7 @@ export interface ScheduleCreateRequest {
   flexibleTimeWindowMode: string;
   maximumWindowInMinutes: number | null;
   state: string;
+  targetInput: string | null;
 }
 
 export async function createSchedule(
@@ -5188,6 +5337,7 @@ export interface ScheduleUpdateRequest {
   flexibleTimeWindowMode: string;
   maximumWindowInMinutes: number | null;
   state: string;
+  targetInput: string | null;
 }
 
 export async function updateSchedule(

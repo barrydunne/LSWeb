@@ -112,6 +112,8 @@ public class DynamoDbTableMapperTests
         detail.StreamEnabled.Should().BeFalse();
         detail.StreamViewType.Should().BeNull();
         detail.LatestStreamArn.Should().BeNull();
+        detail.TtlStatus.Should().BeNull();
+        detail.TtlAttributeName.Should().BeNull();
     }
 
     [Fact]
@@ -158,5 +160,58 @@ public class DynamoDbTableMapperTests
         detail.StreamEnabled.Should().BeTrue();
         detail.StreamViewType.Should().BeNull();
         detail.LatestStreamArn.Should().BeNull();
+    }
+
+    [Fact]
+    public void ToTableDetail_WhenTtlProvided_MapsStatusAndAttribute()
+    {
+        // Arrange
+        var table = new TableDescription { TableName = "orders" };
+        var ttl = new TimeToLiveDescription
+        {
+            TimeToLiveStatus = TimeToLiveStatus.ENABLED,
+            AttributeName = "expiresAt",
+        };
+
+        // Act
+        var detail = DynamoDbTableMapper.ToTableDetail(table, ttl);
+
+        // Assert
+        detail.TtlStatus.Should().Be("ENABLED");
+        detail.TtlAttributeName.Should().Be("expiresAt");
+    }
+
+    [Fact]
+    public void ToTableDetail_WhenTtlAttributeEmpty_MapsNullAttribute()
+    {
+        // Arrange
+        var table = new TableDescription { TableName = "orders" };
+        var ttl = new TimeToLiveDescription
+        {
+            TimeToLiveStatus = TimeToLiveStatus.DISABLED,
+            AttributeName = string.Empty,
+        };
+
+        // Act
+        var detail = DynamoDbTableMapper.ToTableDetail(table, ttl);
+
+        // Assert
+        detail.TtlStatus.Should().Be("DISABLED");
+        detail.TtlAttributeName.Should().BeNull();
+    }
+
+    [Fact]
+    public void ToTableDetail_WhenTtlDescriptionEmpty_MapsNullStatusAndAttribute()
+    {
+        // Arrange
+        var table = new TableDescription { TableName = "orders" };
+        var ttl = new TimeToLiveDescription();
+
+        // Act
+        var detail = DynamoDbTableMapper.ToTableDetail(table, ttl);
+
+        // Assert
+        detail.TtlStatus.Should().BeNull();
+        detail.TtlAttributeName.Should().BeNull();
     }
 }

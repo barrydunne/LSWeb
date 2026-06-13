@@ -80,6 +80,12 @@ import {
   getDynamoDbTable,
   createDynamoDbTable,
   deleteDynamoDbTable,
+  updateDynamoDbTtl,
+  createDynamoDbIndex,
+  deleteDynamoDbIndex,
+  executeDynamoDbTransaction,
+  executeDynamoDbBatchWrite,
+  executeDynamoDbBatchGet,
   scanDynamoDbItems,
   getDynamoDbItem,
   putDynamoDbItem,
@@ -2992,6 +2998,197 @@ describe('deleteDynamoDbTable', () => {
   });
 });
 
+describe('updateDynamoDbTtl', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the TTL specification when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await updateDynamoDbTtl('orders', true, 'expiresAt', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/dynamodb/tables/orders/ttl', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: true, attributeName: 'expiresAt' }),
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(updateDynamoDbTtl('orders', false, 'expiresAt')).rejects.toThrow(
+      'DynamoDB TTL update request failed with status 400',
+    );
+  });
+});
+
+describe('createDynamoDbIndex', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const request = {
+    indexName: 'gsi-1',
+    partitionKeyName: 'gpk',
+    partitionKeyType: 'S',
+    sortKeyName: null,
+    sortKeyType: null,
+    projectionType: 'ALL',
+  };
+
+  it('posts the index specification when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await createDynamoDbIndex('orders', request, controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/dynamodb/tables/orders/indexes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(createDynamoDbIndex('orders', request)).rejects.toThrow(
+      'DynamoDB index create request failed with status 400',
+    );
+  });
+});
+
+describe('deleteDynamoDbIndex', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('sends a delete request when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await deleteDynamoDbIndex('orders', 'gsi-1', controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/dynamodb/tables/orders/indexes/gsi-1', {
+      method: 'DELETE',
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 409 }));
+
+    await expect(deleteDynamoDbIndex('orders', 'gsi-1')).rejects.toThrow(
+      'DynamoDB index delete request failed with status 409',
+    );
+  });
+});
+
+describe('executeDynamoDbTransaction', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const actions = [{ operation: 'Put', tableName: 'orders', json: '{"pk":{"S":"a"}}' }];
+
+  it('posts the actions when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await executeDynamoDbTransaction(actions, controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/dynamodb/transaction', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ actions }),
+      signal: controller.signal,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(executeDynamoDbTransaction(actions)).rejects.toThrow(
+      'DynamoDB transaction request failed with status 400',
+    );
+  });
+});
+
+describe('executeDynamoDbBatchWrite', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const items = [{ operation: 'Put', tableName: 'orders', json: '{"pk":{"S":"a"}}' }];
+
+  it('posts the items and returns the outcome when the request succeeds', async () => {
+    const outcome = { requested: 1, unprocessedItems: [] };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(outcome) });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await executeDynamoDbBatchWrite(items, controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/dynamodb/batch/write', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items }),
+      signal: controller.signal,
+    });
+    expect(result).toEqual(outcome);
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(executeDynamoDbBatchWrite(items)).rejects.toThrow(
+      'DynamoDB batch write request failed with status 400',
+    );
+  });
+});
+
+describe('executeDynamoDbBatchGet', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const keys = [{ tableName: 'orders', json: '{"pk":{"S":"a"}}' }];
+
+  it('posts the keys and returns the items when the request succeeds', async () => {
+    const outcome = { requested: 1, items: [{ json: '{"pk":{"S":"a"}}' }] };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(outcome) });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    const result = await executeDynamoDbBatchGet(keys, controller.signal);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/dynamodb/batch/get', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ keys }),
+      signal: controller.signal,
+    });
+    expect(result).toEqual(outcome);
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(executeDynamoDbBatchGet(keys)).rejects.toThrow(
+      'DynamoDB batch get request failed with status 400',
+    );
+  });
+});
+
 describe('scanDynamoDbItems', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -3064,18 +3261,69 @@ describe('putDynamoDbItem', () => {
     vi.stubGlobal('fetch', fetchMock);
     const controller = new AbortController();
 
-    await putDynamoDbItem('orders', itemJson, controller.signal);
+    await putDynamoDbItem('orders', itemJson, undefined, controller.signal);
 
     expect(fetchMock).toHaveBeenCalledWith('/api/services/dynamodb/tables/orders/items', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ item: itemJson }),
+      body: JSON.stringify({ item: itemJson, conditionExpression: null }),
       signal: controller.signal,
     });
   });
 
-  it('throws when the response is not ok', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+  it('posts the condition expression when one is supplied', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await putDynamoDbItem('orders', itemJson, 'attribute_not_exists(pk)');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/dynamodb/tables/orders/items', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item: itemJson, conditionExpression: 'attribute_not_exists(pk)' }),
+      signal: undefined,
+    });
+  });
+
+  it('throws the server problem detail when present', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        json: () => Promise.resolve({ detail: 'The conditional request failed' }),
+      }),
+    );
+
+    await expect(putDynamoDbItem('orders', itemJson, 'attribute_not_exists(pk)')).rejects.toThrow(
+      'The conditional request failed',
+    );
+  });
+
+  it('throws a generic message when the response is not ok and has no detail', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        json: () => Promise.reject(new Error('no body')),
+      }),
+    );
+
+    await expect(putDynamoDbItem('orders', itemJson)).rejects.toThrow(
+      'DynamoDB item put request failed with status 400',
+    );
+  });
+
+  it('throws a generic message when the problem body has no detail field', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        json: () => Promise.resolve({ title: 'Bad Request' }),
+      }),
+    );
 
     await expect(putDynamoDbItem('orders', itemJson)).rejects.toThrow(
       'DynamoDB item put request failed with status 400',

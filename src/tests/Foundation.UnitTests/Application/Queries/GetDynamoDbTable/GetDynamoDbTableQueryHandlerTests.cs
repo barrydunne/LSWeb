@@ -33,6 +33,8 @@ public class GetDynamoDbTableQueryHandlerTests
             [],
             false,
             null,
+            null,
+            null,
             null);
 
     [Fact]

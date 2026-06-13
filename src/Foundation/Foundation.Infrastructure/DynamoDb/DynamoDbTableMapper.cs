@@ -13,8 +13,9 @@ internal static class DynamoDbTableMapper
     /// Map an SDK table description to the domain table detail.
     /// </summary>
     /// <param name="table">The SDK table description returned by a describe call.</param>
+    /// <param name="ttl">The SDK time-to-live description returned by a describe-time-to-live call, if available.</param>
     /// <returns>The domain table detail.</returns>
-    public static DynamoDbTableDetail ToTableDetail(TableDescription table)
+    public static DynamoDbTableDetail ToTableDetail(TableDescription table, TimeToLiveDescription? ttl = null)
         => new(
             table.TableName ?? string.Empty,
             table.TableArn ?? string.Empty,
@@ -33,7 +34,9 @@ internal static class DynamoDbTableMapper
             ToLocalSecondaryIndexes(table.LocalSecondaryIndexes),
             table.StreamSpecification?.StreamEnabled ?? false,
             table.StreamSpecification?.StreamViewType?.Value,
-            string.IsNullOrEmpty(table.LatestStreamArn) ? null : table.LatestStreamArn);
+            string.IsNullOrEmpty(table.LatestStreamArn) ? null : table.LatestStreamArn,
+            ttl?.TimeToLiveStatus?.Value,
+            string.IsNullOrEmpty(ttl?.AttributeName) ? null : ttl.AttributeName);
 
     private static List<DynamoDbKeyElement> ToKeySchema(List<KeySchemaElement>? keySchema)
         => (keySchema ?? [])

@@ -148,7 +148,7 @@ public class DynamoDbControllerTests
     {
         // Arrange
         var client = _fixture.CreateClient();
-        var request = new DynamoDbItemPutRequest("{\"pk\":{\"S\":\"integration-item\"}}");
+        var request = new DynamoDbItemPutRequest("{\"pk\":{\"S\":\"integration-item\"}}", null);
 
         // Act
         var response = await client.PostAsJsonAsync(
@@ -264,4 +264,120 @@ public class DynamoDbControllerTests
             payload!.Items.Should().NotBeNull();
         }
     }
+
+    [Fact]
+    public async Task PutTtl_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
+    {
+        // Arrange
+        var client = _fixture.CreateClient();
+        var request = new DynamoDbTtlUpdateRequest(true, "expiresAt");
+
+        // Act
+        var response = await client.PutAsJsonAsync(
+            "/api/services/dynamodb/tables/missing-table/ttl",
+            request,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().NotBe(HttpStatusCode.NotFound);
+        response.StatusCode.Should().NotBe(HttpStatusCode.MethodNotAllowed);
+    }
+
+    [Fact]
+    public async Task CreateIndex_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
+    {
+        // Arrange
+        var client = _fixture.CreateClient();
+        var request = new DynamoDbIndexCreateRequest("gsi-1", "gpk", "S", null, null, "ALL");
+
+        // Act
+        var response = await client.PostAsJsonAsync(
+            "/api/services/dynamodb/tables/missing-table/indexes",
+            request,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().NotBe(HttpStatusCode.NotFound);
+        response.StatusCode.Should().NotBe(HttpStatusCode.MethodNotAllowed);
+    }
+
+    [Fact]
+    public async Task DeleteIndex_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
+    {
+        // Arrange
+        var client = _fixture.CreateClient();
+
+        // Act
+        var response = await client.DeleteAsync(
+            "/api/services/dynamodb/tables/missing-table/indexes/gsi-1",
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().NotBe(HttpStatusCode.NotFound);
+        response.StatusCode.Should().NotBe(HttpStatusCode.MethodNotAllowed);
+    }
+
+    [Fact]
+    public async Task ExecuteTransaction_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
+    {
+        // Arrange
+        var client = _fixture.CreateClient();
+        var request = new DynamoDbTransactionRequestBody(
+        [
+            new DynamoDbTransactionActionRequest("Put", "missing-table", "{\"pk\":{\"S\":\"a\"}}"),
+        ]);
+
+        // Act
+        var response = await client.PostAsJsonAsync(
+            "/api/services/dynamodb/transaction",
+            request,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().NotBe(HttpStatusCode.NotFound);
+        response.StatusCode.Should().NotBe(HttpStatusCode.MethodNotAllowed);
+    }
+
+    [Fact]
+    public async Task BatchWrite_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
+    {
+        // Arrange
+        var client = _fixture.CreateClient();
+        var request = new DynamoDbBatchWriteRequestBody(
+        [
+            new DynamoDbBatchWriteItemRequest("Put", "missing-table", "{\"pk\":{\"S\":\"a\"}}"),
+        ]);
+
+        // Act
+        var response = await client.PostAsJsonAsync(
+            "/api/services/dynamodb/batch/write",
+            request,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().NotBe(HttpStatusCode.NotFound);
+        response.StatusCode.Should().NotBe(HttpStatusCode.MethodNotAllowed);
+    }
+
+    [Fact]
+    public async Task BatchGet_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
+    {
+        // Arrange
+        var client = _fixture.CreateClient();
+        var request = new DynamoDbBatchGetRequestBody(
+        [
+            new DynamoDbBatchGetKeyRequest("missing-table", "{\"pk\":{\"S\":\"a\"}}"),
+        ]);
+
+        // Act
+        var response = await client.PostAsJsonAsync(
+            "/api/services/dynamodb/batch/get",
+            request,
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().NotBe(HttpStatusCode.NotFound);
+        response.StatusCode.Should().NotBe(HttpStatusCode.MethodNotAllowed);
+    }
 }
+

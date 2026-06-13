@@ -58,6 +58,19 @@ const textareaStyle: CSSProperties = {
 
 const editorActionsStyle: CSSProperties = { display: 'flex', gap: 8 };
 
+const conditionInputStyle: CSSProperties = {
+  fontFamily: 'monospace',
+  fontSize: 13,
+  marginTop: 4,
+  padding: 8,
+  borderRadius: 6,
+  border: '1px solid #30363d',
+  background: '#010409',
+  color: 'inherit',
+  width: '100%',
+  boxSizing: 'border-box',
+};
+
 const itemStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
@@ -91,6 +104,7 @@ type PanelState =
 interface Editor {
   mode: 'create' | 'edit';
   value: string;
+  condition: string;
 }
 
 type EditorState = 'idle' | 'saving' | 'error';
@@ -109,6 +123,7 @@ export function DynamoDbItemsPanel({ tableName, keySchema }: DynamoDbItemsPanelP
   const [reloadToken, setReloadToken] = useState(0);
   const [editor, setEditor] = useState<Editor | null>(null);
   const [editorState, setEditorState] = useState<EditorState>('idle');
+  const [editorError, setEditorError] = useState<string | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -124,29 +139,37 @@ export function DynamoDbItemsPanel({ tableName, keySchema }: DynamoDbItemsPanelP
   }, []);
 
   const openCreate = () => {
-    setEditor({ mode: 'create', value: '{\n  \n}' });
+    setEditor({ mode: 'create', value: '{\n  \n}', condition: '' });
     setEditorState('idle');
+    setEditorError(null);
   };
 
   const openEdit = (item: DynamoDbItem) => {
-    setEditor({ mode: 'edit', value: item.json });
+    setEditor({ mode: 'edit', value: item.json, condition: '' });
     setEditorState('idle');
+    setEditorError(null);
   };
 
   const closeEditor = () => {
     setEditor(null);
     setEditorState('idle');
+    setEditorError(null);
   };
 
-  const handleSave = (value: string) => {
+  const handleSave = (current: Editor) => {
     setEditorState('saving');
-    putDynamoDbItem(tableName, value)
+    setEditorError(null);
+    const condition = current.condition.trim();
+    putDynamoDbItem(tableName, current.value, condition.length > 0 ? condition : undefined)
       .then(() => {
         setEditor(null);
         setEditorState('idle');
         refresh();
       })
-      .catch(() => setEditorState('error'));
+      .catch((error: unknown) => {
+        setEditorState('error');
+        setEditorError(error instanceof Error ? error.message : null);
+      });
   };
 
   const handleDelete = useCallback(
@@ -189,15 +212,25 @@ export function DynamoDbItemsPanel({ tableName, keySchema }: DynamoDbItemsPanelP
             data-testid="dynamodb-item-editor-input"
             style={textareaStyle}
             value={editor.value}
-            onChange={(event) => setEditor({ mode: editor.mode, value: event.target.value })}
+            onChange={(event) => setEditor({ ...editor, value: event.target.value })}
           />
+          <label data-testid="dynamodb-item-editor-condition-label" style={messageStyle}>
+            Condition expression (optional)
+            <input
+              data-testid="dynamodb-item-editor-condition"
+              style={conditionInputStyle}
+              value={editor.condition}
+              placeholder="e.g. attribute_not_exists(id)"
+              onChange={(event) => setEditor({ ...editor, condition: event.target.value })}
+            />
+          </label>
           <div style={editorActionsStyle}>
             <button
               type="button"
               data-testid="dynamodb-item-editor-save"
               style={buttonStyle}
               disabled={editorState === 'saving'}
-              onClick={() => handleSave(editor.value)}
+              onClick={() => handleSave(editor)}
             >
               {editorState === 'saving' ? 'Saving\u2026' : 'Save'}
             </button>
@@ -212,7 +245,7 @@ export function DynamoDbItemsPanel({ tableName, keySchema }: DynamoDbItemsPanelP
           </div>
           {editorState === 'error' ? (
             <p data-testid="dynamodb-item-editor-error" style={messageStyle}>
-              Unable to save this item.
+              {editorError ?? 'Unable to save this item.'}
             </p>
           ) : null}
         </div>

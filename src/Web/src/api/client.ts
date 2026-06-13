@@ -1530,6 +1530,8 @@ export interface DynamoDbTableDetail {
   streamEnabled: boolean;
   streamViewType: string | null;
   latestStreamArn: string | null;
+  ttlStatus: string | null;
+  ttlAttributeName: string | null;
 }
 
 export async function getDynamoDbTables(signal?: AbortSignal): Promise<DynamoDbTableListResult> {
@@ -1596,6 +1598,145 @@ export async function deleteDynamoDbTable(
   }
 }
 
+export async function updateDynamoDbTtl(
+  tableName: string,
+  enabled: boolean,
+  attributeName: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/dynamodb/tables/${encodeURIComponent(tableName)}/ttl`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled, attributeName }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`DynamoDB TTL update request failed with status ${response.status}`);
+  }
+}
+
+export interface DynamoDbIndexCreateRequest {
+  indexName: string;
+  partitionKeyName: string;
+  partitionKeyType: string;
+  sortKeyName: string | null;
+  sortKeyType: string | null;
+  projectionType: string;
+}
+
+export async function createDynamoDbIndex(
+  tableName: string,
+  request: DynamoDbIndexCreateRequest,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/dynamodb/tables/${encodeURIComponent(tableName)}/indexes`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`DynamoDB index create request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteDynamoDbIndex(
+  tableName: string,
+  indexName: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/dynamodb/tables/${encodeURIComponent(tableName)}/indexes/${encodeURIComponent(indexName)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`DynamoDB index delete request failed with status ${response.status}`);
+  }
+}
+
+export interface DynamoDbTransactionAction {
+  operation: string;
+  tableName: string;
+  json: string;
+}
+
+export async function executeDynamoDbTransaction(
+  actions: DynamoDbTransactionAction[],
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/dynamodb/transaction', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ actions }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`DynamoDB transaction request failed with status ${response.status}`);
+  }
+}
+
+export interface DynamoDbBatchWriteItem {
+  operation: string;
+  tableName: string;
+  json: string;
+}
+
+export interface DynamoDbBatchWriteResult {
+  requested: number;
+  unprocessedItems: string[];
+}
+
+export async function executeDynamoDbBatchWrite(
+  items: DynamoDbBatchWriteItem[],
+  signal?: AbortSignal,
+): Promise<DynamoDbBatchWriteResult> {
+  const response = await fetch('/api/services/dynamodb/batch/write', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ items }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`DynamoDB batch write request failed with status ${response.status}`);
+  }
+  return (await response.json()) as DynamoDbBatchWriteResult;
+}
+
+export interface DynamoDbBatchGetKey {
+  tableName: string;
+  json: string;
+}
+
+export interface DynamoDbBatchGetResult {
+  requested: number;
+  items: DynamoDbItem[];
+}
+
+export async function executeDynamoDbBatchGet(
+  keys: DynamoDbBatchGetKey[],
+  signal?: AbortSignal,
+): Promise<DynamoDbBatchGetResult> {
+  const response = await fetch('/api/services/dynamodb/batch/get', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ keys }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`DynamoDB batch get request failed with status ${response.status}`);
+  }
+  return (await response.json()) as DynamoDbBatchGetResult;
+}
+
 export interface DynamoDbItem {
   json: string;
 }
@@ -1638,6 +1779,7 @@ export async function getDynamoDbItem(
 export async function putDynamoDbItem(
   tableName: string,
   itemJson: string,
+  conditionExpression?: string,
   signal?: AbortSignal,
 ): Promise<void> {
   const response = await fetch(
@@ -1645,12 +1787,22 @@ export async function putDynamoDbItem(
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ item: itemJson }),
+      body: JSON.stringify({ item: itemJson, conditionExpression: conditionExpression ?? null }),
       signal,
     },
   );
   if (!response.ok) {
-    throw new Error(`DynamoDB item put request failed with status ${response.status}`);
+    const detail = await readProblemDetail(response);
+    throw new Error(detail ?? `DynamoDB item put request failed with status ${response.status}`);
+  }
+}
+
+async function readProblemDetail(response: Response): Promise<string | null> {
+  try {
+    const body = (await response.json()) as { detail?: unknown };
+    return typeof body.detail === 'string' && body.detail.length > 0 ? body.detail : null;
+  } catch {
+    return null;
   }
 }
 

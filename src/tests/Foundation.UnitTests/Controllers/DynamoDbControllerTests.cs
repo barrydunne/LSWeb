@@ -2,9 +2,15 @@ using AspNet.KickStarter.FunctionalResult;
 using Foundation.Api.Controllers;
 using Foundation.Api.Models;
 using Foundation.Application.Commands.CreateDynamoDbTable;
+using Foundation.Application.Commands.CreateDynamoDbIndex;
+using Foundation.Application.Commands.DeleteDynamoDbIndex;
 using Foundation.Application.Commands.DeleteDynamoDbItem;
 using Foundation.Application.Commands.DeleteDynamoDbTable;
+using Foundation.Application.Commands.ExecuteDynamoDbTransaction;
 using Foundation.Application.Commands.PutDynamoDbItem;
+using Foundation.Application.Commands.UpdateDynamoDbTtl;
+using Foundation.Application.Queries.ExecuteDynamoDbBatchGet;
+using Foundation.Application.Queries.ExecuteDynamoDbBatchWrite;
 using Foundation.Application.Queries.ExecuteDynamoDbStatement;
 using Foundation.Application.Queries.GetDynamoDbItem;
 using Foundation.Application.Queries.GetDynamoDbTable;
@@ -89,7 +95,9 @@ public class DynamoDbControllerTests
             [new("lsi-1", null, [new("lid", "RANGE")])],
             true,
             "NEW_AND_OLD_IMAGES",
-            "arn:orders/stream/2024");
+            "arn:orders/stream/2024",
+            "ENABLED",
+            "expiresAt");
         _sender
             .Send(Arg.Any<GetDynamoDbTableQuery>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<Result<GetDynamoDbTableQueryResult>>(
@@ -124,6 +132,8 @@ public class DynamoDbControllerTests
         response.StreamEnabled.Should().BeTrue();
         response.StreamViewType.Should().Be("NEW_AND_OLD_IMAGES");
         response.LatestStreamArn.Should().Be("arn:orders/stream/2024");
+        response.TtlStatus.Should().Be("ENABLED");
+        response.TtlAttributeName.Should().Be("expiresAt");
     }
 
     [Fact]
@@ -208,6 +218,257 @@ public class DynamoDbControllerTests
 
         // Act
         var result = await sut.DeleteTable("orders", TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task PutTtl_WhenCommandSucceeds_ReturnsNoContent()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<UpdateDynamoDbTtlCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.PutTtl(
+            "orders",
+            new DynamoDbTtlUpdateRequest(true, "expiresAt"),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        var noContent = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        noContent.StatusCode.Should().Be(StatusCodes.Status204NoContent);
+    }
+
+    [Fact]
+    public async Task PutTtl_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<UpdateDynamoDbTtlCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.PutTtl(
+            "orders",
+            new DynamoDbTtlUpdateRequest(false, "expiresAt"),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task CreateIndex_WhenCommandSucceeds_ReturnsCreated()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<CreateDynamoDbIndexCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.CreateIndex(
+            "orders",
+            new DynamoDbIndexCreateRequest("gsi-1", "gpk", "S", null, null, "ALL"),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        var created = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        created.StatusCode.Should().Be(StatusCodes.Status201Created);
+    }
+
+    [Fact]
+    public async Task CreateIndex_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<CreateDynamoDbIndexCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.CreateIndex(
+            "orders",
+            new DynamoDbIndexCreateRequest("gsi-1", "gpk", "S", "gsk", "N", "KEYS_ONLY"),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task DeleteIndex_WhenCommandSucceeds_ReturnsNoContent()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<DeleteDynamoDbIndexCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.DeleteIndex(
+            "orders", "gsi-1", TestContext.Current.CancellationToken);
+
+        // Assert
+        var noContent = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        noContent.StatusCode.Should().Be(StatusCodes.Status204NoContent);
+    }
+
+    [Fact]
+    public async Task DeleteIndex_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<DeleteDynamoDbIndexCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.DeleteIndex(
+            "orders", "gsi-1", TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task ExecuteTransaction_WhenCommandSucceeds_ReturnsNoContent()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<ExecuteDynamoDbTransactionCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+        var request = new DynamoDbTransactionRequestBody(
+        [
+            new DynamoDbTransactionActionRequest("Put", "orders", "{\"pk\":{\"S\":\"a\"}}"),
+        ]);
+
+        // Act
+        var result = await sut.ExecuteTransaction(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        var noContent = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        noContent.StatusCode.Should().Be(StatusCodes.Status204NoContent);
+        await _sender.Received(1).Send(
+            Arg.Is<ExecuteDynamoDbTransactionCommand>(command => command.Actions.Count == 1),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteTransaction_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<ExecuteDynamoDbTransactionCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var sut = CreateSut();
+        var request = new DynamoDbTransactionRequestBody(
+        [
+            new DynamoDbTransactionActionRequest("Delete", "orders", "{\"pk\":{\"S\":\"a\"}}"),
+        ]);
+
+        // Act
+        var result = await sut.ExecuteTransaction(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task BatchWrite_WhenQuerySucceeds_ReturnsOkWithOutcome()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<ExecuteDynamoDbBatchWriteQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<ExecuteDynamoDbBatchWriteQueryResult>>(
+                new ExecuteDynamoDbBatchWriteQueryResult(
+                    new DynamoDbBatchWriteResult(2, ["{\"pk\":{\"S\":\"a\"}}"]))));
+        var sut = CreateSut();
+        var request = new DynamoDbBatchWriteRequestBody(
+        [
+            new DynamoDbBatchWriteItemRequest("Put", "orders", "{\"pk\":{\"S\":\"a\"}}"),
+        ]);
+
+        // Act
+        var result = await sut.BatchWrite(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        var ok = result.Should().BeOfType<Ok<DynamoDbBatchWriteResponse>>().Subject;
+        ok.Value!.Requested.Should().Be(2);
+        ok.Value.UnprocessedItems.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task BatchWrite_WhenQueryFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<ExecuteDynamoDbBatchWriteQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<ExecuteDynamoDbBatchWriteQueryResult>>(new Error("boom")));
+        var sut = CreateSut();
+        var request = new DynamoDbBatchWriteRequestBody(
+        [
+            new DynamoDbBatchWriteItemRequest("Delete", "orders", "{\"pk\":{\"S\":\"a\"}}"),
+        ]);
+
+        // Act
+        var result = await sut.BatchWrite(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task BatchGet_WhenQuerySucceeds_ReturnsOkWithItems()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<ExecuteDynamoDbBatchGetQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<ExecuteDynamoDbBatchGetQueryResult>>(
+                new ExecuteDynamoDbBatchGetQueryResult(
+                    new DynamoDbBatchGetResult(1, [new DynamoDbItem("{\"pk\":{\"S\":\"a\"}}")]))));
+        var sut = CreateSut();
+        var request = new DynamoDbBatchGetRequestBody(
+        [
+            new DynamoDbBatchGetKeyRequest("orders", "{\"pk\":{\"S\":\"a\"}}"),
+        ]);
+
+        // Act
+        var result = await sut.BatchGet(request, TestContext.Current.CancellationToken);
+
+        // Assert
+        var ok = result.Should().BeOfType<Ok<DynamoDbBatchGetResponse>>().Subject;
+        ok.Value!.Requested.Should().Be(1);
+        ok.Value.Items.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task BatchGet_WhenQueryFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<ExecuteDynamoDbBatchGetQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<ExecuteDynamoDbBatchGetQueryResult>>(new Error("boom")));
+        var sut = CreateSut();
+        var request = new DynamoDbBatchGetRequestBody(
+        [
+            new DynamoDbBatchGetKeyRequest("orders", "{\"pk\":{\"S\":\"a\"}}"),
+        ]);
+
+        // Act
+        var result = await sut.BatchGet(request, TestContext.Current.CancellationToken);
 
         // Assert
         var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
@@ -351,11 +612,17 @@ public class DynamoDbControllerTests
 
         // Act
         var result = await sut.PutItem(
-            "orders", new DynamoDbItemPutRequest("{\"id\":\"a\"}"), TestContext.Current.CancellationToken);
+            "orders",
+            new DynamoDbItemPutRequest("{\"id\":\"a\"}", "attribute_not_exists(id)"),
+            TestContext.Current.CancellationToken);
 
         // Assert
         var ok = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
         ok.StatusCode.Should().Be(StatusCodes.Status200OK);
+        await _sender.Received(1).Send(
+            Arg.Is<PutDynamoDbItemCommand>(command =>
+                command.ConditionExpression == "attribute_not_exists(id)"),
+            Arg.Any<CancellationToken>());
     }
 
     [Fact]
@@ -369,7 +636,9 @@ public class DynamoDbControllerTests
 
         // Act
         var result = await sut.PutItem(
-            "orders", new DynamoDbItemPutRequest("{\"id\":\"a\"}"), TestContext.Current.CancellationToken);
+            "orders",
+            new DynamoDbItemPutRequest("{\"id\":\"a\"}", null),
+            TestContext.Current.CancellationToken);
 
         // Assert
         var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;

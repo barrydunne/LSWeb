@@ -57,6 +57,8 @@ public sealed record DynamoDbSecondaryIndexResponse(
 /// <param name="StreamEnabled">Whether a DynamoDB Stream is enabled on the table.</param>
 /// <param name="StreamViewType">The view type of the stream, for example <c>NEW_AND_OLD_IMAGES</c>, if reported by the backend.</param>
 /// <param name="LatestStreamArn">The ARN of the table's latest DynamoDB Stream, or <see langword="null"/> when no stream is active.</param>
+/// <param name="TtlStatus">The time-to-live status, for example <c>ENABLED</c> or <c>DISABLED</c>, if reported by the backend.</param>
+/// <param name="TtlAttributeName">The attribute used as the time-to-live expiry timestamp, or <see langword="null"/> when TTL is not configured.</param>
 public sealed record DynamoDbTableDetailResponse(
     string Name,
     string Arn,
@@ -73,7 +75,9 @@ public sealed record DynamoDbTableDetailResponse(
     IReadOnlyList<DynamoDbSecondaryIndexResponse> LocalSecondaryIndexes,
     bool StreamEnabled,
     string? StreamViewType,
-    string? LatestStreamArn);
+    string? LatestStreamArn,
+    string? TtlStatus,
+    string? TtlAttributeName);
 
 /// <summary>
 /// The details of a DynamoDB table to create.
@@ -113,7 +117,32 @@ public sealed record DynamoDbItemListResponse(IReadOnlyList<DynamoDbItemResponse
 /// The body of a request to create or replace a DynamoDB item.
 /// </summary>
 /// <param name="Item">The full item as a JSON document.</param>
-public sealed record DynamoDbItemPutRequest(string Item);
+/// <param name="ConditionExpression">An optional DynamoDB condition expression that must hold for the write to succeed, or <see langword="null"/> for an unconditional write.</param>
+public sealed record DynamoDbItemPutRequest(string Item, string? ConditionExpression);
+
+/// <summary>
+/// The body of a request to enable or disable time-to-live (TTL) on a DynamoDB table.
+/// </summary>
+/// <param name="Enabled">Whether TTL should be enabled.</param>
+/// <param name="AttributeName">The attribute used as the TTL expiry timestamp.</param>
+public sealed record DynamoDbTtlUpdateRequest(bool Enabled, string AttributeName);
+
+/// <summary>
+/// The body of a request to add a global secondary index (GSI) to a DynamoDB table.
+/// </summary>
+/// <param name="IndexName">The name of the index to create.</param>
+/// <param name="PartitionKeyName">The name of the index partition (<c>HASH</c>) key attribute.</param>
+/// <param name="PartitionKeyType">The scalar type of the partition key, one of <c>S</c>, <c>N</c>, or <c>B</c>.</param>
+/// <param name="SortKeyName">The name of the optional sort (<c>RANGE</c>) key attribute, or <see langword="null"/> for a hash-only index.</param>
+/// <param name="SortKeyType">The scalar type of the sort key, or <see langword="null"/> when there is no sort key.</param>
+/// <param name="ProjectionType">The projection type, one of <c>ALL</c> or <c>KEYS_ONLY</c>.</param>
+public sealed record DynamoDbIndexCreateRequest(
+    string IndexName,
+    string PartitionKeyName,
+    string PartitionKeyType,
+    string? SortKeyName,
+    string? SortKeyType,
+    string ProjectionType);
 
 /// <summary>
 /// A single condition applied to a DynamoDB query or scan, such as a key condition or a filter.
@@ -168,6 +197,61 @@ public sealed record DynamoDbStatementRequestBody(
     string Statement,
     int Limit,
     string? NextToken);
+
+/// <summary>
+/// A single write action that participates in an atomic DynamoDB transaction.
+/// </summary>
+/// <param name="Operation">The action to perform, one of <c>Put</c> or <c>Delete</c>.</param>
+/// <param name="TableName">The name of the table the action targets.</param>
+/// <param name="Json">The action payload as a JSON document: the full item for a <c>Put</c>, or the primary key for a <c>Delete</c>.</param>
+public sealed record DynamoDbTransactionActionRequest(string Operation, string TableName, string Json);
+
+/// <summary>
+/// The body of a request to execute a set of write actions as a single atomic DynamoDB transaction.
+/// </summary>
+/// <param name="Actions">The write actions to apply atomically.</param>
+public sealed record DynamoDbTransactionRequestBody(IReadOnlyList<DynamoDbTransactionActionRequest> Actions);
+
+/// <summary>
+/// A single write request in a non-atomic DynamoDB batch write.
+/// </summary>
+/// <param name="Operation">The action to perform, one of <c>Put</c> or <c>Delete</c>.</param>
+/// <param name="TableName">The name of the table the request targets.</param>
+/// <param name="Json">The full item for a <c>Put</c>, or the primary key for a <c>Delete</c>, as a JSON document.</param>
+public sealed record DynamoDbBatchWriteItemRequest(string Operation, string TableName, string Json);
+
+/// <summary>
+/// The body of a request to execute a non-atomic DynamoDB batch write.
+/// </summary>
+/// <param name="Items">The write requests to apply.</param>
+public sealed record DynamoDbBatchWriteRequestBody(IReadOnlyList<DynamoDbBatchWriteItemRequest> Items);
+
+/// <summary>
+/// The outcome of a DynamoDB batch write.
+/// </summary>
+/// <param name="Requested">The number of write requests submitted.</param>
+/// <param name="UnprocessedItems">The requests the backend could not process, each rendered as a JSON document.</param>
+public sealed record DynamoDbBatchWriteResponse(int Requested, IReadOnlyList<string> UnprocessedItems);
+
+/// <summary>
+/// A single key in a DynamoDB batch get.
+/// </summary>
+/// <param name="TableName">The name of the table to read from.</param>
+/// <param name="Json">The primary key as a JSON document containing the key attributes.</param>
+public sealed record DynamoDbBatchGetKeyRequest(string TableName, string Json);
+
+/// <summary>
+/// The body of a request to execute a DynamoDB batch get.
+/// </summary>
+/// <param name="Keys">The primary keys to read.</param>
+public sealed record DynamoDbBatchGetRequestBody(IReadOnlyList<DynamoDbBatchGetKeyRequest> Keys);
+
+/// <summary>
+/// The outcome of a DynamoDB batch get.
+/// </summary>
+/// <param name="Requested">The number of keys submitted.</param>
+/// <param name="Items">The items found, each rendered as a JSON document.</param>
+public sealed record DynamoDbBatchGetResponse(int Requested, IReadOnlyList<DynamoDbItemResponse> Items);
 
 /// <summary>
 /// The page of DynamoDB items returned by a PartiQL statement, with a pagination token.

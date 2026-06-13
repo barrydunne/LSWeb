@@ -32,6 +32,8 @@ const fullTable: DynamoDbTableDetail = {
   streamEnabled: true,
   streamViewType: 'NEW_AND_OLD_IMAGES',
   latestStreamArn: 'arn:orders/stream/2024',
+  ttlStatus: 'ENABLED',
+  ttlAttributeName: 'expiresAt',
 };
 
 const enabledWithoutArn: DynamoDbTableDetail = {

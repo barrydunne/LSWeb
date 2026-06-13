@@ -7,6 +7,10 @@ using Foundation.Application.DynamoDb;
 using Foundation.Infrastructure.Aws;
 using DynamoDbCondition = Foundation.Domain.DynamoDb.DynamoDbCondition;
 using DynamoDbItem = Foundation.Domain.DynamoDb.DynamoDbItem;
+using DynamoDbBatchGetKey = Foundation.Domain.DynamoDb.DynamoDbBatchGetKey;
+using DynamoDbBatchGetResult = Foundation.Domain.DynamoDb.DynamoDbBatchGetResult;
+using DynamoDbBatchWriteItem = Foundation.Domain.DynamoDb.DynamoDbBatchWriteItem;
+using DynamoDbBatchWriteResult = Foundation.Domain.DynamoDb.DynamoDbBatchWriteResult;
 using DynamoDbItemPage = Foundation.Domain.DynamoDb.DynamoDbItemPage;
 using DynamoDbQueryRequest = Foundation.Domain.DynamoDb.DynamoDbQueryRequest;
 using DynamoDbQueryResult = Foundation.Domain.DynamoDb.DynamoDbQueryResult;
@@ -67,9 +71,253 @@ internal sealed class DynamoDbClientAdapter : IDynamoDbClient
                     new DescribeTableRequest { TableName = tableName },
                     token);
 
-                return DynamoDbTableMapper.ToTableDetail(response.Table);
+                var ttl = await DescribeTimeToLiveOrNullAsync(client, tableName, token);
+
+                return DynamoDbTableMapper.ToTableDetail(response.Table, ttl);
             },
             cancellationToken);
+
+    public async Task<Result> UpdateTimeToLiveAsync(
+        string tableName, bool enabled, string attributeName, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonDynamoDBClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                await client.UpdateTimeToLiveAsync(
+                    new UpdateTimeToLiveRequest
+                    {
+                        TableName = tableName,
+                        TimeToLiveSpecification = new TimeToLiveSpecification
+                        {
+                            Enabled = enabled,
+                            AttributeName = attributeName,
+                        },
+                    },
+                    token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    private static async Task<TimeToLiveDescription?> DescribeTimeToLiveOrNullAsync(
+        AmazonDynamoDBClient client, string tableName, CancellationToken token)
+    {
+        try
+        {
+            var response = await client.DescribeTimeToLiveAsync(
+                new DescribeTimeToLiveRequest { TableName = tableName }, token);
+            return response.TimeToLiveDescription;
+        }
+        catch (AmazonDynamoDBException)
+        {
+            return null;
+        }
+    }
+
+    public async Task<Result> CreateGlobalSecondaryIndexAsync(
+        Foundation.Domain.DynamoDb.DynamoDbIndexSpecification specification, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonDynamoDBClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                await client.UpdateTableAsync(BuildIndexCreateRequest(specification), token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    public async Task<Result> DeleteGlobalSecondaryIndexAsync(
+        string tableName, string indexName, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonDynamoDBClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                await client.UpdateTableAsync(
+                    new UpdateTableRequest
+                    {
+                        TableName = tableName,
+                        GlobalSecondaryIndexUpdates =
+                        [
+                            new GlobalSecondaryIndexUpdate
+                            {
+                                Delete = new DeleteGlobalSecondaryIndexAction { IndexName = indexName },
+                            },
+                        ],
+                    },
+                    token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    public async Task<Result> ExecuteTransactionWriteAsync(
+        IReadOnlyList<Foundation.Domain.DynamoDb.DynamoDbTransactionAction> actions, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonDynamoDBClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var transactItems = actions.Select(BuildTransactWriteItem).ToList();
+                await client.TransactWriteItemsAsync(
+                    new TransactWriteItemsRequest { TransactItems = transactItems }, token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    private static TransactWriteItem BuildTransactWriteItem(
+        Foundation.Domain.DynamoDb.DynamoDbTransactionAction action)
+    {
+        var attributes = Document.FromJson(action.Json).ToAttributeMap();
+
+        return action.Operation == "Delete"
+            ? new TransactWriteItem
+            {
+                Delete = new Delete { TableName = action.TableName, Key = attributes },
+            }
+            : new TransactWriteItem
+            {
+                Put = new Put { TableName = action.TableName, Item = attributes },
+            };
+    }
+
+    public Task<Result<DynamoDbBatchWriteResult>> ExecuteBatchWriteAsync(
+        IReadOnlyList<DynamoDbBatchWriteItem> items, CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonDynamoDBClient, DynamoDbBatchWriteResult>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var requestItems = new Dictionary<string, List<WriteRequest>>();
+                foreach (var item in items)
+                {
+                    if (!requestItems.TryGetValue(item.TableName, out var list))
+                    {
+                        list = [];
+                        requestItems[item.TableName] = list;
+                    }
+
+                    list.Add(BuildWriteRequest(item));
+                }
+
+                var response = await client.BatchWriteItemAsync(
+                    new BatchWriteItemRequest { RequestItems = requestItems }, token);
+
+                var unprocessed = (response.UnprocessedItems ?? [])
+                    .SelectMany(pair => pair.Value)
+                    .Select(RenderWriteRequest)
+                    .ToList();
+
+                return new DynamoDbBatchWriteResult(items.Count, unprocessed);
+            },
+            cancellationToken);
+
+    public Task<Result<DynamoDbBatchGetResult>> ExecuteBatchGetAsync(
+        IReadOnlyList<DynamoDbBatchGetKey> keys, CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonDynamoDBClient, DynamoDbBatchGetResult>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var requestItems = new Dictionary<string, KeysAndAttributes>();
+                foreach (var key in keys)
+                {
+                    if (!requestItems.TryGetValue(key.TableName, out var keysAndAttributes))
+                    {
+                        keysAndAttributes = new KeysAndAttributes { Keys = [] };
+                        requestItems[key.TableName] = keysAndAttributes;
+                    }
+
+                    keysAndAttributes.Keys.Add(Document.FromJson(key.Json).ToAttributeMap());
+                }
+
+                var response = await client.BatchGetItemAsync(
+                    new BatchGetItemRequest { RequestItems = requestItems }, token);
+
+                var items = (response.Responses ?? [])
+                    .SelectMany(pair => pair.Value)
+                    .Select(item => new DynamoDbItem(Document.FromAttributeMap(item).ToJsonPretty()))
+                    .ToList();
+
+                return new DynamoDbBatchGetResult(keys.Count, items);
+            },
+            cancellationToken);
+
+    private static WriteRequest BuildWriteRequest(DynamoDbBatchWriteItem item)
+    {
+        var attributes = Document.FromJson(item.Json).ToAttributeMap();
+
+        return item.Operation == "Delete"
+            ? new WriteRequest { DeleteRequest = new DeleteRequest { Key = attributes } }
+            : new WriteRequest { PutRequest = new PutRequest { Item = attributes } };
+    }
+
+    private static string RenderWriteRequest(WriteRequest request)
+    {
+        var attributes = request.PutRequest?.Item ?? request.DeleteRequest?.Key ?? [];
+        return Document.FromAttributeMap(attributes).ToJsonPretty();
+    }
+
+    private static UpdateTableRequest BuildIndexCreateRequest(
+        Foundation.Domain.DynamoDb.DynamoDbIndexSpecification specification)
+    {
+        var attributes = new List<AttributeDefinition>
+        {
+            new()
+            {
+                AttributeName = specification.PartitionKeyName,
+                AttributeType = ScalarAttributeType.FindValue(specification.PartitionKeyType),
+            },
+        };
+        var keySchema = new List<KeySchemaElement>
+        {
+            new() { AttributeName = specification.PartitionKeyName, KeyType = KeyType.HASH },
+        };
+
+        if (!string.IsNullOrEmpty(specification.SortKeyName))
+        {
+            attributes.Add(new AttributeDefinition
+            {
+                AttributeName = specification.SortKeyName,
+                AttributeType = ScalarAttributeType.FindValue(specification.SortKeyType),
+            });
+            keySchema.Add(new KeySchemaElement
+            {
+                AttributeName = specification.SortKeyName,
+                KeyType = KeyType.RANGE,
+            });
+        }
+
+        return new UpdateTableRequest
+        {
+            TableName = specification.TableName,
+            AttributeDefinitions = attributes,
+            GlobalSecondaryIndexUpdates =
+            [
+                new GlobalSecondaryIndexUpdate
+                {
+                    Create = new CreateGlobalSecondaryIndexAction
+                    {
+                        IndexName = specification.IndexName,
+                        KeySchema = keySchema,
+                        Projection = new Projection
+                        {
+                            ProjectionType = ProjectionType.FindValue(specification.ProjectionType),
+                        },
+                    },
+                },
+            ],
+        };
+    }
 
     public async Task<Result> CreateTableAsync(
         Foundation.Domain.DynamoDb.DynamoDbTableSpecification specification, CancellationToken cancellationToken)
@@ -153,14 +401,17 @@ internal sealed class DynamoDbClientAdapter : IDynamoDbClient
     }
 
     public async Task<Result> PutItemAsync(
-        string tableName, string itemJson, CancellationToken cancellationToken)
+        string tableName, string itemJson, string? conditionExpression, CancellationToken cancellationToken)
     {
         var result = await _gateway.ExecuteAsync<AmazonDynamoDBClient, bool>(
             ServiceKey,
             async (client, token) =>
             {
                 var item = Document.FromJson(itemJson).ToAttributeMap();
-                await client.PutItemAsync(new PutItemRequest { TableName = tableName, Item = item }, token);
+                var request = new PutItemRequest { TableName = tableName, Item = item };
+                if (!string.IsNullOrWhiteSpace(conditionExpression))
+                    request.ConditionExpression = conditionExpression;
+                await client.PutItemAsync(request, token);
                 return true;
             },
             cancellationToken);

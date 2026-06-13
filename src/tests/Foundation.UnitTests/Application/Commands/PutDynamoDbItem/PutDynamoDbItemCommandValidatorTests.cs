@@ -10,13 +10,22 @@ public class PutDynamoDbItemCommandValidatorTests
 
     private static PutDynamoDbItemCommand Valid(
         string tableName = "orders",
-        string itemJson = "{\"id\":\"a\"}")
-        => new(tableName, itemJson);
+        string itemJson = "{\"id\":\"a\"}",
+        string? conditionExpression = null)
+        => new(tableName, itemJson, conditionExpression);
 
     [Fact]
     public async Task ValidateAsync_WhenValid_IsValid()
     {
         var result = await _sut.ValidateAsync(Valid(), TestContext.Current.CancellationToken);
+        result.IsValid.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ValidateAsync_WhenConditionExpressionProvided_IsValid()
+    {
+        var result = await _sut.ValidateAsync(
+            Valid(conditionExpression: "attribute_not_exists(id)"), TestContext.Current.CancellationToken);
         result.IsValid.Should().BeTrue();
     }
 

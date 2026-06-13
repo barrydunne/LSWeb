@@ -15,8 +15,8 @@ public class PutDynamoDbItemCommandHandlerTests
     private readonly INotificationPublisher _publisher = Substitute.For<INotificationPublisher>();
     private readonly IActivityLog _activityLog = Substitute.For<IActivityLog>();
 
-    private static PutDynamoDbItemCommand BuildCommand()
-        => new("orders", "{\"id\":\"a\"}");
+    private static PutDynamoDbItemCommand BuildCommand(string? conditionExpression = null)
+        => new("orders", "{\"id\":\"a\"}", conditionExpression);
 
     private PutDynamoDbItemCommandHandler CreateSut()
         => new(_client, _publisher, _activityLog, NullLogger<PutDynamoDbItemCommandHandler>.Instance);
@@ -26,7 +26,7 @@ public class PutDynamoDbItemCommandHandlerTests
     {
         // Arrange
         _client
-            .PutItemAsync("orders", "{\"id\":\"a\"}", Arg.Any<CancellationToken>())
+            .PutItemAsync("orders", "{\"id\":\"a\"}", null, Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(Result.Success()));
         var sut = CreateSut();
 
@@ -35,7 +35,7 @@ public class PutDynamoDbItemCommandHandlerTests
 
         // Assert
         result.IsSuccess.Should().BeTrue();
-        await _client.Received(1).PutItemAsync("orders", "{\"id\":\"a\"}", Arg.Any<CancellationToken>());
+        await _client.Received(1).PutItemAsync("orders", "{\"id\":\"a\"}", null, Arg.Any<CancellationToken>());
         await _publisher.Received(1).PublishAsync(
             Arg.Is<Notification>(notification => notification.State == OperationState.InProgress),
             Arg.Any<CancellationToken>());
@@ -47,11 +47,30 @@ public class PutDynamoDbItemCommandHandlerTests
     }
 
     [Fact]
+    public async Task Handle_WhenConditionExpressionProvided_PassesItToTheClient()
+    {
+        // Arrange
+        _client
+            .PutItemAsync("orders", "{\"id\":\"a\"}", "attribute_not_exists(id)", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.Handle(
+            BuildCommand("attribute_not_exists(id)"), TestContext.Current.CancellationToken);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        await _client.Received(1).PutItemAsync(
+            "orders", "{\"id\":\"a\"}", "attribute_not_exists(id)", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task Handle_WhenPutFails_PublishesFailureAndReturnsError()
     {
         // Arrange
         _client
-            .PutItemAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .PutItemAsync(Arg.Any<string>(), Arg.Any<string>(), Arg.Any<string?>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult<Result>(new Error("put boom")));
         var sut = CreateSut();
 

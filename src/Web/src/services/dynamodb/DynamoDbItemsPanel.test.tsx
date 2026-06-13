@@ -117,7 +117,7 @@ describe('DynamoDbItemsPanel', () => {
     fireEvent.click(screen.getByTestId('dynamodb-item-editor-save'));
 
     await waitFor(() =>
-      expect(putDynamoDbItemMock).toHaveBeenCalledWith('orders', '{"id":"new"}'),
+      expect(putDynamoDbItemMock).toHaveBeenCalledWith('orders', '{"id":"new"}', undefined),
     );
     await waitFor(() =>
       expect(screen.queryByTestId('dynamodb-item-editor')).not.toBeInTheDocument(),
@@ -127,8 +127,37 @@ describe('DynamoDbItemsPanel', () => {
     );
   });
 
+  it('submits a conditional write and surfaces the condition-failed message', async () => {
+    putDynamoDbItemMock.mockRejectedValue(new Error('The conditional request failed'));
+
+    renderPanel();
+    await waitFor(() => expect(screen.getByTestId('dynamodb-item-0')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('dynamodb-item-add-toggle'));
+    fireEvent.change(screen.getByTestId('dynamodb-item-editor-input'), {
+      target: { value: '{"id":"new"}' },
+    });
+    fireEvent.change(screen.getByTestId('dynamodb-item-editor-condition'), {
+      target: { value: 'attribute_not_exists(id)' },
+    });
+    fireEvent.click(screen.getByTestId('dynamodb-item-editor-save'));
+
+    await waitFor(() =>
+      expect(putDynamoDbItemMock).toHaveBeenCalledWith(
+        'orders',
+        '{"id":"new"}',
+        'attribute_not_exists(id)',
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('dynamodb-item-editor-error')).toHaveTextContent(
+        'The conditional request failed',
+      ),
+    );
+  });
+
   it('shows an editor error when saving fails', async () => {
-    putDynamoDbItemMock.mockRejectedValue(new Error('boom'));
+    putDynamoDbItemMock.mockRejectedValue('boom');
 
     renderPanel();
     await waitFor(() => expect(screen.getByTestId('dynamodb-item-0')).toBeInTheDocument());
@@ -137,7 +166,9 @@ describe('DynamoDbItemsPanel', () => {
     fireEvent.click(screen.getByTestId('dynamodb-item-editor-save'));
 
     await waitFor(() =>
-      expect(screen.getByTestId('dynamodb-item-editor-error')).toBeInTheDocument(),
+      expect(screen.getByTestId('dynamodb-item-editor-error')).toHaveTextContent(
+        'Unable to save this item.',
+      ),
     );
     expect(screen.getByTestId('dynamodb-item-editor')).toBeInTheDocument();
   });
@@ -168,7 +199,7 @@ describe('DynamoDbItemsPanel', () => {
     fireEvent.click(screen.getByTestId('dynamodb-item-editor-save'));
 
     await waitFor(() =>
-      expect(putDynamoDbItemMock).toHaveBeenCalledWith('orders', '{"id":"a","n":1}'),
+      expect(putDynamoDbItemMock).toHaveBeenCalledWith('orders', '{"id":"a","n":1}', undefined),
     );
   });
 

@@ -40,7 +40,8 @@ internal sealed partial class PutDynamoDbItemCommandHandler : ICommandHandler<Pu
                 $"Writing an item to {request.TableName}.", DateTimeOffset.UtcNow),
             cancellationToken);
 
-        var result = await _client.PutItemAsync(request.TableName, request.ItemJson, cancellationToken);
+        var result = await _client.PutItemAsync(
+            request.TableName, request.ItemJson, request.ConditionExpression, cancellationToken);
         if (!result.IsSuccess)
         {
             var failure = $"Failed to write an item to {request.TableName}: {result.Error!.Value.Message}";

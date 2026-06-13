@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { DynamoDbDetailView } from './DynamoDbDetailView';
 import { getDynamoDbTable } from '../../api/client';
 import type { DynamoDbTableDetail } from '../../api/client';
@@ -28,9 +28,37 @@ vi.mock('./DynamoDbStatementPanel', () => ({
   ),
 }));
 
+vi.mock('./DynamoDbTransactionPanel', () => ({
+  DynamoDbTransactionPanel: ({ tableName }: { tableName: string }) => (
+    <div data-testid="dynamodb-transaction-panel-stub" data-table={tableName} />
+  ),
+}));
+
 vi.mock('./DynamoDbSchemaPanel', () => ({
   DynamoDbSchemaPanel: ({ table }: { table: { name: string } }) => (
     <div data-testid="dynamodb-schema-panel-stub" data-table={table.name} />
+  ),
+}));
+
+vi.mock('./DynamoDbTtlPanel', () => ({
+  DynamoDbTtlPanel: ({ table, onUpdated }: { table: { name: string }; onUpdated: () => void }) => (
+    <button type="button" data-testid="dynamodb-ttl-panel-stub" data-table={table.name} onClick={onUpdated}>
+      ttl
+    </button>
+  ),
+}));
+
+vi.mock('./DynamoDbIndexesPanel', () => ({
+  DynamoDbIndexesPanel: ({ tableName, onChanged }: { tableName: string; onChanged: () => void }) => (
+    <button type="button" data-testid="dynamodb-indexes-panel-stub" data-table={tableName} onClick={onChanged}>
+      indexes
+    </button>
+  ),
+}));
+
+vi.mock('./DynamoDbBatchPanel', () => ({
+  DynamoDbBatchPanel: ({ tableName }: { tableName: string }) => (
+    <div data-testid="dynamodb-batch-panel-stub" data-table={tableName} />
   ),
 }));
 
@@ -57,6 +85,8 @@ const fullDetail: DynamoDbTableDetail = {
   streamEnabled: true,
   streamViewType: 'NEW_AND_OLD_IMAGES',
   latestStreamArn: 'arn:orders/stream/2024',
+  ttlStatus: 'ENABLED',
+  ttlAttributeName: 'expiresAt',
 };
 
 const minimalDetail: DynamoDbTableDetail = {
@@ -76,6 +106,8 @@ const minimalDetail: DynamoDbTableDetail = {
   streamEnabled: false,
   streamViewType: null,
   latestStreamArn: null,
+  ttlStatus: null,
+  ttlAttributeName: null,
 };
 
 function renderView() {
@@ -164,5 +196,31 @@ describe('DynamoDbDetailView', () => {
     expect(screen.getByTestId('dynamodb-detail-writeCapacity')).toHaveTextContent('On-demand');
     expect(screen.getByTestId('dynamodb-detail-createdAt')).toHaveTextContent('Unknown');
     expect(screen.getByTestId('dynamodb-schema-panel-stub')).toHaveAttribute('data-table', 'minimal');
+  });
+
+  it('reloads the table when the TTL panel reports an update', async () => {
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('dynamodb-ttl-panel-stub')).toBeInTheDocument());
+    const callsBefore = getDynamoDbTableMock.mock.calls.length;
+
+    fireEvent.click(screen.getByTestId('dynamodb-ttl-panel-stub'));
+
+    await waitFor(() =>
+      expect(getDynamoDbTableMock.mock.calls.length).toBeGreaterThan(callsBefore),
+    );
+  });
+
+  it('reloads the table when the indexes panel reports a change', async () => {
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('dynamodb-indexes-panel-stub')).toBeInTheDocument());
+    const callsBefore = getDynamoDbTableMock.mock.calls.length;
+
+    fireEvent.click(screen.getByTestId('dynamodb-indexes-panel-stub'));
+
+    await waitFor(() =>
+      expect(getDynamoDbTableMock.mock.calls.length).toBeGreaterThan(callsBefore),
+    );
   });
 });

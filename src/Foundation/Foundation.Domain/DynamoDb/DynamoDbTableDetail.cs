@@ -45,6 +45,8 @@ public sealed record DynamoDbSecondaryIndex(
 /// <param name="StreamEnabled">Whether a DynamoDB Stream is enabled on the table.</param>
 /// <param name="StreamViewType">The view type of the stream, for example <c>NEW_AND_OLD_IMAGES</c>, if reported by the backend.</param>
 /// <param name="LatestStreamArn">The ARN of the table's latest DynamoDB Stream, or <see langword="null"/> when no stream is active.</param>
+/// <param name="TtlStatus">The time-to-live status, for example <c>ENABLED</c>, <c>DISABLED</c>, <c>ENABLING</c>, or <c>DISABLING</c>, if reported by the backend.</param>
+/// <param name="TtlAttributeName">The attribute used as the time-to-live expiry timestamp, or <see langword="null"/> when TTL is not configured.</param>
 public sealed record DynamoDbTableDetail(
     string Name,
     string Arn,
@@ -61,4 +63,6 @@ public sealed record DynamoDbTableDetail(
     IReadOnlyList<DynamoDbSecondaryIndex> LocalSecondaryIndexes,
     bool StreamEnabled,
     string? StreamViewType,
-    string? LatestStreamArn);
+    string? LatestStreamArn,
+    string? TtlStatus,
+    string? TtlAttributeName);

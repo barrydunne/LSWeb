@@ -1,9 +1,15 @@
 using AspNet.KickStarter.FunctionalResult.Extensions;
 using Foundation.Api.Models;
 using Foundation.Application.Commands.CreateDynamoDbTable;
+using Foundation.Application.Commands.CreateDynamoDbIndex;
+using Foundation.Application.Commands.DeleteDynamoDbIndex;
 using Foundation.Application.Commands.DeleteDynamoDbItem;
 using Foundation.Application.Commands.DeleteDynamoDbTable;
+using Foundation.Application.Commands.ExecuteDynamoDbTransaction;
 using Foundation.Application.Commands.PutDynamoDbItem;
+using Foundation.Application.Commands.UpdateDynamoDbTtl;
+using Foundation.Application.Queries.ExecuteDynamoDbBatchGet;
+using Foundation.Application.Queries.ExecuteDynamoDbBatchWrite;
 using Foundation.Application.Queries.ExecuteDynamoDbStatement;
 using Foundation.Application.Queries.GetDynamoDbItem;
 using Foundation.Application.Queries.GetDynamoDbTable;
@@ -252,7 +258,7 @@ public partial class DynamoDbController : ControllerBase
     {
         LogHandlingPutItem(tableName);
         var result = await _sender.Send(
-            new PutDynamoDbItemCommand(tableName, request.Item), cancellationToken);
+            new PutDynamoDbItemCommand(tableName, request.Item, request.ConditionExpression), cancellationToken);
         LogPutItemHandled(result.IsSuccess);
         return result.Match(
             () => Results.Ok(),
@@ -281,6 +287,159 @@ public partial class DynamoDbController : ControllerBase
             error => error.AsHttpResult());
     }
 
+    /// <summary>
+    /// Enables or disables time-to-live (TTL) on a DynamoDB table, nominating the attribute that holds
+    /// the expiry timestamp.
+    /// </summary>
+    /// <param name="tableName">The name of the table to configure.</param>
+    /// <param name="request">The TTL configuration to apply.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 204 result on success.</returns>
+    [HttpPut("tables/{tableName}/ttl")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IResult> PutTtl(
+        string tableName, [FromBody] DynamoDbTtlUpdateRequest request, CancellationToken cancellationToken)
+    {
+        LogHandlingPutTtl(tableName, request.Enabled);
+        var result = await _sender.Send(
+            new UpdateDynamoDbTtlCommand(tableName, request.Enabled, request.AttributeName),
+            cancellationToken);
+        LogPutTtlHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.NoContent(),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Adds a new global secondary index (GSI) to an existing DynamoDB table.
+    /// </summary>
+    /// <param name="tableName">The name of the table to add the index to.</param>
+    /// <param name="request">The index to create.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 201 result locating the table.</returns>
+    [HttpPost("tables/{tableName}/indexes")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    public async Task<IResult> CreateIndex(
+        string tableName, [FromBody] DynamoDbIndexCreateRequest request, CancellationToken cancellationToken)
+    {
+        LogHandlingCreateIndex(tableName, request.IndexName);
+        var result = await _sender.Send(
+            new CreateDynamoDbIndexCommand(
+                tableName,
+                request.IndexName,
+                request.PartitionKeyName,
+                request.PartitionKeyType,
+                request.SortKeyName,
+                request.SortKeyType,
+                request.ProjectionType),
+            cancellationToken);
+        LogCreateIndexHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.Created(
+                $"/api/services/dynamodb/tables/{Uri.EscapeDataString(tableName)}", null),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Deletes a global secondary index (GSI) from an existing DynamoDB table. This is a destructive
+    /// action that cannot be undone.
+    /// </summary>
+    /// <param name="tableName">The name of the table that owns the index.</param>
+    /// <param name="indexName">The name of the index to delete.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 204 result on success.</returns>
+    [HttpDelete("tables/{tableName}/indexes/{indexName}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IResult> DeleteIndex(
+        string tableName, string indexName, CancellationToken cancellationToken)
+    {
+        LogHandlingDeleteIndex(tableName, indexName);
+        var result = await _sender.Send(
+            new DeleteDynamoDbIndexCommand(tableName, indexName), cancellationToken);
+        LogDeleteIndexHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.NoContent(),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Executes a set of write actions as a single atomic DynamoDB transaction. Either every action is
+    /// applied, or none of them are.
+    /// </summary>
+    /// <param name="request">The transaction to execute.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 204 result on success.</returns>
+    [HttpPost("transaction")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IResult> ExecuteTransaction(
+        [FromBody] DynamoDbTransactionRequestBody request, CancellationToken cancellationToken)
+    {
+        LogHandlingTransaction(request.Actions.Count);
+        var actions = request.Actions
+            .Select(action => new Domain.DynamoDb.DynamoDbTransactionAction(
+                action.Operation, action.TableName, action.Json))
+            .ToList();
+        var result = await _sender.Send(
+            new ExecuteDynamoDbTransactionCommand(actions), cancellationToken);
+        LogTransactionHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.NoContent(),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Executes a set of put and delete requests as a non-atomic DynamoDB batch write, reporting any
+    /// requests the backend could not process.
+    /// </summary>
+    /// <param name="request">The batch write to execute.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 200 result carrying the batch outcome.</returns>
+    [HttpPost("batch/write")]
+    [ProducesResponseType(typeof(DynamoDbBatchWriteResponse), StatusCodes.Status200OK)]
+    public async Task<IResult> BatchWrite(
+        [FromBody] DynamoDbBatchWriteRequestBody request, CancellationToken cancellationToken)
+    {
+        LogHandlingBatchWrite(request.Items.Count);
+        var items = request.Items
+            .Select(item => new Domain.DynamoDb.DynamoDbBatchWriteItem(
+                item.Operation, item.TableName, item.Json))
+            .ToList();
+        var result = await _sender.Send(
+            new ExecuteDynamoDbBatchWriteQuery(items), cancellationToken);
+        LogBatchWriteHandled(result.IsSuccess);
+        return result.Match(
+            batch => Results.Ok(new DynamoDbBatchWriteResponse(
+                batch.Result.Requested, batch.Result.UnprocessedItems)),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Reads a set of items by their primary keys in a single DynamoDB batch get operation.
+    /// </summary>
+    /// <param name="request">The batch get to execute.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 200 result carrying the items found.</returns>
+    [HttpPost("batch/get")]
+    [ProducesResponseType(typeof(DynamoDbBatchGetResponse), StatusCodes.Status200OK)]
+    public async Task<IResult> BatchGet(
+        [FromBody] DynamoDbBatchGetRequestBody request, CancellationToken cancellationToken)
+    {
+        LogHandlingBatchGet(request.Keys.Count);
+        var keys = request.Keys
+            .Select(key => new Domain.DynamoDb.DynamoDbBatchGetKey(key.TableName, key.Json))
+            .ToList();
+        var result = await _sender.Send(
+            new ExecuteDynamoDbBatchGetQuery(keys), cancellationToken);
+        LogBatchGetHandled(result.IsSuccess);
+        return result.Match(
+            batch => Results.Ok(new DynamoDbBatchGetResponse(
+                batch.Result.Requested,
+                batch.Result.Items
+                    .Select(item => new DynamoDbItemResponse(item.Json))
+                    .ToList())),
+            error => error.AsHttpResult());
+    }
+
     private static DynamoDbTableDetailResponse ToResponse(Domain.DynamoDb.DynamoDbTableDetail table)
         => new(
             table.Name,
@@ -306,7 +465,9 @@ public partial class DynamoDbController : ControllerBase
                 .ToList(),
             table.StreamEnabled,
             table.StreamViewType,
-            table.LatestStreamArn);
+            table.LatestStreamArn,
+            table.TtlStatus,
+            table.TtlAttributeName);
 
     private static DynamoDbSecondaryIndexResponse ToIndexResponse(Domain.DynamoDb.DynamoDbSecondaryIndex index)
         => new(
@@ -383,4 +544,40 @@ public partial class DynamoDbController : ControllerBase
 
     [LoggerMessage(LogLevel.Trace, "DynamoDB delete item request handled. Success: {Success}")]
     private partial void LogDeleteItemHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling DynamoDB TTL update request for {TableName} (enabled {Enabled}).")]
+    private partial void LogHandlingPutTtl(string tableName, bool enabled);
+
+    [LoggerMessage(LogLevel.Trace, "DynamoDB TTL update request handled. Success: {Success}")]
+    private partial void LogPutTtlHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling DynamoDB index create request for {TableName} ({IndexName}).")]
+    private partial void LogHandlingCreateIndex(string tableName, string indexName);
+
+    [LoggerMessage(LogLevel.Trace, "DynamoDB index create request handled. Success: {Success}")]
+    private partial void LogCreateIndexHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling DynamoDB index delete request for {TableName} ({IndexName}).")]
+    private partial void LogHandlingDeleteIndex(string tableName, string indexName);
+
+    [LoggerMessage(LogLevel.Trace, "DynamoDB index delete request handled. Success: {Success}")]
+    private partial void LogDeleteIndexHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling DynamoDB transaction request with {Count} action(s).")]
+    private partial void LogHandlingTransaction(int count);
+
+    [LoggerMessage(LogLevel.Trace, "DynamoDB transaction request handled. Success: {Success}")]
+    private partial void LogTransactionHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling DynamoDB batch write request with {Count} request(s).")]
+    private partial void LogHandlingBatchWrite(int count);
+
+    [LoggerMessage(LogLevel.Trace, "DynamoDB batch write request handled. Success: {Success}")]
+    private partial void LogBatchWriteHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling DynamoDB batch get request with {Count} key(s).")]
+    private partial void LogHandlingBatchGet(int count);
+
+    [LoggerMessage(LogLevel.Trace, "DynamoDB batch get request handled. Success: {Success}")]
+    private partial void LogBatchGetHandled(bool success);
 }

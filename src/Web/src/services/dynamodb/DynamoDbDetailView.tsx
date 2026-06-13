@@ -5,9 +5,13 @@ import { getDynamoDbTable } from '../../api/client';
 import type { DynamoDbTableDetail } from '../../api/client';
 import type { ServiceDetailViewProps } from '../serviceViewRegistry';
 import { DynamoDbItemsPanel } from './DynamoDbItemsPanel';
+import { DynamoDbBatchPanel } from './DynamoDbBatchPanel';
+import { DynamoDbIndexesPanel } from './DynamoDbIndexesPanel';
 import { DynamoDbQueryPanel } from './DynamoDbQueryPanel';
 import { DynamoDbSchemaPanel } from './DynamoDbSchemaPanel';
 import { DynamoDbStatementPanel } from './DynamoDbStatementPanel';
+import { DynamoDbTransactionPanel } from './DynamoDbTransactionPanel';
+import { DynamoDbTtlPanel } from './DynamoDbTtlPanel';
 
 const containerStyle: CSSProperties = {
   display: 'flex',
@@ -42,6 +46,7 @@ interface DetailField {
 
 export function DynamoDbDetailView({ resourceId }: ServiceDetailViewProps) {
   const [state, setState] = useState<DetailState>({ kind: 'loading' });
+  const [reloadToken, setReloadToken] = useState(0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -49,7 +54,7 @@ export function DynamoDbDetailView({ resourceId }: ServiceDetailViewProps) {
       .then((table) => setState({ kind: 'ready', table }))
       .catch(() => setState({ kind: 'error' }));
     return () => controller.abort();
-  }, [resourceId]);
+  }, [resourceId, reloadToken]);
 
   if (state.kind === 'loading') {
     return (
@@ -99,7 +104,15 @@ export function DynamoDbDetailView({ resourceId }: ServiceDetailViewProps) {
         </div>
       ))}
       <DynamoDbSchemaPanel table={table} />
+      <DynamoDbTtlPanel table={table} onUpdated={() => setReloadToken((token) => token + 1)} />
+      <DynamoDbIndexesPanel
+        tableName={table.name}
+        globalSecondaryIndexes={table.globalSecondaryIndexes}
+        localSecondaryIndexes={table.localSecondaryIndexes}
+        onChanged={() => setReloadToken((token) => token + 1)}
+      />
       <DynamoDbItemsPanel tableName={table.name} keySchema={table.keySchema} />
+      <DynamoDbBatchPanel tableName={table.name} />
       <DynamoDbQueryPanel
         tableName={table.name}
         indexNames={[
@@ -108,6 +121,7 @@ export function DynamoDbDetailView({ resourceId }: ServiceDetailViewProps) {
         ]}
       />
       <DynamoDbStatementPanel tableName={table.name} />
+      <DynamoDbTransactionPanel tableName={table.name} />
     </div>
   );
 }

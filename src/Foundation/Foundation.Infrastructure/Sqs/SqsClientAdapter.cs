@@ -142,6 +142,29 @@ internal sealed class SqsClientAdapter : ISqsClient
         return result.IsSuccess ? Result.Success() : result.Error!.Value;
     }
 
+    public async Task<Result> ChangeMessageVisibilityAsync(
+        string queueName, string receiptHandle, int visibilityTimeoutSeconds, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonSQSClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var queueUrl = await ResolveQueueUrlAsync(client, queueName, token);
+                await client.ChangeMessageVisibilityAsync(
+                    new ChangeMessageVisibilityRequest
+                    {
+                        QueueUrl = queueUrl,
+                        ReceiptHandle = receiptHandle,
+                        VisibilityTimeout = visibilityTimeoutSeconds,
+                    },
+                    token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
     public async Task<Result> PurgeQueueAsync(string queueName, CancellationToken cancellationToken)
     {
         var result = await _gateway.ExecuteAsync<AmazonSQSClient, bool>(
@@ -240,6 +263,35 @@ internal sealed class SqsClientAdapter : ISqsClient
                     {
                         QueueUrl = queueUrl,
                         Attributes = attributes.ToDictionary(pair => pair.Key, pair => pair.Value),
+                    },
+                    token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    public async Task<Result> SetRedrivePolicyAsync(
+        string queueName, string deadLetterTargetArn, int maxReceiveCount, CancellationToken cancellationToken)
+    {
+        var policy = System.Text.Json.JsonSerializer.Serialize(new Dictionary<string, object>
+        {
+            ["deadLetterTargetArn"] = deadLetterTargetArn,
+            ["maxReceiveCount"] = maxReceiveCount,
+        });
+
+        var result = await _gateway.ExecuteAsync<AmazonSQSClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var queueUrl = await ResolveQueueUrlAsync(client, queueName, token);
+
+                await client.SetQueueAttributesAsync(
+                    new SetQueueAttributesRequest
+                    {
+                        QueueUrl = queueUrl,
+                        Attributes = new Dictionary<string, string> { ["RedrivePolicy"] = policy },
                     },
                     token);
                 return true;

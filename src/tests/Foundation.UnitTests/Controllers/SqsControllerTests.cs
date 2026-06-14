@@ -2,12 +2,14 @@ using AspNet.KickStarter.FunctionalResult;
 using Foundation.Api.Controllers;
 using Foundation.Api.Models;
 using Foundation.Application.Commands.CreateSqsQueue;
+using Foundation.Application.Commands.ChangeSqsMessageVisibility;
 using Foundation.Application.Commands.DeleteSqsMessage;
 using Foundation.Application.Commands.DeleteSqsQueue;
 using Foundation.Application.Commands.PurgeSqsQueue;
 using Foundation.Application.Commands.RedriveSqsMessages;
 using Foundation.Application.Commands.SendSqsMessage;
 using Foundation.Application.Commands.SetSqsQueueAttributes;
+using Foundation.Application.Commands.SetSqsRedrivePolicy;
 using Foundation.Application.Queries.GetSqsQueueAttributes;
 using Foundation.Application.Queries.GetSqsQueueRedrive;
 using Foundation.Application.Queries.ListSqsConsumerLambdas;
@@ -545,6 +547,92 @@ public class SqsControllerTests
 
         // Act
         var result = await sut.SetAttributes("orders", request, TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task ChangeMessageVisibility_WhenCommandSucceeds_ReturnsNoContent()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<ChangeSqsMessageVisibilityCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.ChangeMessageVisibility(
+            "orders", new SqsChangeMessageVisibilityRequest("rh", 60), TestContext.Current.CancellationToken);
+
+        // Assert
+        result.Should().BeOfType<NoContent>();
+        await _sender.Received(1).Send(
+            Arg.Is<ChangeSqsMessageVisibilityCommand>(command =>
+                command.QueueName == "orders"
+                && command.ReceiptHandle == "rh"
+                && command.VisibilityTimeoutSeconds == 60),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ChangeMessageVisibility_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<ChangeSqsMessageVisibilityCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.ChangeMessageVisibility(
+            "orders", new SqsChangeMessageVisibilityRequest("rh", 60), TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task SetRedrivePolicy_WhenCommandSucceeds_ReturnsNoContent()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<SetSqsRedrivePolicyCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.SetRedrivePolicy(
+            "orders",
+            new SqsRedrivePolicyRequest("arn:aws:sqs:eu-west-1:000000000000:orders-dlq", 5),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        result.Should().BeOfType<NoContent>();
+        await _sender.Received(1).Send(
+            Arg.Is<SetSqsRedrivePolicyCommand>(command =>
+                command.QueueName == "orders"
+                && command.DeadLetterTargetArn == "arn:aws:sqs:eu-west-1:000000000000:orders-dlq"
+                && command.MaxReceiveCount == 5),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SetRedrivePolicy_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<SetSqsRedrivePolicyCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.SetRedrivePolicy(
+            "orders",
+            new SqsRedrivePolicyRequest("arn:aws:sqs:eu-west-1:000000000000:orders-dlq", 5),
+            TestContext.Current.CancellationToken);
 
         // Assert
         var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;

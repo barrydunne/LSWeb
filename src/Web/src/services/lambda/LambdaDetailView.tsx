@@ -7,6 +7,8 @@ import type { ServiceDetailViewProps } from '../serviceViewRegistry';
 import { ConfirmationHost } from '../../components/ConfirmationHost';
 import { ResourceLink } from '../../components/ResourceLink';
 import { LambdaEnvironmentTab } from './LambdaEnvironmentTab';
+import { LambdaCodeTab } from './LambdaCodeTab';
+import { LambdaFunctionUrlTab } from './LambdaFunctionUrlTab';
 import { LambdaTestTab } from './LambdaTestTab';
 import { LambdaEventSourcesTab } from './LambdaEventSourcesTab';
 import { LambdaLayersTab } from './LambdaLayersTab';
@@ -63,6 +65,8 @@ type DetailState =
 
 type TabKey =
   | 'overview'
+  | 'code'
+  | 'url'
   | 'environment'
   | 'test'
   | 'eventsources'
@@ -139,6 +143,22 @@ export function LambdaDetailView({ resourceId }: ServiceDetailViewProps) {
           onClick={() => setTab('overview')}
         >
           Overview
+        </button>
+        <button
+          type="button"
+          data-testid="lambda-detail-tab-code"
+          style={tab === 'code' ? activeTabButtonStyle : tabButtonStyle}
+          onClick={() => setTab('code')}
+        >
+          Code
+        </button>
+        <button
+          type="button"
+          data-testid="lambda-detail-tab-url"
+          style={tab === 'url' ? activeTabButtonStyle : tabButtonStyle}
+          onClick={() => setTab('url')}
+        >
+          Function URL
         </button>
         <button
           type="button"
@@ -221,6 +241,8 @@ export function LambdaDetailView({ resourceId }: ServiceDetailViewProps) {
         </div>
       )}
       {tab === 'environment' && <LambdaEnvironmentTab functionName={fn.functionName} />}
+      {tab === 'code' && <LambdaCodeTab functionName={fn.functionName} />}
+      {tab === 'url' && <LambdaFunctionUrlTab functionName={fn.functionName} />}
       {tab === 'test' && <LambdaTestTab functionName={fn.functionName} />}
       {tab === 'eventsources' && <LambdaEventSourcesTab functionName={fn.functionName} />}
       {tab === 'layers' && <LambdaLayersTab functionName={fn.functionName} />}

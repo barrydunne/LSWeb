@@ -6,6 +6,8 @@ import { LambdaDetailView } from './LambdaDetailView';
 import {
   deleteLambdaFunction,
   getLambdaFunction,
+  getLambdaFunctionCode,
+  getLambdaFunctionUrl,
   getLambdaEnvironment,
   getLambdaTestEvents,
   getLambdaEventSourceMappings,
@@ -19,6 +21,8 @@ import type { LambdaFunctionResult } from '../../api/client';
 vi.mock('../../api/client');
 
 const getLambdaFunctionMock = vi.mocked(getLambdaFunction);
+const getLambdaFunctionCodeMock = vi.mocked(getLambdaFunctionCode);
+const getLambdaFunctionUrlMock = vi.mocked(getLambdaFunctionUrl);
 const getLambdaEnvironmentMock = vi.mocked(getLambdaEnvironment);
 const deleteLambdaFunctionMock = vi.mocked(deleteLambdaFunction);
 const getLambdaTestEventsMock = vi.mocked(getLambdaTestEvents);
@@ -51,7 +55,25 @@ function renderView() {
 describe('LambdaDetailView', () => {
   beforeEach(() => {
     getLambdaFunctionMock.mockResolvedValue(functionResult);
+    getLambdaFunctionCodeMock.mockResolvedValue({
+      functionName: 'process-orders',
+      runtime: 'dotnet8',
+      handler: 'Orders::Handler',
+      packageType: 'Zip',
+      codeSize: 2048,
+      codeSha256: 'abc123=',
+      repositoryType: 'S3',
+      location: 'https://localstack/download.zip',
+      imageUri: '',
+    });
     getLambdaEnvironmentMock.mockResolvedValue({ variables: [], revealAllowed: false });
+    getLambdaFunctionUrlMock.mockResolvedValue({
+      configured: false,
+      functionUrl: '',
+      authType: '',
+      creationTime: '',
+      lastModifiedTime: '',
+    });
     getLambdaTestEventsMock.mockResolvedValue({ events: [], templates: [] });
     getLambdaEventSourceMappingsMock.mockResolvedValue({ mappings: [], s3Triggers: [] });
     getLambdaLogEventsMock.mockResolvedValue({ logGroupName: '/aws/lambda/process-orders', events: [] });
@@ -151,6 +173,31 @@ describe('LambdaDetailView', () => {
 
     await user.click(screen.getByTestId('lambda-detail-tab-overview'));
     expect(screen.getByTestId('lambda-detail-arn')).toBeInTheDocument();
+  });
+
+
+  it('switches to the code tab', async () => {
+    const user = userEvent.setup();
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('lambda-detail-view')).toBeInTheDocument());
+
+    await user.click(screen.getByTestId('lambda-detail-tab-code'));
+    await waitFor(() => expect(screen.getByTestId('lambda-code-tab')).toBeInTheDocument());
+    expect(getLambdaFunctionCodeMock).toHaveBeenCalledWith('process-orders', expect.anything());
+    expect(screen.queryByTestId('lambda-detail-arn')).not.toBeInTheDocument();
+  });
+
+  it('switches to the function URL tab', async () => {
+    const user = userEvent.setup();
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('lambda-detail-view')).toBeInTheDocument());
+
+    await user.click(screen.getByTestId('lambda-detail-tab-url'));
+    await waitFor(() => expect(screen.getByTestId('lambda-url-tab')).toBeInTheDocument());
+    expect(getLambdaFunctionUrlMock).toHaveBeenCalledWith('process-orders', expect.anything());
+    expect(screen.queryByTestId('lambda-detail-arn')).not.toBeInTheDocument();
   });
 
   it('switches to the test tab', async () => {

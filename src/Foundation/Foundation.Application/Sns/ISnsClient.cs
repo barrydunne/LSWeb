@@ -44,6 +44,25 @@ public interface ISnsClient
         string topicArn, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Subscribe an endpoint to an SNS topic using the supplied protocol.
+    /// </summary>
+    /// <param name="topicArn">The Amazon Resource Name of the topic to subscribe to.</param>
+    /// <param name="protocol">The delivery protocol, for example <c>sqs</c>, <c>lambda</c>, or <c>email</c>.</param>
+    /// <param name="endpoint">The endpoint to deliver to (an ARN for resource protocols, an address for email/SMS).</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A successful result, or an error when the backend rejects the request.</returns>
+    Task<Result> SubscribeAsync(
+        string topicArn, string protocol, string endpoint, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Remove a subscription from an SNS topic by its Amazon Resource Name.
+    /// </summary>
+    /// <param name="subscriptionArn">The Amazon Resource Name of the subscription to remove.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A successful result, or an error when the backend rejects the request.</returns>
+    Task<Result> UnsubscribeAsync(string subscriptionArn, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Publish a message to an SNS topic, optionally with a subject and custom string attributes.
     /// </summary>
     /// <param name="topicArn">The Amazon Resource Name of the topic to publish to.</param>

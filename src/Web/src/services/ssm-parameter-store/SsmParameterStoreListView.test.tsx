@@ -15,6 +15,13 @@ const listResult: ParameterListResult = {
   path: '/',
   parameters: [
     {
+      name: '/global-flag',
+      type: 'String',
+      version: 2,
+      lastModifiedDate: '2024-02-02T00:00:00Z',
+      arn: 'arn:global-flag',
+    },
+    {
       name: '/app/config/db-host',
       type: 'String',
       version: 3,
@@ -85,6 +92,13 @@ describe('SsmParameterStoreListView', () => {
       expect(screen.getByTestId('ssm-parameter-store-list-view')).toBeInTheDocument(),
     );
 
+    // At the root only the top-level parameter is a direct row; nested ones live under a folder.
+    expect(screen.getByTestId('ssm-parameter-store-list-link')).toHaveTextContent('/global-flag');
+
+    // Drill into the app/config folder to reach the nested parameters.
+    fireEvent.click(screen.getByTestId('ssm-folder'));
+    fireEvent.click(screen.getByTestId('ssm-folder'));
+
     const links = screen.getAllByTestId('ssm-parameter-store-list-link');
     expect(links[0]).toHaveTextContent('/app/config/db-host');
     expect(links[0]).toHaveAttribute(
@@ -96,6 +110,56 @@ describe('SsmParameterStoreListView', () => {
       'href',
       '/services/ssm-parameter-store/%2Fapp%2Fconfig%2Fapi-key',
     );
+  });
+
+  it('navigates the parameter hierarchy with folders and breadcrumb', async () => {
+    renderView();
+    await waitFor(() =>
+      expect(screen.getByTestId('ssm-parameter-store-list-view')).toBeInTheDocument(),
+    );
+
+    // Root shows an "app" folder.
+    expect(screen.getByTestId('ssm-folder')).toHaveTextContent('app/');
+
+    fireEvent.click(screen.getByTestId('ssm-folder'));
+    // Now under /app, which shows a "config" folder.
+    expect(screen.getByTestId('ssm-folder')).toHaveTextContent('config/');
+    expect(screen.getAllByTestId('ssm-path-segment')).toHaveLength(1);
+
+    fireEvent.click(screen.getByTestId('ssm-folder'));
+    // Under /app/config the two parameters are direct rows.
+    expect(screen.getAllByTestId('ssm-parameter-store-list-link')).toHaveLength(2);
+    expect(screen.queryByTestId('ssm-folder')).not.toBeInTheDocument();
+
+    // Breadcrumb navigates back to the root.
+    fireEvent.click(screen.getByTestId('ssm-path-root'));
+    expect(screen.getByTestId('ssm-parameter-store-list-link')).toHaveTextContent('/global-flag');
+  });
+
+  it('navigates up via a breadcrumb segment', async () => {
+    renderView();
+    await waitFor(() =>
+      expect(screen.getByTestId('ssm-parameter-store-list-view')).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByTestId('ssm-folder'));
+    fireEvent.click(screen.getByTestId('ssm-folder'));
+    expect(screen.getAllByTestId('ssm-path-segment')).toHaveLength(2);
+
+    fireEvent.click(screen.getAllByTestId('ssm-path-segment')[0]);
+    expect(screen.getByTestId('ssm-folder')).toHaveTextContent('config/');
+  });
+
+  it('seeds the create form name with the current path prefix', async () => {
+    renderView();
+    await waitFor(() =>
+      expect(screen.getByTestId('ssm-parameter-store-list-view')).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByTestId('ssm-folder'));
+    fireEvent.click(screen.getByTestId('ssm-parameter-store-create-toggle'));
+
+    expect(screen.getByTestId('ssm-parameter-store-create-name')).toHaveValue('/app/');
   });
 
   it('toggles the create form', async () => {
@@ -226,7 +290,7 @@ describe('SsmParameterStoreListView', () => {
     fireEvent.click(screen.getAllByTestId('confirm-trigger')[0]);
     fireEvent.click(screen.getByTestId('confirm-accept'));
 
-    await waitFor(() => expect(deleteParameterMock).toHaveBeenCalledWith('/app/config/db-host'));
+    await waitFor(() => expect(deleteParameterMock).toHaveBeenCalledWith('/global-flag'));
   });
 
   it('shows an error when parameter deletion fails', async () => {

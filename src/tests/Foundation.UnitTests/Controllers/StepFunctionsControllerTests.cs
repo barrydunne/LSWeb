@@ -1,7 +1,9 @@
 using AspNet.KickStarter.FunctionalResult;
 using Foundation.Api.Controllers;
 using Foundation.Api.Models;
+using Foundation.Application.Commands.CreateStateMachine;
 using Foundation.Application.Commands.StartExecution;
+using Foundation.Application.Commands.UpdateStateMachineDefinition;
 using Foundation.Application.Queries.GetExecutionHistory;
 using Foundation.Application.Queries.GetStateMachine;
 using Foundation.Application.Queries.ListExecutions;
@@ -227,6 +229,103 @@ public class StepFunctionsControllerTests
         var result = await sut.StartExecution(
             new StartExecutionRequest(
                 "arn:aws:states:eu-west-1:000000000000:stateMachine:orders-workflow", null, null),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task CreateStateMachine_WhenCommandSucceeds_ReturnsCreatedWithStateMachine()
+    {
+        // Arrange
+        var created = new StateMachineCreateResult(
+            "arn:aws:states:eu-west-1:000000000000:stateMachine:orders", DateTimeOffset.UtcNow);
+        _sender
+            .Send(Arg.Any<CreateStateMachineCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<StateMachineCreateResult>>(created));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.CreateStateMachine(
+            new CreateStateMachineRequest(
+                "orders",
+                "{\"StartAt\":\"A\",\"States\":{}}",
+                "arn:aws:iam::000000000000:role/sfn",
+                "STANDARD"),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        var createdResult = result.Should().BeOfType<Created<CreateStateMachineResponse>>().Subject;
+        createdResult.Value!.StateMachineArn.Should().Be("arn:aws:states:eu-west-1:000000000000:stateMachine:orders");
+        await _sender.Received(1).Send(
+            Arg.Is<CreateStateMachineCommand>(command =>
+                command.Name == "orders" && command.Type == "STANDARD"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CreateStateMachine_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<CreateStateMachineCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<StateMachineCreateResult>>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.CreateStateMachine(
+            new CreateStateMachineRequest(
+                "orders",
+                "{\"StartAt\":\"A\",\"States\":{}}",
+                "arn:aws:iam::000000000000:role/sfn",
+                "STANDARD"),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task UpdateStateMachineDefinition_WhenCommandSucceeds_ReturnsNoContent()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<UpdateStateMachineDefinitionCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.UpdateStateMachineDefinition(
+            new UpdateStateMachineDefinitionRequest(
+                "arn:aws:states:eu-west-1:000000000000:stateMachine:orders",
+                "{\"StartAt\":\"A\",\"States\":{}}"),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        result.Should().BeOfType<NoContent>();
+        await _sender.Received(1).Send(
+            Arg.Is<UpdateStateMachineDefinitionCommand>(command =>
+                command.StateMachineArn == "arn:aws:states:eu-west-1:000000000000:stateMachine:orders"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task UpdateStateMachineDefinition_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<UpdateStateMachineDefinitionCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.UpdateStateMachineDefinition(
+            new UpdateStateMachineDefinitionRequest(
+                "arn:aws:states:eu-west-1:000000000000:stateMachine:orders",
+                "{\"StartAt\":\"A\",\"States\":{}}"),
             TestContext.Current.CancellationToken);
 
         // Assert

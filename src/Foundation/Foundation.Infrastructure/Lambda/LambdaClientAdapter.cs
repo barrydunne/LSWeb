@@ -23,6 +23,8 @@ internal sealed class LambdaClientAdapter : ILambdaClient
     private const string ServiceKey = "lambda";
     private const string LogsServiceKey = "cloudwatch-logs";
 
+    private static readonly HttpClient _httpClient = new() { Timeout = TimeSpan.FromSeconds(15) };
+
     private readonly IAwsGateway _gateway;
 
     public LambdaClientAdapter(IAwsGateway gateway)
@@ -60,6 +62,114 @@ internal sealed class LambdaClientAdapter : ILambdaClient
                 return LambdaFunctionMapper.ToDetail(response.Configuration);
             },
             cancellationToken);
+
+    public Task<Result<LambdaFunctionCode>> GetFunctionCodeAsync(string functionName, CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonLambdaClient, LambdaFunctionCode>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var response = await client.GetFunctionAsync(new GetFunctionRequest { FunctionName = functionName }, token);
+                return LambdaFunctionMapper.ToCode(response.Configuration, response.Code);
+            },
+            cancellationToken);
+
+    public Task<Result<LambdaFunctionUrl?>> GetFunctionUrlAsync(string functionName, CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonLambdaClient, LambdaFunctionUrl?>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                try
+                {
+                    var response = await client.GetFunctionUrlConfigAsync(
+                        new GetFunctionUrlConfigRequest { FunctionName = functionName }, token);
+                    return LambdaFunctionMapper.ToFunctionUrl(
+                        response.FunctionUrl, response.AuthType?.Value, response.CreationTime, response.LastModifiedTime);
+                }
+                catch (Amazon.Lambda.Model.ResourceNotFoundException)
+                {
+                    return null;
+                }
+            },
+            cancellationToken);
+
+    public Task<Result<LambdaFunctionUrl>> CreateFunctionUrlAsync(string functionName, string authType, CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonLambdaClient, LambdaFunctionUrl>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var response = await client.CreateFunctionUrlConfigAsync(
+                    new CreateFunctionUrlConfigRequest
+                    {
+                        FunctionName = functionName,
+                        AuthType = FunctionUrlAuthType.FindValue(authType),
+                    },
+                    token);
+                return LambdaFunctionMapper.ToFunctionUrl(
+                    response.FunctionUrl, response.AuthType?.Value, response.CreationTime, response.CreationTime);
+            },
+            cancellationToken);
+
+    public Task<Result<LambdaFunctionUrl>> UpdateFunctionUrlAsync(string functionName, string authType, CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonLambdaClient, LambdaFunctionUrl>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var response = await client.UpdateFunctionUrlConfigAsync(
+                    new UpdateFunctionUrlConfigRequest
+                    {
+                        FunctionName = functionName,
+                        AuthType = FunctionUrlAuthType.FindValue(authType),
+                    },
+                    token);
+                return LambdaFunctionMapper.ToFunctionUrl(
+                    response.FunctionUrl, response.AuthType?.Value, response.CreationTime, response.LastModifiedTime);
+            },
+            cancellationToken);
+
+    public async Task<Result> DeleteFunctionUrlAsync(string functionName, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonLambdaClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                await client.DeleteFunctionUrlConfigAsync(
+                    new DeleteFunctionUrlConfigRequest { FunctionName = functionName }, token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    public async Task<Result<LambdaFunctionUrlTest>> TestFunctionUrlAsync(string functionName, CancellationToken cancellationToken)
+    {
+        var urlResult = await GetFunctionUrlAsync(functionName, cancellationToken);
+        if (!urlResult.IsSuccess)
+        {
+            return urlResult.Error!.Value;
+        }
+
+        if (urlResult.Value is null || string.IsNullOrEmpty(urlResult.Value.FunctionUrl))
+        {
+            return new Error("No function URL is configured for this function.");
+        }
+
+        try
+        {
+            using var response = await _httpClient.GetAsync(urlResult.Value.FunctionUrl, cancellationToken);
+            var body = await response.Content.ReadAsStringAsync(cancellationToken);
+            var truncated = body.Length > 4096 ? body[..4096] : body;
+            return new LambdaFunctionUrlTest((int)response.StatusCode, truncated);
+        }
+        catch (HttpRequestException ex)
+        {
+            return new Error($"The function URL could not be reached: {ex.Message}");
+        }
+        catch (TaskCanceledException)
+        {
+            return new Error("The function URL request timed out.");
+        }
+    }
 
     public Task<Result<IReadOnlyDictionary<string, string>>> GetEnvironmentAsync(string functionName, CancellationToken cancellationToken)
         => _gateway.ExecuteAsync<AmazonLambdaClient, IReadOnlyDictionary<string, string>>(

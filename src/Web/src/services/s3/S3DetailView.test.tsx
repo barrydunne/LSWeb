@@ -9,6 +9,7 @@ import {
   getS3BucketStorageSummary,
   getS3ObjectMetadata,
   getS3ObjectPreview,
+  getS3ObjectVersions,
   getS3Objects,
   getS3PresignedUrl,
   resolveReference,
@@ -25,6 +26,7 @@ vi.mock('../../api/client');
 const getS3ObjectsMock = vi.mocked(getS3Objects);
 const getS3BucketConfigurationMock = vi.mocked(getS3BucketConfiguration);
 const getS3BucketStorageSummaryMock = vi.mocked(getS3BucketStorageSummary);
+const getS3ObjectVersionsMock = vi.mocked(getS3ObjectVersions);
 const resolveReferenceMock = vi.mocked(resolveReference);
 const createS3FolderMock = vi.mocked(createS3Folder);
 const uploadS3ObjectMock = vi.mocked(uploadS3Object);
@@ -93,6 +95,7 @@ describe('S3DetailView', () => {
       policy: '',
     });
     getS3BucketStorageSummaryMock.mockResolvedValue({ objectCount: 0, totalSizeBytes: 0 });
+    getS3ObjectVersionsMock.mockResolvedValue({ versions: [] });
     resolveReferenceMock.mockRejectedValue(new Error('unresolved'));
   });
 

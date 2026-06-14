@@ -55,4 +55,26 @@ public interface IStepFunctionsClient
     /// <returns>The history events in order, or an error when the backend cannot be reached.</returns>
     Task<Result<IReadOnlyList<ExecutionHistoryEvent>>> GetExecutionHistoryAsync(
         string executionArn, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Create a new state machine from an Amazon States Language definition.
+    /// </summary>
+    /// <param name="name">The name of the state machine.</param>
+    /// <param name="definition">The Amazon States Language definition as a JSON document.</param>
+    /// <param name="roleArn">The Amazon Resource Name of the IAM role the state machine assumes.</param>
+    /// <param name="type">The state machine type, either <c>STANDARD</c> or <c>EXPRESS</c>.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The created state machine, or an error when the backend rejects the request.</returns>
+    Task<Result<StateMachineCreateResult>> CreateStateMachineAsync(
+        string name, string definition, string roleArn, string type, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Update the Amazon States Language definition of an existing state machine.
+    /// </summary>
+    /// <param name="stateMachineArn">The Amazon Resource Name of the state machine to update.</param>
+    /// <param name="definition">The new Amazon States Language definition as a JSON document.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A successful result, or an error when the backend rejects the request.</returns>
+    Task<Result> UpdateStateMachineDefinitionAsync(
+        string stateMachineArn, string definition, CancellationToken cancellationToken);
 }

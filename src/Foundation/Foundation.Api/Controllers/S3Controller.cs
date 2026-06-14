@@ -4,8 +4,13 @@ using Foundation.Application.Commands.CopyS3Object;
 using Foundation.Application.Commands.CreateS3Bucket;
 using Foundation.Application.Commands.CreateS3Folder;
 using Foundation.Application.Commands.DeleteS3Bucket;
+using Foundation.Application.Commands.DeleteS3BucketPolicy;
 using Foundation.Application.Commands.DeleteS3Object;
+using Foundation.Application.Commands.DeleteS3ObjectVersion;
 using Foundation.Application.Commands.MoveS3Object;
+using Foundation.Application.Commands.PutS3BucketNotifications;
+using Foundation.Application.Commands.PutS3BucketPolicy;
+using Foundation.Application.Commands.SetS3BucketVersioning;
 using Foundation.Application.Commands.UpdateS3ObjectTags;
 using Foundation.Application.Commands.UploadS3Object;
 using Foundation.Application.Queries.DownloadS3Object;
@@ -13,6 +18,7 @@ using Foundation.Application.Queries.GetS3BucketConfiguration;
 using Foundation.Application.Queries.GetS3BucketStorageSummary;
 using Foundation.Application.Queries.GetS3ObjectMetadata;
 using Foundation.Application.Queries.ListS3Buckets;
+using Foundation.Application.Queries.ListS3ObjectVersions;
 using Foundation.Application.Queries.ListS3Objects;
 using Foundation.Application.Queries.PresignS3Object;
 using Foundation.Application.Queries.PreviewS3Object;
@@ -418,6 +424,143 @@ public partial class S3Controller : ControllerBase
             error => error.AsHttpResult());
     }
 
+    /// <summary>
+    /// Applies an access policy to a bucket, replacing any existing policy.
+    /// </summary>
+    /// <param name="bucketName">The bucket to apply the policy to.</param>
+    /// <param name="request">The policy to apply.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 204 result on success.</returns>
+    [HttpPut("buckets/{bucketName}/policy")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IResult> PutBucketPolicy(
+        string bucketName, [FromBody] S3BucketPolicyRequest request, CancellationToken cancellationToken)
+    {
+        LogHandlingPutPolicy(bucketName);
+        var result = await _sender.Send(
+            new PutS3BucketPolicyCommand(bucketName, request.Policy), cancellationToken);
+        LogPutPolicyHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.NoContent(),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Removes the access policy from a bucket.
+    /// </summary>
+    /// <param name="bucketName">The bucket to remove the policy from.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 204 result on success.</returns>
+    [HttpDelete("buckets/{bucketName}/policy")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IResult> DeleteBucketPolicy(string bucketName, CancellationToken cancellationToken)
+    {
+        LogHandlingDeletePolicy(bucketName);
+        var result = await _sender.Send(new DeleteS3BucketPolicyCommand(bucketName), cancellationToken);
+        LogDeletePolicyHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.NoContent(),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Enables or suspends versioning on a bucket.
+    /// </summary>
+    /// <param name="bucketName">The bucket to update.</param>
+    /// <param name="request">The versioning state to apply.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 204 result on success.</returns>
+    [HttpPut("buckets/{bucketName}/versioning")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IResult> SetBucketVersioning(
+        string bucketName, [FromBody] S3VersioningRequest request, CancellationToken cancellationToken)
+    {
+        LogHandlingSetVersioning(bucketName, request.Enabled);
+        var result = await _sender.Send(
+            new SetS3BucketVersioningCommand(bucketName, request.Enabled), cancellationToken);
+        LogSetVersioningHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.NoContent(),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Lists the object versions in a bucket.
+    /// </summary>
+    /// <param name="bucketName">The bucket to list versions in.</param>
+    /// <param name="prefix">The key prefix to filter by; empty for the whole bucket.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 200 result carrying the object versions.</returns>
+    [HttpGet("buckets/{bucketName}/versions")]
+    [ProducesResponseType(typeof(S3ObjectVersionListResponse), StatusCodes.Status200OK)]
+    public async Task<IResult> ListObjectVersions(
+        string bucketName, [FromQuery] string? prefix, CancellationToken cancellationToken)
+    {
+        LogHandlingListVersions(bucketName);
+        var result = await _sender.Send(
+            new ListS3ObjectVersionsQuery(bucketName, prefix ?? string.Empty), cancellationToken);
+        LogListVersionsHandled(result.IsSuccess);
+        return result.Match(
+            versions => Results.Ok(new S3ObjectVersionListResponse(
+                versions.Versions
+                    .Select(version => new S3ObjectVersionResponse(
+                        version.Key,
+                        version.VersionId,
+                        version.IsLatest,
+                        version.IsDeleteMarker,
+                        version.Size,
+                        version.LastModified))
+                    .ToList())),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Deletes a specific version of an object.
+    /// </summary>
+    /// <param name="bucketName">The bucket containing the object.</param>
+    /// <param name="key">The object key.</param>
+    /// <param name="versionId">The version identifier to delete.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 204 result on success.</returns>
+    [HttpDelete("buckets/{bucketName}/versions")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IResult> DeleteObjectVersion(
+        string bucketName, [FromQuery] string key, [FromQuery] string versionId, CancellationToken cancellationToken)
+    {
+        LogHandlingDeleteVersion(bucketName, key);
+        var result = await _sender.Send(
+            new DeleteS3ObjectVersionCommand(bucketName, key, versionId), cancellationToken);
+        LogDeleteVersionHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.NoContent(),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Replaces the event notification configuration of a bucket.
+    /// </summary>
+    /// <param name="bucketName">The bucket to update.</param>
+    /// <param name="request">The notification rules to apply.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 204 result on success.</returns>
+    [HttpPut("buckets/{bucketName}/notifications")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IResult> PutBucketNotifications(
+        string bucketName, [FromBody] S3NotificationsRequest request, CancellationToken cancellationToken)
+    {
+        LogHandlingPutNotifications(bucketName);
+        var notifications = (request.Notifications ?? [])
+            .Select(rule => new Foundation.Domain.S3.S3NotificationConfiguration(
+                rule.Type, rule.TargetArn, rule.Events ?? [], rule.Prefix ?? string.Empty, rule.Suffix ?? string.Empty))
+            .ToList();
+        var result = await _sender.Send(
+            new PutS3BucketNotificationsCommand(bucketName, notifications), cancellationToken);
+        LogPutNotificationsHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.NoContent(),
+            error => error.AsHttpResult());
+    }
+
     private static string DestinationLocation(string destinationBucketName, string destinationKey)
     {
         var lastSlash = destinationKey.LastIndexOf('/');
@@ -442,6 +585,42 @@ public partial class S3Controller : ControllerBase
 
     [LoggerMessage(LogLevel.Trace, "S3 bucket delete request handled. Success: {Success}")]
     private partial void LogDeleteHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling S3 bucket policy put request for '{BucketName}'.")]
+    private partial void LogHandlingPutPolicy(string bucketName);
+
+    [LoggerMessage(LogLevel.Trace, "S3 bucket policy put request handled. Success: {Success}")]
+    private partial void LogPutPolicyHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling S3 bucket policy delete request for '{BucketName}'.")]
+    private partial void LogHandlingDeletePolicy(string bucketName);
+
+    [LoggerMessage(LogLevel.Trace, "S3 bucket policy delete request handled. Success: {Success}")]
+    private partial void LogDeletePolicyHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling S3 bucket versioning request for '{BucketName}'. Enabled: {Enabled}")]
+    private partial void LogHandlingSetVersioning(string bucketName, bool enabled);
+
+    [LoggerMessage(LogLevel.Trace, "S3 bucket versioning request handled. Success: {Success}")]
+    private partial void LogSetVersioningHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling S3 object versions list request for '{BucketName}'.")]
+    private partial void LogHandlingListVersions(string bucketName);
+
+    [LoggerMessage(LogLevel.Trace, "S3 object versions list request handled. Success: {Success}")]
+    private partial void LogListVersionsHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling S3 object version delete request for '{BucketName}' key '{Key}'.")]
+    private partial void LogHandlingDeleteVersion(string bucketName, string key);
+
+    [LoggerMessage(LogLevel.Trace, "S3 object version delete request handled. Success: {Success}")]
+    private partial void LogDeleteVersionHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling S3 bucket notifications put request for '{BucketName}'.")]
+    private partial void LogHandlingPutNotifications(string bucketName);
+
+    [LoggerMessage(LogLevel.Trace, "S3 bucket notifications put request handled. Success: {Success}")]
+    private partial void LogPutNotificationsHandled(bool success);
 
     [LoggerMessage(LogLevel.Trace, "Handling S3 object list request for '{BucketName}' under '{Prefix}'.")]
     private partial void LogHandlingListObjects(string bucketName, string prefix);

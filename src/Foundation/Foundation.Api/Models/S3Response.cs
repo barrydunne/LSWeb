@@ -142,6 +142,62 @@ public sealed record S3BucketConfigurationResponse(
     string Policy);
 
 /// <summary>
+/// The request to apply an access policy to an S3 bucket.
+/// </summary>
+/// <param name="Policy">The policy document as JSON.</param>
+public sealed record S3BucketPolicyRequest(string Policy);
+
+/// <summary>
+/// The request to enable or suspend versioning on an S3 bucket.
+/// </summary>
+/// <param name="Enabled">When <c>true</c> versioning is enabled; otherwise it is suspended.</param>
+public sealed record S3VersioningRequest(bool Enabled);
+
+/// <summary>
+/// The object versions in an S3 bucket.
+/// </summary>
+/// <param name="Versions">The object versions, ordered as returned by the backend.</param>
+public sealed record S3ObjectVersionListResponse(IReadOnlyList<S3ObjectVersionResponse> Versions);
+
+/// <summary>
+/// A single version of an S3 object.
+/// </summary>
+/// <param name="Key">The object key.</param>
+/// <param name="VersionId">The version identifier.</param>
+/// <param name="IsLatest">Whether this is the current version of the object.</param>
+/// <param name="IsDeleteMarker">Whether this version is a delete marker.</param>
+/// <param name="Size">The size of the version in bytes.</param>
+/// <param name="LastModified">The timestamp the version was created.</param>
+public sealed record S3ObjectVersionResponse(
+    string Key,
+    string VersionId,
+    bool IsLatest,
+    bool IsDeleteMarker,
+    long Size,
+    string LastModified);
+
+/// <summary>
+/// The request to replace a bucket's event notification configuration.
+/// </summary>
+/// <param name="Notifications">The complete set of notification rules to apply.</param>
+public sealed record S3NotificationsRequest(IReadOnlyList<S3NotificationRuleRequest> Notifications);
+
+/// <summary>
+/// A single event notification rule to apply to a bucket.
+/// </summary>
+/// <param name="Type">The destination type: <c>Lambda</c>, <c>Queue</c> or <c>Topic</c>.</param>
+/// <param name="TargetArn">The ARN of the destination Lambda function, SQS queue or SNS topic.</param>
+/// <param name="Events">The S3 event names that trigger the notification.</param>
+/// <param name="Prefix">The object key prefix filter; empty for no prefix filter.</param>
+/// <param name="Suffix">The object key suffix filter; empty for no suffix filter.</param>
+public sealed record S3NotificationRuleRequest(
+    string Type,
+    string TargetArn,
+    IReadOnlyList<string> Events,
+    string Prefix,
+    string Suffix);
+
+/// <summary>
 /// A summary of a single S3 lifecycle rule.
 /// </summary>
 /// <param name="Id">The rule identifier; empty when the bucket did not name the rule.</param>

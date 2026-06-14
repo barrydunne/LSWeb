@@ -28,7 +28,9 @@ const AcmListView = lazy(() => import('./acm/AcmListView'));
 const ApiGatewayListView = lazy(() => import('./apigateway/ApiGatewayListView'));
 const ApiGatewayDetailView = lazy(() => import('./apigateway/ApiGatewayDetailView'));
 const Route53ListView = lazy(() => import('./route53/Route53ListView'));
+const Route53DetailView = lazy(() => import('./route53/Route53DetailView'));
 const SesListView = lazy(() => import('./ses/SesListView'));
+const SesDetailView = lazy(() => import('./ses/SesDetailView'));
 const SchedulerListView = lazy(() => import('./scheduler/SchedulerListView'));
 const SchedulerDetailView = lazy(() => import('./scheduler/SchedulerDetailView'));
 const CognitoListView = lazy(() => import('./cognito/CognitoListView'));
@@ -76,8 +78,8 @@ export function registerServiceViews(): void {
     list: ApiGatewayListView,
     detail: ApiGatewayDetailView,
   });
-  registerServiceView('route53', { list: Route53ListView });
-  registerServiceView('ses', { list: SesListView });
+  registerServiceView('route53', { list: Route53ListView, detail: Route53DetailView });
+  registerServiceView('ses', { list: SesListView, detail: SesDetailView });
   registerServiceView('scheduler', {
     list: SchedulerListView,
     detail: SchedulerDetailView,

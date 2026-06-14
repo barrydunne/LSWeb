@@ -462,4 +462,189 @@ internal sealed class S3ClientAdapter : IS3Client
                 return new Foundation.Domain.S3.S3BucketStorageSummary(objectCount, totalSizeBytes);
             },
             cancellationToken);
+
+    public async Task<Result> PutBucketPolicyAsync(string bucketName, string policy, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonS3Client, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                await client.PutBucketPolicyAsync(
+                    new PutBucketPolicyRequest { BucketName = bucketName, Policy = policy }, token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    public async Task<Result> DeleteBucketPolicyAsync(string bucketName, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonS3Client, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                await client.DeleteBucketPolicyAsync(
+                    new DeleteBucketPolicyRequest { BucketName = bucketName }, token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    public async Task<Result> SetBucketVersioningAsync(string bucketName, bool enabled, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonS3Client, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                await client.PutBucketVersioningAsync(
+                    new PutBucketVersioningRequest
+                    {
+                        BucketName = bucketName,
+                        VersioningConfig = new S3BucketVersioningConfig
+                        {
+                            Status = enabled ? VersionStatus.Enabled : VersionStatus.Suspended,
+                        },
+                    },
+                    token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    public Task<Result<IReadOnlyList<Foundation.Domain.S3.S3ObjectVersion>>> ListObjectVersionsAsync(
+        string bucketName, string prefix, CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonS3Client, IReadOnlyList<Foundation.Domain.S3.S3ObjectVersion>>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var versions = new List<Foundation.Domain.S3.S3ObjectVersion>();
+                string? keyMarker = null;
+                string? versionIdMarker = null;
+
+                do
+                {
+                    var response = await client.ListVersionsAsync(
+                        new ListVersionsRequest
+                        {
+                            BucketName = bucketName,
+                            Prefix = prefix,
+                            KeyMarker = keyMarker,
+                            VersionIdMarker = versionIdMarker,
+                        },
+                        token);
+
+                    foreach (var version in response.Versions ?? [])
+                        versions.Add(new Foundation.Domain.S3.S3ObjectVersion(
+                            version.Key ?? string.Empty,
+                            version.VersionId ?? string.Empty,
+                            version.IsLatest ?? false,
+                            version.IsDeleteMarker ?? false,
+                            version.Size ?? 0,
+                            version.LastModified?.ToString("O") ?? string.Empty));
+
+                    if (response.IsTruncated == true)
+                    {
+                        keyMarker = response.NextKeyMarker;
+                        versionIdMarker = response.NextVersionIdMarker;
+                    }
+                    else
+                    {
+                        keyMarker = null;
+                        versionIdMarker = null;
+                    }
+                }
+                while (!string.IsNullOrEmpty(keyMarker));
+
+                return versions;
+            },
+            cancellationToken);
+
+    public async Task<Result> DeleteObjectVersionAsync(
+        string bucketName, string key, string versionId, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonS3Client, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                await client.DeleteObjectAsync(
+                    new DeleteObjectRequest { BucketName = bucketName, Key = key, VersionId = versionId }, token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    public async Task<Result> PutBucketNotificationsAsync(
+        string bucketName, IReadOnlyList<Foundation.Domain.S3.S3NotificationConfiguration> notifications, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonS3Client, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var request = new PutBucketNotificationRequest
+                {
+                    BucketName = bucketName,
+                    LambdaFunctionConfigurations = [],
+                    QueueConfigurations = [],
+                    TopicConfigurations = [],
+                };
+
+                foreach (var notification in notifications)
+                {
+                    var events = notification.Events.Select(EventType.FindValue).ToList();
+                    var filter = BuildFilter(notification.Prefix, notification.Suffix);
+
+                    switch (notification.Type)
+                    {
+                        case "Queue":
+                            request.QueueConfigurations.Add(new QueueConfiguration
+                            {
+                                Queue = notification.TargetArn,
+                                Events = events,
+                                Filter = filter,
+                            });
+                            break;
+                        case "Topic":
+                            request.TopicConfigurations.Add(new TopicConfiguration
+                            {
+                                Topic = notification.TargetArn,
+                                Events = events,
+                                Filter = filter,
+                            });
+                            break;
+                        default:
+                            request.LambdaFunctionConfigurations.Add(new LambdaFunctionConfiguration
+                            {
+                                FunctionArn = notification.TargetArn,
+                                Events = events,
+                                Filter = filter,
+                            });
+                            break;
+                    }
+                }
+
+                await client.PutBucketNotificationAsync(request, token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    private static Filter? BuildFilter(string prefix, string suffix)
+    {
+        var rules = new List<FilterRule>();
+        if (!string.IsNullOrEmpty(prefix))
+            rules.Add(new FilterRule { Name = "prefix", Value = prefix });
+        if (!string.IsNullOrEmpty(suffix))
+            rules.Add(new FilterRule { Name = "suffix", Value = suffix });
+
+        return rules.Count == 0 ? null : new Filter { S3KeyFilter = new S3KeyFilter { FilterRules = rules } };
+    }
 }

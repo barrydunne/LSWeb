@@ -144,6 +144,22 @@ describe('StepFunctionsExecutionsPanel', () => {
     await waitFor(() => expect(getExecutionsMock).toHaveBeenCalledTimes(2));
   });
 
+  it('blocks starting when the input is not valid JSON', async () => {
+    renderPanel();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('step-functions-executions-table')).toBeInTheDocument(),
+    );
+
+    fireEvent.change(screen.getByTestId('step-functions-execution-input'), {
+      target: { value: 'not json' },
+    });
+    fireEvent.click(screen.getByTestId('step-functions-execution-start'));
+
+    expect(screen.getByTestId('step-functions-execution-input-error')).toBeInTheDocument();
+    expect(startExecutionMock).not.toHaveBeenCalled();
+  });
+
   it('shows an error message when starting fails', async () => {
     startExecutionMock.mockRejectedValue(new Error('boom'));
 
@@ -192,5 +208,65 @@ describe('StepFunctionsExecutionsPanel', () => {
         screen.queryByTestId('step-functions-execution-history-row'),
       ).not.toBeInTheDocument(),
     );
+  });
+
+  const withFailure: ExecutionListResult = {
+    executions: [
+      ...listResult.executions,
+      {
+        executionArn: 'arn:aws:states:eu-west-1:000000000000:execution:orders-workflow:run-3',
+        name: 'run-3',
+        stateMachineArn,
+        status: 'FAILED',
+        startDate: '2024-01-03T00:00:00+00:00',
+        stopDate: '2024-01-03T00:01:00+00:00',
+      },
+    ],
+  };
+
+  it('filters executions by status', async () => {
+    getExecutionsMock.mockResolvedValue(withFailure);
+    renderPanel();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('step-functions-executions-table')).toBeInTheDocument(),
+    );
+    expect(screen.getAllByTestId('step-functions-execution-row')).toHaveLength(3);
+
+    fireEvent.change(screen.getByTestId('step-functions-executions-filter'), {
+      target: { value: 'FAILED' },
+    });
+
+    const rows = screen.getAllByTestId('step-functions-execution-row');
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toHaveTextContent('run-3');
+  });
+
+  it('highlights failed executions', async () => {
+    getExecutionsMock.mockResolvedValue(withFailure);
+    renderPanel();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('step-functions-executions-table')).toBeInTheDocument(),
+    );
+
+    const statuses = screen.getAllByTestId('step-functions-execution-status');
+    const failed = statuses.find((cell) => cell.textContent === 'FAILED');
+    expect(failed).toHaveStyle({ color: '#f85149' });
+  });
+
+  it('shows an empty message when no executions match the filter', async () => {
+    renderPanel();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('step-functions-executions-table')).toBeInTheDocument(),
+    );
+
+    fireEvent.change(screen.getByTestId('step-functions-executions-filter'), {
+      target: { value: 'ABORTED' },
+    });
+
+    expect(screen.getByTestId('step-functions-executions-filter-empty')).toBeInTheDocument();
+    expect(screen.queryByTestId('step-functions-executions-table')).not.toBeInTheDocument();
   });
 });

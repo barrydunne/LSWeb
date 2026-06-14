@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { SnsDetailView } from './SnsDetailView';
 import {
@@ -8,6 +8,8 @@ import {
   publishSnsMessage,
   resolveReference,
   setSnsSubscriptionFilterPolicy,
+  subscribeSnsTopic,
+  unsubscribeSnsTopic,
 } from '../../api/client';
 import type { SnsSubscriptionListResult } from '../../api/client';
 
@@ -18,6 +20,8 @@ const getSnsSubscriptionFilterPolicyMock = vi.mocked(getSnsSubscriptionFilterPol
 const publishSnsMessageMock = vi.mocked(publishSnsMessage);
 const resolveReferenceMock = vi.mocked(resolveReference);
 const setSnsSubscriptionFilterPolicyMock = vi.mocked(setSnsSubscriptionFilterPolicy);
+const subscribeSnsTopicMock = vi.mocked(subscribeSnsTopic);
+const unsubscribeSnsTopicMock = vi.mocked(unsubscribeSnsTopic);
 
 const topicArn = 'arn:aws:sns:eu-west-1:000000000000:orders-topic';
 const subscriptionArn = 'arn:aws:sns:eu-west-1:000000000000:orders-topic:8c1f';
@@ -48,10 +52,13 @@ describe('SnsDetailView', () => {
     publishSnsMessageMock.mockResolvedValue();
     resolveReferenceMock.mockResolvedValue(null as never);
     setSnsSubscriptionFilterPolicyMock.mockResolvedValue();
+    subscribeSnsTopicMock.mockResolvedValue();
+    unsubscribeSnsTopicMock.mockResolvedValue();
   });
 
   afterEach(() => {
-    vi.resetAllMocks();
+    cleanup();
+    vi.clearAllMocks();
   });
 
   it('shows a loading state before subscriptions arrive', () => {
@@ -262,6 +269,90 @@ describe('SnsDetailView', () => {
     fireEvent.click(screen.getByTestId('sns-detail-publish-submit'));
 
     await waitFor(() => expect(screen.getByTestId('sns-detail-publish-error')).toBeInTheDocument());
+  });
+
+  describe('subscriptions', () => {
+    it('subscribes an endpoint to the topic', async () => {
+      renderView();
+      await waitFor(() => expect(screen.getByTestId('sns-subscribe-form')).toBeInTheDocument());
+
+      fireEvent.change(screen.getByTestId('sns-subscribe-protocol'), { target: { value: 'lambda' } });
+      fireEvent.change(screen.getByTestId('sns-subscribe-endpoint'), {
+        target: { value: 'arn:aws:lambda:eu-west-1:000000000000:function:p' },
+      });
+      fireEvent.click(screen.getByTestId('sns-subscribe-submit'));
+
+      await waitFor(() =>
+        expect(subscribeSnsTopicMock).toHaveBeenCalledWith(
+          topicArn,
+          'lambda',
+          'arn:aws:lambda:eu-west-1:000000000000:function:p',
+        ),
+      );
+    });
+
+    it('blocks subscribing when the endpoint is empty', async () => {
+      renderView();
+      await waitFor(() => expect(screen.getByTestId('sns-subscribe-form')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByTestId('sns-subscribe-submit'));
+
+      expect(screen.getByTestId('sns-subscribe-error')).toBeInTheDocument();
+      expect(subscribeSnsTopicMock).not.toHaveBeenCalled();
+    });
+
+    it('shows an error when subscribing fails', async () => {
+      subscribeSnsTopicMock.mockRejectedValue(new Error('boom'));
+      renderView();
+      await waitFor(() => expect(screen.getByTestId('sns-subscribe-form')).toBeInTheDocument());
+
+      fireEvent.change(screen.getByTestId('sns-subscribe-endpoint'), {
+        target: { value: 'arn:aws:sqs:eu-west-1:000000000000:q' },
+      });
+      fireEvent.click(screen.getByTestId('sns-subscribe-submit'));
+
+      await waitFor(() => expect(screen.getByTestId('sns-subscribe-error')).toBeInTheDocument());
+    });
+
+    it('unsubscribes a confirmed subscription', async () => {
+      renderView();
+      await waitFor(() => expect(screen.getByTestId('sns-subscription-list')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByTestId('sns-subscription-unsubscribe'));
+
+      await waitFor(() =>
+        expect(unsubscribeSnsTopicMock).toHaveBeenCalledWith(subscriptionArn),
+      );
+    });
+
+    it('shows an error when unsubscribing fails', async () => {
+      unsubscribeSnsTopicMock.mockRejectedValue(new Error('boom'));
+      renderView();
+      await waitFor(() => expect(screen.getByTestId('sns-subscription-list')).toBeInTheDocument());
+
+      fireEvent.click(screen.getByTestId('sns-subscription-unsubscribe'));
+
+      await waitFor(() => expect(screen.getByTestId('sns-unsubscribe-error')).toBeInTheDocument());
+    });
+
+    it('marks an unconfirmed subscription as pending and offers no unsubscribe button', async () => {
+      getSnsSubscriptionsMock.mockResolvedValue({
+        subscriptions: [
+          {
+            subscriptionArn: 'PendingConfirmation',
+            protocol: 'email',
+            endpoint: 'ops@example.com',
+            owner: '000000000000',
+          },
+        ],
+      });
+
+      renderView();
+      await waitFor(() => expect(screen.getByTestId('sns-subscription-list')).toBeInTheDocument());
+
+      expect(screen.getByTestId('sns-subscription-pending')).toBeInTheDocument();
+      expect(screen.queryByTestId('sns-subscription-unsubscribe')).not.toBeInTheDocument();
+    });
   });
 
   describe('filter policy', () => {

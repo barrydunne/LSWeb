@@ -6,8 +6,13 @@ using Foundation.Application.Commands.CopyS3Object;
 using Foundation.Application.Commands.CreateS3Bucket;
 using Foundation.Application.Commands.CreateS3Folder;
 using Foundation.Application.Commands.DeleteS3Bucket;
+using Foundation.Application.Commands.DeleteS3BucketPolicy;
 using Foundation.Application.Commands.DeleteS3Object;
+using Foundation.Application.Commands.DeleteS3ObjectVersion;
 using Foundation.Application.Commands.MoveS3Object;
+using Foundation.Application.Commands.PutS3BucketNotifications;
+using Foundation.Application.Commands.PutS3BucketPolicy;
+using Foundation.Application.Commands.SetS3BucketVersioning;
 using Foundation.Application.Commands.UpdateS3ObjectTags;
 using Foundation.Application.Commands.UploadS3Object;
 using Foundation.Application.Queries.DownloadS3Object;
@@ -15,6 +20,7 @@ using Foundation.Application.Queries.GetS3BucketConfiguration;
 using Foundation.Application.Queries.GetS3BucketStorageSummary;
 using Foundation.Application.Queries.GetS3ObjectMetadata;
 using Foundation.Application.Queries.ListS3Buckets;
+using Foundation.Application.Queries.ListS3ObjectVersions;
 using Foundation.Application.Queries.ListS3Objects;
 using Foundation.Application.Queries.PresignS3Object;
 using Foundation.Application.Queries.PreviewS3Object;
@@ -717,6 +723,290 @@ public class S3ControllerTests
 
         // Act
         var result = await sut.GetBucketStorageSummary("data", TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task PutBucketPolicy_WhenCommandSucceeds_ReturnsNoContent()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<PutS3BucketPolicyCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.PutBucketPolicy(
+            "docs", new S3BucketPolicyRequest("{}"), TestContext.Current.CancellationToken);
+
+        // Assert
+        result.Should().BeOfType<NoContent>();
+        await _sender.Received(1).Send(
+            Arg.Is<PutS3BucketPolicyCommand>(command => command.BucketName == "docs" && command.Policy == "{}"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task PutBucketPolicy_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<PutS3BucketPolicyCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.PutBucketPolicy(
+            "docs", new S3BucketPolicyRequest("{}"), TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task DeleteBucketPolicy_WhenCommandSucceeds_ReturnsNoContent()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<DeleteS3BucketPolicyCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.DeleteBucketPolicy("docs", TestContext.Current.CancellationToken);
+
+        // Assert
+        result.Should().BeOfType<NoContent>();
+    }
+
+    [Fact]
+    public async Task DeleteBucketPolicy_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<DeleteS3BucketPolicyCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.DeleteBucketPolicy("docs", TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task SetBucketVersioning_WhenCommandSucceeds_ReturnsNoContent()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<SetS3BucketVersioningCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.SetBucketVersioning(
+            "docs", new S3VersioningRequest(true), TestContext.Current.CancellationToken);
+
+        // Assert
+        result.Should().BeOfType<NoContent>();
+        await _sender.Received(1).Send(
+            Arg.Is<SetS3BucketVersioningCommand>(command => command.BucketName == "docs" && command.Enabled),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task SetBucketVersioning_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<SetS3BucketVersioningCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.SetBucketVersioning(
+            "docs", new S3VersioningRequest(false), TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task ListObjectVersions_WhenQuerySucceeds_ReturnsOkWithVersions()
+    {
+        // Arrange
+        IReadOnlyList<S3ObjectVersion> versions =
+            [new("report.pdf", "v2", true, false, 1024, "2026-01-02T03:04:05Z")];
+        _sender
+            .Send(Arg.Any<ListS3ObjectVersionsQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<ListS3ObjectVersionsQueryResult>>(
+                new ListS3ObjectVersionsQueryResult(versions)));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.ListObjectVersions("docs", "report", TestContext.Current.CancellationToken);
+
+        // Assert
+        var ok = result.Should().BeOfType<Ok<S3ObjectVersionListResponse>>().Subject;
+        var version = ok.Value!.Versions.Should().ContainSingle().Subject;
+        version.Key.Should().Be("report.pdf");
+        version.VersionId.Should().Be("v2");
+        version.IsLatest.Should().BeTrue();
+        version.IsDeleteMarker.Should().BeFalse();
+        version.Size.Should().Be(1024);
+    }
+
+    [Fact]
+    public async Task ListObjectVersions_WhenQueryFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<ListS3ObjectVersionsQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<ListS3ObjectVersionsQueryResult>>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.ListObjectVersions("docs", null, TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task DeleteObjectVersion_WhenCommandSucceeds_ReturnsNoContent()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<DeleteS3ObjectVersionCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.DeleteObjectVersion(
+            "docs", "report.pdf", "v1", TestContext.Current.CancellationToken);
+
+        // Assert
+        result.Should().BeOfType<NoContent>();
+        await _sender.Received(1).Send(
+            Arg.Is<DeleteS3ObjectVersionCommand>(command =>
+                command.BucketName == "docs" && command.Key == "report.pdf" && command.VersionId == "v1"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task DeleteObjectVersion_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<DeleteS3ObjectVersionCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.DeleteObjectVersion(
+            "docs", "report.pdf", "v1", TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task PutBucketNotifications_WhenCommandSucceeds_ReturnsNoContent()
+    {
+        // Arrange
+        PutS3BucketNotificationsCommand? captured = null;
+        _sender
+            .Send(Arg.Any<PutS3BucketNotificationsCommand>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                captured = call.Arg<PutS3BucketNotificationsCommand>();
+                return Task.FromResult(Result.Success());
+            });
+        var sut = CreateSut();
+        var request = new S3NotificationsRequest(
+            [new S3NotificationRuleRequest("Queue", "arn:aws:sqs:eu-west-1:000000000000:q", ["s3:ObjectCreated:*"], "in/", ".json")]);
+
+        // Act
+        var result = await sut.PutBucketNotifications("docs", request, TestContext.Current.CancellationToken);
+
+        // Assert
+        result.Should().BeOfType<NoContent>();
+        captured!.Notifications.Should().ContainSingle();
+        captured.Notifications[0].Type.Should().Be("Queue");
+        captured.Notifications[0].Prefix.Should().Be("in/");
+        captured.Notifications[0].Events.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task PutBucketNotifications_WhenRuleFieldsNull_AppliesSafeDefaults()
+    {
+        // Arrange
+        PutS3BucketNotificationsCommand? captured = null;
+        _sender
+            .Send(Arg.Any<PutS3BucketNotificationsCommand>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                captured = call.Arg<PutS3BucketNotificationsCommand>();
+                return Task.FromResult(Result.Success());
+            });
+        var sut = CreateSut();
+        var request = new S3NotificationsRequest(
+            [new S3NotificationRuleRequest("Lambda", "arn:aws:lambda:eu-west-1:000000000000:function:p", null!, null!, null!)]);
+
+        // Act
+        var result = await sut.PutBucketNotifications("docs", request, TestContext.Current.CancellationToken);
+
+        // Assert
+        result.Should().BeOfType<NoContent>();
+        captured!.Notifications[0].Events.Should().BeEmpty();
+        captured.Notifications[0].Prefix.Should().BeEmpty();
+        captured.Notifications[0].Suffix.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task PutBucketNotifications_WhenNotificationsNull_SendsEmptyList()
+    {
+        // Arrange
+        PutS3BucketNotificationsCommand? captured = null;
+        _sender
+            .Send(Arg.Any<PutS3BucketNotificationsCommand>(), Arg.Any<CancellationToken>())
+            .Returns(call =>
+            {
+                captured = call.Arg<PutS3BucketNotificationsCommand>();
+                return Task.FromResult(Result.Success());
+            });
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.PutBucketNotifications(
+            "docs", new S3NotificationsRequest(null!), TestContext.Current.CancellationToken);
+
+        // Assert
+        result.Should().BeOfType<NoContent>();
+        captured!.Notifications.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task PutBucketNotifications_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<PutS3BucketNotificationsCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.PutBucketNotifications(
+            "docs", new S3NotificationsRequest([]), TestContext.Current.CancellationToken);
 
         // Assert
         var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;

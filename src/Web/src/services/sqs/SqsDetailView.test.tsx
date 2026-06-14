@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { SqsDetailView } from './SqsDetailView';
 import {
+  changeSqsMessageVisibility,
   deleteSqsMessage,
   getSqsQueueAttributes,
   getSqsQueueConsumerLambdas,
@@ -12,6 +13,7 @@ import {
   redriveSqsQueue,
   resolveReference,
   sendSqsMessage,
+  setSqsRedrivePolicy,
   updateSqsQueueAttributes,
 } from '../../api/client';
 import type { SqsMessageListResult, SqsQueueAttributesItem } from '../../api/client';
@@ -29,6 +31,8 @@ const getSqsQueueAttributesMock = vi.mocked(getSqsQueueAttributes);
 const updateSqsQueueAttributesMock = vi.mocked(updateSqsQueueAttributes);
 const getSqsQueueRedriveMock = vi.mocked(getSqsQueueRedrive);
 const redriveSqsQueueMock = vi.mocked(redriveSqsQueue);
+const changeSqsMessageVisibilityMock = vi.mocked(changeSqsMessageVisibility);
+const setSqsRedrivePolicyMock = vi.mocked(setSqsRedrivePolicy);
 
 const attributesResult: SqsQueueAttributesItem = {
   visibilityTimeoutSeconds: 30,
@@ -91,6 +95,8 @@ describe('SqsDetailView', () => {
     updateSqsQueueAttributesMock.mockResolvedValue();
     getSqsQueueRedriveMock.mockResolvedValue({ deadLetterTarget: null, sources: [] });
     redriveSqsQueueMock.mockResolvedValue();
+    changeSqsMessageVisibilityMock.mockResolvedValue();
+    setSqsRedrivePolicyMock.mockResolvedValue();
   });
 
   afterEach(() => {
@@ -745,5 +751,143 @@ describe('SqsDetailView', () => {
 
     await waitFor(() => expect(getSqsQueueRedriveMock).toHaveBeenCalled());
     expect(screen.queryByTestId('sqs-redrive')).not.toBeInTheDocument();
+  });
+
+  it('overrides the visibility timeout of an expanded message', async () => {
+    renderView();
+    goToPollTab();
+    fireEvent.click(screen.getByTestId('sqs-poll-button'));
+    await waitFor(() => expect(screen.getByTestId('sqs-message-list')).toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByTestId('sqs-message-toggle')[0]);
+    fireEvent.change(screen.getByTestId('sqs-message-visibility-input'), { target: { value: '120' } });
+    fireEvent.click(screen.getByTestId('sqs-message-visibility-apply'));
+
+    await waitFor(() =>
+      expect(changeSqsMessageVisibilityMock).toHaveBeenCalledWith('orders', 'receipt-1', 120),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('sqs-message-visibility-status')).toBeInTheDocument(),
+    );
+  });
+
+  it('blocks an invalid visibility timeout', async () => {
+    renderView();
+    goToPollTab();
+    fireEvent.click(screen.getByTestId('sqs-poll-button'));
+    await waitFor(() => expect(screen.getByTestId('sqs-message-list')).toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByTestId('sqs-message-toggle')[0]);
+    fireEvent.change(screen.getByTestId('sqs-message-visibility-input'), { target: { value: '-5' } });
+    fireEvent.click(screen.getByTestId('sqs-message-visibility-apply'));
+
+    expect(screen.getByTestId('sqs-message-visibility-error')).toBeInTheDocument();
+    expect(changeSqsMessageVisibilityMock).not.toHaveBeenCalled();
+  });
+
+  it('applies the default visibility timeout when the input is left unchanged', async () => {
+    renderView();
+    goToPollTab();
+    fireEvent.click(screen.getByTestId('sqs-poll-button'));
+    await waitFor(() => expect(screen.getByTestId('sqs-message-list')).toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByTestId('sqs-message-toggle')[0]);
+    fireEvent.click(screen.getByTestId('sqs-message-visibility-apply'));
+
+    await waitFor(() =>
+      expect(changeSqsMessageVisibilityMock).toHaveBeenCalledWith('orders', 'receipt-1', 30),
+    );
+  });
+
+  it('blocks an empty visibility timeout', async () => {
+    renderView();
+    goToPollTab();
+    fireEvent.click(screen.getByTestId('sqs-poll-button'));
+    await waitFor(() => expect(screen.getByTestId('sqs-message-list')).toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByTestId('sqs-message-toggle')[0]);
+    fireEvent.change(screen.getByTestId('sqs-message-visibility-input'), { target: { value: '' } });
+    fireEvent.click(screen.getByTestId('sqs-message-visibility-apply'));
+
+    expect(screen.getByTestId('sqs-message-visibility-error')).toBeInTheDocument();
+    expect(changeSqsMessageVisibilityMock).not.toHaveBeenCalled();
+  });
+
+  it('shows an error when changing visibility fails', async () => {
+    changeSqsMessageVisibilityMock.mockRejectedValue(new Error('boom'));
+    renderView();
+    goToPollTab();
+    fireEvent.click(screen.getByTestId('sqs-poll-button'));
+    await waitFor(() => expect(screen.getByTestId('sqs-message-list')).toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByTestId('sqs-message-toggle')[0]);
+    fireEvent.change(screen.getByTestId('sqs-message-visibility-input'), { target: { value: '90' } });
+    fireEvent.click(screen.getByTestId('sqs-message-visibility-apply'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('sqs-message-visibility-error')).toBeInTheDocument(),
+    );
+  });
+
+  it('configures the dead-letter queue', async () => {
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('sqs-dlq-config')).toBeInTheDocument());
+
+    fireEvent.change(screen.getByTestId('sqs-dlq-arn'), {
+      target: { value: 'arn:aws:sqs:eu-west-1:000000000000:orders-dlq' },
+    });
+    fireEvent.change(screen.getByTestId('sqs-dlq-max-receive'), { target: { value: '4' } });
+    fireEvent.click(screen.getByTestId('sqs-dlq-submit'));
+
+    await waitFor(() =>
+      expect(setSqsRedrivePolicyMock).toHaveBeenCalledWith(
+        'orders',
+        'arn:aws:sqs:eu-west-1:000000000000:orders-dlq',
+        4,
+      ),
+    );
+    await waitFor(() => expect(screen.getByTestId('sqs-dlq-status')).toBeInTheDocument());
+  });
+
+  it('blocks an invalid dead-letter queue ARN', async () => {
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('sqs-dlq-config')).toBeInTheDocument());
+
+    fireEvent.change(screen.getByTestId('sqs-dlq-arn'), { target: { value: 'not-an-arn' } });
+    fireEvent.click(screen.getByTestId('sqs-dlq-submit'));
+
+    expect(screen.getByTestId('sqs-dlq-error')).toBeInTheDocument();
+    expect(setSqsRedrivePolicyMock).not.toHaveBeenCalled();
+  });
+
+  it('blocks an out-of-range max receive count', async () => {
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('sqs-dlq-config')).toBeInTheDocument());
+
+    fireEvent.change(screen.getByTestId('sqs-dlq-arn'), {
+      target: { value: 'arn:aws:sqs:eu-west-1:000000000000:orders-dlq' },
+    });
+    fireEvent.change(screen.getByTestId('sqs-dlq-max-receive'), { target: { value: '0' } });
+    fireEvent.click(screen.getByTestId('sqs-dlq-submit'));
+
+    expect(screen.getByTestId('sqs-dlq-error')).toBeInTheDocument();
+    expect(setSqsRedrivePolicyMock).not.toHaveBeenCalled();
+  });
+
+  it('shows an error when configuring the dead-letter queue fails', async () => {
+    setSqsRedrivePolicyMock.mockRejectedValue(new Error('boom'));
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('sqs-dlq-config')).toBeInTheDocument());
+
+    fireEvent.change(screen.getByTestId('sqs-dlq-arn'), {
+      target: { value: 'arn:aws:sqs:eu-west-1:000000000000:orders-dlq' },
+    });
+    fireEvent.click(screen.getByTestId('sqs-dlq-submit'));
+
+    await waitFor(() => expect(screen.getByTestId('sqs-dlq-error')).toBeInTheDocument());
   });
 });

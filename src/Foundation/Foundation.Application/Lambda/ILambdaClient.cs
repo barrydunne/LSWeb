@@ -26,6 +26,58 @@ public interface ILambdaClient
     Task<Result<LambdaFunctionDetail>> GetFunctionAsync(string functionName, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Get the deployed package and entry-point details of a single Lambda function for the read-only
+    /// code viewer.
+    /// </summary>
+    /// <param name="functionName">The name of the function to retrieve.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The function code details on success; otherwise a failure describing the error.</returns>
+    Task<Result<LambdaFunctionCode>> GetFunctionCodeAsync(string functionName, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Gets the HTTP function URL configuration of a Lambda function.
+    /// </summary>
+    /// <param name="functionName">The name of the function to read.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The URL configuration, <see langword="null"/> when no URL is configured, or a failure.</returns>
+    Task<Result<LambdaFunctionUrl?>> GetFunctionUrlAsync(string functionName, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Creates an HTTP function URL for a Lambda function with the supplied authentication mode.
+    /// </summary>
+    /// <param name="functionName">The name of the function.</param>
+    /// <param name="authType">The authentication mode, either <c>NONE</c> or <c>AWS_IAM</c>.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The created URL configuration on success; otherwise a failure.</returns>
+    Task<Result<LambdaFunctionUrl>> CreateFunctionUrlAsync(string functionName, string authType, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Updates the authentication mode of a Lambda function's HTTP function URL.
+    /// </summary>
+    /// <param name="functionName">The name of the function.</param>
+    /// <param name="authType">The new authentication mode, either <c>NONE</c> or <c>AWS_IAM</c>.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The updated URL configuration on success; otherwise a failure.</returns>
+    Task<Result<LambdaFunctionUrl>> UpdateFunctionUrlAsync(string functionName, string authType, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Deletes the HTTP function URL configuration of a Lambda function.
+    /// </summary>
+    /// <param name="functionName">The name of the function.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A success result, or a failure if the URL could not be deleted.</returns>
+    Task<Result> DeleteFunctionUrlAsync(string functionName, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Issues a test HTTP GET request against a Lambda function's configured URL, resolving the URL on
+    /// the server so an arbitrary client-supplied address is never fetched.
+    /// </summary>
+    /// <param name="functionName">The name of the function whose URL should be tested.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The status and body returned by the function URL on success; otherwise a failure.</returns>
+    Task<Result<LambdaFunctionUrlTest>> TestFunctionUrlAsync(string functionName, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Get the raw, unmasked environment variables configured for a Lambda function.
     /// </summary>
     /// <param name="functionName">The name of the function to read.</param>

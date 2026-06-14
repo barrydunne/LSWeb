@@ -1,21 +1,27 @@
 using AspNet.KickStarter.FunctionalResult.Extensions;
 using Foundation.Api.Models;
 using Foundation.Application.Commands.CreateLambdaFunction;
+using Foundation.Application.Commands.CreateLambdaFunctionUrl;
 using Foundation.Application.Commands.DeleteLambdaFunction;
+using Foundation.Application.Commands.DeleteLambdaFunctionUrl;
 using Foundation.Application.Commands.DeleteLambdaTestEvent;
 using Foundation.Application.Commands.InvokeLambdaFunction;
 using Foundation.Application.Commands.SaveLambdaTestEvent;
 using Foundation.Application.Commands.SetLambdaEventSourceMappingState;
 using Foundation.Application.Commands.UpdateLambdaEnvironment;
 using Foundation.Application.Commands.UpdateLambdaFunction;
+using Foundation.Application.Commands.UpdateLambdaFunctionUrl;
 using Foundation.Application.Queries.GetLambdaEnvironment;
 using Foundation.Application.Queries.GetLambdaFunction;
+using Foundation.Application.Queries.GetLambdaFunctionCode;
+using Foundation.Application.Queries.GetLambdaFunctionUrl;
 using Foundation.Application.Queries.GetLambdaInvocationInsights;
 using Foundation.Application.Queries.ListLambdaEventSourceMappings;
 using Foundation.Application.Queries.ListLambdaFunctions;
 using Foundation.Application.Queries.ListLambdaLayers;
 using Foundation.Application.Queries.ListLambdaLogEvents;
 using Foundation.Application.Queries.ListLambdaTestEvents;
+using Foundation.Application.Queries.TestLambdaFunctionUrl;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 
@@ -94,6 +100,137 @@ public partial class LambdaController : ControllerBase
                 function.Function.MemorySize,
                 function.Function.Timeout,
                 function.Function.Role)),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Gets the deployed package and entry-point details of a Lambda function for the code viewer.
+    /// </summary>
+    /// <param name="functionName">The name of the function to read.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 200 result carrying the function code details.</returns>
+    [HttpGet("functions/{functionName}/code")]
+    [ProducesResponseType(typeof(LambdaFunctionCodeResponse), StatusCodes.Status200OK)]
+    public async Task<IResult> GetFunctionCode(string functionName, CancellationToken cancellationToken)
+    {
+        LogHandlingGetCode(functionName);
+        var result = await _sender.Send(new GetLambdaFunctionCodeQuery(functionName), cancellationToken);
+        LogGetCodeHandled(result.IsSuccess);
+        return result.Match(
+            code => Results.Ok(new LambdaFunctionCodeResponse(
+                code.Code.FunctionName,
+                code.Code.Runtime,
+                code.Code.Handler,
+                code.Code.PackageType,
+                code.Code.CodeSize,
+                code.Code.CodeSha256,
+                code.Code.RepositoryType,
+                code.Code.Location,
+                code.Code.ImageUri)),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Gets the HTTP function URL configuration of a Lambda function.
+    /// </summary>
+    /// <param name="functionName">The name of the function to read.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 200 result describing the function URL, or whether one is configured.</returns>
+    [HttpGet("functions/{functionName}/url")]
+    [ProducesResponseType(typeof(LambdaFunctionUrlResponse), StatusCodes.Status200OK)]
+    public async Task<IResult> GetFunctionUrl(string functionName, CancellationToken cancellationToken)
+    {
+        LogHandlingGetUrl(functionName);
+        var result = await _sender.Send(new GetLambdaFunctionUrlQuery(functionName), cancellationToken);
+        LogGetUrlHandled(result.IsSuccess);
+        return result.Match(
+            url => Results.Ok(url.Url is null
+                ? new LambdaFunctionUrlResponse(false, string.Empty, string.Empty, string.Empty, string.Empty)
+                : new LambdaFunctionUrlResponse(
+                    true,
+                    url.Url.FunctionUrl,
+                    url.Url.AuthType,
+                    url.Url.CreationTime,
+                    url.Url.LastModifiedTime)),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Creates an HTTP function URL for a Lambda function.
+    /// </summary>
+    /// <param name="functionName">The name of the function.</param>
+    /// <param name="request">The function URL configuration to create.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 201 result locating the function URL.</returns>
+    [HttpPost("functions/{functionName}/url")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    public async Task<IResult> CreateFunctionUrl(
+        string functionName, [FromBody] LambdaFunctionUrlRequest request, CancellationToken cancellationToken)
+    {
+        LogHandlingCreateUrl(functionName);
+        var result = await _sender.Send(
+            new CreateLambdaFunctionUrlCommand(functionName, request.AuthType), cancellationToken);
+        LogCreateUrlHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.Created(
+                $"/api/services/lambda/functions/{Uri.EscapeDataString(functionName)}/url", null),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Updates the authentication mode of a Lambda function's HTTP function URL.
+    /// </summary>
+    /// <param name="functionName">The name of the function.</param>
+    /// <param name="request">The function URL configuration to apply.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 204 result on success.</returns>
+    [HttpPut("functions/{functionName}/url")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IResult> UpdateFunctionUrl(
+        string functionName, [FromBody] LambdaFunctionUrlRequest request, CancellationToken cancellationToken)
+    {
+        LogHandlingUpdateUrl(functionName);
+        var result = await _sender.Send(
+            new UpdateLambdaFunctionUrlCommand(functionName, request.AuthType), cancellationToken);
+        LogUpdateUrlHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.NoContent(),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Deletes the HTTP function URL configuration of a Lambda function.
+    /// </summary>
+    /// <param name="functionName">The name of the function.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 204 result on success.</returns>
+    [HttpDelete("functions/{functionName}/url")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IResult> DeleteFunctionUrl(string functionName, CancellationToken cancellationToken)
+    {
+        LogHandlingDeleteUrl(functionName);
+        var result = await _sender.Send(new DeleteLambdaFunctionUrlCommand(functionName), cancellationToken);
+        LogDeleteUrlHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.NoContent(),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Issues a test HTTP request against a Lambda function's configured URL.
+    /// </summary>
+    /// <param name="functionName">The name of the function whose URL should be tested.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 200 result carrying the status and body returned by the function URL.</returns>
+    [HttpPost("functions/{functionName}/url/test")]
+    [ProducesResponseType(typeof(LambdaFunctionUrlTestResponse), StatusCodes.Status200OK)]
+    public async Task<IResult> TestFunctionUrl(string functionName, CancellationToken cancellationToken)
+    {
+        LogHandlingTestUrl(functionName);
+        var result = await _sender.Send(new TestLambdaFunctionUrlQuery(functionName), cancellationToken);
+        LogTestUrlHandled(result.IsSuccess);
+        return result.Match(
+            test => Results.Ok(new LambdaFunctionUrlTestResponse(test.Test.StatusCode, test.Test.Body)),
             error => error.AsHttpResult());
     }
 
@@ -452,6 +589,42 @@ public partial class LambdaController : ControllerBase
 
     [LoggerMessage(LogLevel.Trace, "Lambda function get request handled. Success: {Success}")]
     private partial void LogGetHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling Lambda function code get request for '{FunctionName}'.")]
+    private partial void LogHandlingGetCode(string functionName);
+
+    [LoggerMessage(LogLevel.Trace, "Lambda function code get request handled. Success: {Success}")]
+    private partial void LogGetCodeHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling Lambda function URL get request for '{FunctionName}'.")]
+    private partial void LogHandlingGetUrl(string functionName);
+
+    [LoggerMessage(LogLevel.Trace, "Lambda function URL get request handled. Success: {Success}")]
+    private partial void LogGetUrlHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling Lambda function URL create request for '{FunctionName}'.")]
+    private partial void LogHandlingCreateUrl(string functionName);
+
+    [LoggerMessage(LogLevel.Trace, "Lambda function URL create request handled. Success: {Success}")]
+    private partial void LogCreateUrlHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling Lambda function URL update request for '{FunctionName}'.")]
+    private partial void LogHandlingUpdateUrl(string functionName);
+
+    [LoggerMessage(LogLevel.Trace, "Lambda function URL update request handled. Success: {Success}")]
+    private partial void LogUpdateUrlHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling Lambda function URL delete request for '{FunctionName}'.")]
+    private partial void LogHandlingDeleteUrl(string functionName);
+
+    [LoggerMessage(LogLevel.Trace, "Lambda function URL delete request handled. Success: {Success}")]
+    private partial void LogDeleteUrlHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling Lambda function URL test request for '{FunctionName}'.")]
+    private partial void LogHandlingTestUrl(string functionName);
+
+    [LoggerMessage(LogLevel.Trace, "Lambda function URL test request handled. Success: {Success}")]
+    private partial void LogTestUrlHandled(bool success);
 
     [LoggerMessage(LogLevel.Trace, "Handling Lambda environment get request for '{FunctionName}'. Reveal: {Reveal}")]
     private partial void LogHandlingGetEnvironment(string functionName, bool reveal);

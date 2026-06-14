@@ -156,4 +156,61 @@ public interface IS3Client
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>The storage summary on success; otherwise a failure describing the error.</returns>
     Task<Result<S3BucketStorageSummary>> GetBucketStorageSummaryAsync(string bucketName, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Apply an access policy to a bucket, replacing any existing policy.
+    /// </summary>
+    /// <param name="bucketName">The bucket to apply the policy to.</param>
+    /// <param name="policy">The policy document as JSON.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A success result, or a failure describing the error.</returns>
+    Task<Result> PutBucketPolicyAsync(string bucketName, string policy, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Remove the access policy from a bucket.
+    /// </summary>
+    /// <param name="bucketName">The bucket to remove the policy from.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A success result, or a failure describing the error.</returns>
+    Task<Result> DeleteBucketPolicyAsync(string bucketName, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Enable or suspend versioning on a bucket.
+    /// </summary>
+    /// <param name="bucketName">The bucket to update.</param>
+    /// <param name="enabled">When <see langword="true"/> versioning is enabled; otherwise it is suspended.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A success result, or a failure describing the error.</returns>
+    Task<Result> SetBucketVersioningAsync(string bucketName, bool enabled, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// List the object versions in a bucket, optionally filtered by key prefix.
+    /// </summary>
+    /// <param name="bucketName">The bucket to list versions in.</param>
+    /// <param name="prefix">The key prefix to filter by; empty for the whole bucket.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>The object versions, or a failure describing the error.</returns>
+    Task<Result<IReadOnlyList<S3ObjectVersion>>> ListObjectVersionsAsync(
+        string bucketName, string prefix, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Delete a specific version of an object.
+    /// </summary>
+    /// <param name="bucketName">The bucket containing the object.</param>
+    /// <param name="key">The object key.</param>
+    /// <param name="versionId">The version identifier to delete.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A success result, or a failure describing the error.</returns>
+    Task<Result> DeleteObjectVersionAsync(
+        string bucketName, string key, string versionId, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Replace the event notification configuration of a bucket with the supplied set of rules.
+    /// </summary>
+    /// <param name="bucketName">The bucket to update.</param>
+    /// <param name="notifications">The complete set of notification rules to apply; an empty list clears all notifications.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A success result, or a failure describing the error.</returns>
+    Task<Result> PutBucketNotificationsAsync(
+        string bucketName, IReadOnlyList<S3NotificationConfiguration> notifications, CancellationToken cancellationToken);
 }

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
 import { CloudFormationChangeSetPanel } from './CloudFormationChangeSetPanel';
 import {
   createChangeSet,
@@ -87,7 +87,8 @@ describe('CloudFormationChangeSetPanel', () => {
   });
 
   afterEach(() => {
-    vi.resetAllMocks();
+    cleanup();
+    vi.clearAllMocks();
   });
 
   it('shows a loading state before the change sets arrive', () => {

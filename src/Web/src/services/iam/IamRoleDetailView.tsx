@@ -18,6 +18,7 @@ import type { IamRoleConsumer, IamRoleDetail } from '../../api/client';
 import { ConfirmationHost } from '../../components/ConfirmationHost';
 import { ResourceLink } from '../../components/ResourceLink';
 import { PolicyDocumentEditor, PolicyDocumentViewer } from './components/PolicyDocumentEditor';
+import { TrustPolicyBuilder } from './components/TrustPolicyBuilder';
 import { PermissionsBoundaryControl } from './components/PermissionsBoundaryControl';
 import { TagEditor } from './components/TagEditor';
 
@@ -388,6 +389,11 @@ export function IamRoleDetailView({ roleName }: IamRoleDetailViewProps) {
 
       {tab === 'trust' ? (
         <div data-testid="iam-role-detail-panel-trust" style={rowStyle}>
+          <TrustPolicyBuilder
+            value={parsePolicyDocument(detail.assumeRolePolicyDocument)}
+            onSave={handleSaveTrustPolicy}
+            testId="iam-role-detail-trust-builder"
+          />
           <PolicyDocumentEditor
             value={parsePolicyDocument(detail.assumeRolePolicyDocument)}
             title="Trust relationship policy"

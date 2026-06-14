@@ -24,6 +24,12 @@ import {
   importWorkspaceSnapshot,
   getLambdaFunctions,
   getLambdaFunction,
+  getLambdaFunctionCode,
+  getLambdaFunctionUrl,
+  createLambdaFunctionUrl,
+  updateLambdaFunctionUrl,
+  deleteLambdaFunctionUrl,
+  testLambdaFunctionUrl,
   getLambdaEnvironment,
   updateLambdaEnvironment,
   invokeLambdaFunction,
@@ -46,6 +52,7 @@ import {
   deleteSqsQueue,
   pollSqsMessages,
   deleteSqsMessage,
+  changeSqsMessageVisibility,
   purgeSqsQueue,
   sendSqsMessage,
   getSqsQueueSubscriptions,
@@ -53,6 +60,7 @@ import {
   getSqsQueueAttributes,
   getSqsQueueRedrive,
   redriveSqsQueue,
+  setSqsRedrivePolicy,
   updateSqsQueueAttributes,
   getS3Objects,
   createS3Folder,
@@ -67,6 +75,12 @@ import {
   moveS3Object,
   getS3BucketStorageSummary,
   getS3BucketConfiguration,
+  putS3BucketPolicy,
+  deleteS3BucketPolicy,
+  setS3BucketVersioning,
+  getS3ObjectVersions,
+  deleteS3ObjectVersion,
+  putS3BucketNotifications,
   getLogGroups,
   getLogStreams,
   getLogEvents,
@@ -111,10 +125,14 @@ import {
   publishSnsMessage,
   getSnsSubscriptionFilterPolicy,
   setSnsSubscriptionFilterPolicy,
+  subscribeSnsTopic,
+  unsubscribeSnsTopic,
   getStateMachines,
   getStateMachine,
   getExecutions,
   startExecution,
+  createStateMachine,
+  updateStateMachineDefinition,
   getExecutionHistory,
   getStacks,
   getStack,
@@ -179,7 +197,17 @@ import {
   updateApiGatewayRestStage,
   deleteApiGatewayRestStage,
   getRoute53HostedZones,
+  createRoute53HostedZone,
+  getRoute53Records,
+  upsertRoute53Record,
+  deleteRoute53Record,
   getSesIdentities,
+  getSesIdentityDetail,
+  verifySesEmailIdentity,
+  deleteSesIdentity,
+  getSesDomainSetup,
+  verifySesDomainIdentity,
+  enableSesDomainDkim,
   getIamUsers,
   getIamUser,
   createIamUser,
@@ -1036,6 +1064,195 @@ describe('getLambdaFunction', () => {
   });
 });
 
+describe('getLambdaFunctionCode', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('requests the encoded function name and returns the parsed code result', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        functionName: 'process orders',
+        runtime: 'dotnet8',
+        handler: 'Orders::Handler',
+        packageType: 'Zip',
+        codeSize: 2048,
+        codeSha256: 'abc123=',
+        repositoryType: 'S3',
+        location: 'https://localstack/download.zip',
+        imageUri: '',
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getLambdaFunctionCode('process orders');
+
+    expect(result.handler).toBe('Orders::Handler');
+    expect(result.location).toBe('https://localstack/download.zip');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/lambda/functions/process%20orders/code',
+      { signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getLambdaFunctionCode('missing')).rejects.toThrow(
+      'Lambda function code request failed with status 404',
+    );
+  });
+});
+
+describe('getLambdaFunctionUrl', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('requests the encoded function name and returns the parsed result', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        configured: true,
+        functionUrl: 'https://abc.lambda-url.eu-west-1.on.aws/',
+        authType: 'NONE',
+        creationTime: 't1',
+        lastModifiedTime: 't2',
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getLambdaFunctionUrl('process orders');
+
+    expect(result.configured).toBe(true);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/lambda/functions/process%20orders/url',
+      { signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getLambdaFunctionUrl('missing')).rejects.toThrow(
+      'Lambda function URL request failed with status 404',
+    );
+  });
+});
+
+describe('createLambdaFunctionUrl', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the auth type and encoded function name', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await createLambdaFunctionUrl('process orders', 'NONE');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/lambda/functions/process%20orders/url', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ authType: 'NONE' }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(createLambdaFunctionUrl('orders', 'NONE')).rejects.toThrow(
+      'Lambda function URL create request failed with status 400',
+    );
+  });
+});
+
+describe('updateLambdaFunctionUrl', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the auth type and encoded function name', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await updateLambdaFunctionUrl('process orders', 'AWS_IAM');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/lambda/functions/process%20orders/url', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ authType: 'AWS_IAM' }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(updateLambdaFunctionUrl('orders', 'NONE')).rejects.toThrow(
+      'Lambda function URL update request failed with status 500',
+    );
+  });
+});
+
+describe('deleteLambdaFunctionUrl', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('deletes the encoded function name', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await deleteLambdaFunctionUrl('process orders');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/lambda/functions/process%20orders/url', {
+      method: 'DELETE',
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(deleteLambdaFunctionUrl('missing')).rejects.toThrow(
+      'Lambda function URL delete request failed with status 404',
+    );
+  });
+});
+
+describe('testLambdaFunctionUrl', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts to the test endpoint and returns the parsed result', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ statusCode: 200, body: '{"ok":true}' }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await testLambdaFunctionUrl('process orders');
+
+    expect(result.statusCode).toBe(200);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/lambda/functions/process%20orders/url/test',
+      { method: 'POST', signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 502 }));
+
+    await expect(testLambdaFunctionUrl('orders')).rejects.toThrow(
+      'Lambda function URL test request failed with status 502',
+    );
+  });
+});
+
 describe('getLambdaEnvironment', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -1671,6 +1888,197 @@ describe('getS3BucketConfiguration', () => {
   });
 });
 
+describe('putS3BucketPolicy', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the policy to the bucket policy endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await putS3BucketPolicy('my bucket', '{}');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/s3/buckets/my%20bucket/policy', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ policy: '{}' }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(putS3BucketPolicy('orders', '{}')).rejects.toThrow(
+      'S3 bucket policy save request failed with status 400',
+    );
+  });
+});
+
+describe('deleteS3BucketPolicy', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('deletes the bucket policy', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await deleteS3BucketPolicy('my bucket');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/s3/buckets/my%20bucket/policy', {
+      method: 'DELETE',
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(deleteS3BucketPolicy('orders')).rejects.toThrow(
+      'S3 bucket policy delete request failed with status 404',
+    );
+  });
+});
+
+describe('setS3BucketVersioning', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the versioning state', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await setS3BucketVersioning('my bucket', true);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/s3/buckets/my%20bucket/versioning', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: true }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(setS3BucketVersioning('orders', false)).rejects.toThrow(
+      'S3 bucket versioning request failed with status 400',
+    );
+  });
+});
+
+describe('getS3ObjectVersions', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('requests the encoded bucket and prefix and returns the parsed versions', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        versions: [
+          { key: 'report.pdf', versionId: 'v2', isLatest: true, isDeleteMarker: false, size: 10, lastModified: 't' },
+        ],
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getS3ObjectVersions('my bucket', 'rep');
+
+    expect(result.versions[0].versionId).toBe('v2');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/s3/buckets/my%20bucket/versions?prefix=rep',
+      { signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(getS3ObjectVersions('orders', '')).rejects.toThrow(
+      'S3 object versions request failed with status 500',
+    );
+  });
+});
+
+describe('deleteS3ObjectVersion', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('deletes the specific version', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await deleteS3ObjectVersion('my bucket', 'a/b.txt', 'v1');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/s3/buckets/my%20bucket/versions?key=a%2Fb.txt&versionId=v1',
+      { method: 'DELETE', signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(deleteS3ObjectVersion('orders', 'k', 'v1')).rejects.toThrow(
+      'S3 object version delete request failed with status 404',
+    );
+  });
+});
+
+describe('putS3BucketNotifications', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('persists the notification rules', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await putS3BucketNotifications('my bucket', [
+      {
+        type: 'Lambda',
+        targetArn: 'arn:aws:lambda:eu-west-1:000000000000:function:p',
+        events: ['s3:ObjectCreated:*'],
+        prefix: '',
+        suffix: '',
+      },
+    ]);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/s3/buckets/my%20bucket/notifications',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          notifications: [
+            {
+              type: 'Lambda',
+              targetArn: 'arn:aws:lambda:eu-west-1:000000000000:function:p',
+              events: ['s3:ObjectCreated:*'],
+              prefix: '',
+              suffix: '',
+            },
+          ],
+        }),
+        signal: undefined,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(putS3BucketNotifications('orders', [])).rejects.toThrow(
+      'S3 bucket notifications request failed with status 400',
+    );
+  });
+});
+
 describe('createS3Bucket', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -1912,6 +2320,37 @@ describe('deleteSqsMessage', () => {
 
     await expect(deleteSqsMessage('orders', 'receipt-1')).rejects.toThrow(
       'SQS delete request failed with status 404',
+    );
+  });
+});
+
+describe('changeSqsMessageVisibility', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the receipt handle and visibility timeout', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await changeSqsMessageVisibility('my queue', 'receipt-1', 120);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/sqs/queues/my%20queue/messages/visibility',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ receiptHandle: 'receipt-1', visibilityTimeoutSeconds: 120 }),
+        signal: undefined,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(changeSqsMessageVisibility('orders', 'receipt-1', 60)).rejects.toThrow(
+      'SQS change message visibility request failed with status 400',
     );
   });
 });
@@ -2228,6 +2667,40 @@ describe('redriveSqsQueue', () => {
     await expect(redriveSqsQueue('orders')).rejects.toThrow(
       'SQS redrive start request failed with status 400',
     );
+  });
+});
+
+describe('setSqsRedrivePolicy', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the dead-letter target and max receive count', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await setSqsRedrivePolicy('my queue', 'arn:aws:sqs:eu-west-1:000000000000:orders-dlq', 5);
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/sqs/queues/my%20queue/redrive-policy',
+      {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deadLetterTargetArn: 'arn:aws:sqs:eu-west-1:000000000000:orders-dlq',
+          maxReceiveCount: 5,
+        }),
+        signal: undefined,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      setSqsRedrivePolicy('orders', 'arn:aws:sqs:eu-west-1:000000000000:orders-dlq', 5),
+    ).rejects.toThrow('SQS redrive policy request failed with status 400');
   });
 });
 
@@ -4163,6 +4636,68 @@ describe('setSnsSubscriptionFilterPolicy', () => {
   });
 });
 
+describe('subscribeSnsTopic', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the topic, protocol and endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await subscribeSnsTopic(
+      'arn:aws:sns:eu-west-1:000000000000:topic',
+      'sqs',
+      'arn:aws:sqs:eu-west-1:000000000000:q',
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/sns/subscriptions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        topicArn: 'arn:aws:sns:eu-west-1:000000000000:topic',
+        protocol: 'sqs',
+        endpoint: 'arn:aws:sqs:eu-west-1:000000000000:q',
+      }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      subscribeSnsTopic('arn:aws:sns:eu-west-1:000000000000:topic', 'sqs', 'e'),
+    ).rejects.toThrow('SNS subscribe request failed with status 400');
+  });
+});
+
+describe('unsubscribeSnsTopic', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('deletes the subscription by arn', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await unsubscribeSnsTopic('arn:aws:sns:eu-west-1:000000000000:topic:sub');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/sns/subscriptions?arn=arn%3Aaws%3Asns%3Aeu-west-1%3A000000000000%3Atopic%3Asub',
+      { method: 'DELETE', signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(
+      unsubscribeSnsTopic('arn:aws:sns:eu-west-1:000000000000:topic:sub'),
+    ).rejects.toThrow('SNS unsubscribe request failed with status 404');
+  });
+});
+
 describe('getStateMachines', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -4327,6 +4862,80 @@ describe('startExecution', () => {
     await expect(startExecution(request)).rejects.toThrow(
       'Step Functions start execution request failed with status 400',
     );
+  });
+});
+
+describe('createStateMachine', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const request = {
+    name: 'orders',
+    definition: '{"StartAt":"A","States":{}}',
+    roleArn: 'arn:aws:iam::000000000000:role/sfn',
+    type: 'STANDARD',
+  };
+
+  it('posts the request and returns the parsed result when it succeeds', async () => {
+    const payload = {
+      stateMachineArn: 'arn:aws:states:eu-west-1:000000000000:stateMachine:orders',
+      creationDate: '2024-01-01T00:00:00+00:00',
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await createStateMachine(request);
+
+    expect(result.stateMachineArn).toBe(payload.stateMachineArn);
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/step-functions/state-machines', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(createStateMachine(request)).rejects.toThrow(
+      'Step Functions create state machine request failed with status 400',
+    );
+  });
+});
+
+describe('updateStateMachineDefinition', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the arn and definition', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await updateStateMachineDefinition(
+      'arn:aws:states:eu-west-1:000000000000:stateMachine:orders',
+      '{"StartAt":"A","States":{}}',
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/step-functions/state-machine/definition', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        stateMachineArn: 'arn:aws:states:eu-west-1:000000000000:stateMachine:orders',
+        definition: '{"StartAt":"A","States":{}}',
+      }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      updateStateMachineDefinition('arn:aws:states:eu-west-1:000000000000:stateMachine:orders', '{}'),
+    ).rejects.toThrow('Step Functions update definition request failed with status 400');
   });
 });
 
@@ -6906,6 +7515,122 @@ describe('getRoute53HostedZones', () => {
   });
 });
 
+describe('createRoute53HostedZone', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the name and comment', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await createRoute53HostedZone('example.com', 'demo');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/route53/hostedzones', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'example.com', comment: 'demo' }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(createRoute53HostedZone('example.com', null)).rejects.toThrow(
+      'Route 53 hosted zone create request failed with status 400',
+    );
+  });
+});
+
+describe('getRoute53Records', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('requests the encoded zone id and returns the parsed records', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ records: [{ name: 'www.example.com.', type: 'A', ttl: 300, values: ['1.2.3.4'] }] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getRoute53Records('/hostedzone/Z1');
+
+    expect(result.records[0].name).toBe('www.example.com.');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/route53/records?zoneId=%2Fhostedzone%2FZ1',
+      { signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getRoute53Records('/hostedzone/Z1')).rejects.toThrow(
+      'Route 53 records request failed with status 404',
+    );
+  });
+});
+
+describe('upsertRoute53Record', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('puts the record to the encoded zone id', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const record = { name: 'www.example.com.', type: 'A', ttl: 300, values: ['1.2.3.4'] };
+
+    await upsertRoute53Record('/hostedzone/Z1', record);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/route53/records?zoneId=%2Fhostedzone%2FZ1', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(record),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(
+      upsertRoute53Record('/hostedzone/Z1', { name: 'n', type: 'A', ttl: 300, values: ['1.2.3.4'] }),
+    ).rejects.toThrow('Route 53 record save request failed with status 400');
+  });
+});
+
+describe('deleteRoute53Record', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('deletes the record from the encoded zone id', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const record = { name: 'www.example.com.', type: 'A', ttl: 300, values: ['1.2.3.4'] };
+
+    await deleteRoute53Record('/hostedzone/Z1', record);
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/route53/records?zoneId=%2Fhostedzone%2FZ1', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(record),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(
+      deleteRoute53Record('/hostedzone/Z1', { name: 'n', type: 'A', ttl: 300, values: ['1.2.3.4'] }),
+    ).rejects.toThrow('Route 53 record delete request failed with status 404');
+  });
+});
+
 describe('getSesIdentities', () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -6939,6 +7664,181 @@ describe('getSesIdentities', () => {
 
     await expect(getSesIdentities()).rejects.toThrow(
       'SES identities request failed with status 404',
+    );
+  });
+});
+
+describe('getSesIdentityDetail', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed detail when the request succeeds', async () => {
+    const payload = {
+      identity: 'sender@example.com',
+      identityType: 'EmailAddress',
+      verificationStatus: 'Pending',
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getSesIdentityDetail('sender@example.com');
+
+    expect(result.verificationStatus).toBe('Pending');
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/ses/identities/sender%40example.com',
+      { signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getSesIdentityDetail('x@y.com')).rejects.toThrow(
+      'SES identity request failed with status 404',
+    );
+  });
+});
+
+describe('verifySesEmailIdentity', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the email address', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await verifySesEmailIdentity('sender@example.com');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/ses/identities', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ emailAddress: 'sender@example.com' }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(verifySesEmailIdentity('x@y.com')).rejects.toThrow(
+      'SES email verification request failed with status 400',
+    );
+  });
+});
+
+describe('deleteSesIdentity', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('deletes the identity', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await deleteSesIdentity('sender@example.com');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/ses/identities/sender%40example.com',
+      { method: 'DELETE', signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(deleteSesIdentity('x@y.com')).rejects.toThrow(
+      'SES identity delete request failed with status 404',
+    );
+  });
+});
+
+describe('getSesDomainSetup', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed setup when the request succeeds', async () => {
+    const payload = {
+      domain: 'example.com',
+      verificationStatus: 'Pending',
+      verificationToken: 'token-123',
+      dkimVerificationStatus: 'NotStarted',
+      dkimTokens: ['a', 'b'],
+    };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => payload });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getSesDomainSetup('example.com');
+
+    expect(result.verificationToken).toBe('token-123');
+    expect(result.dkimTokens).toHaveLength(2);
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/ses/identities/example.com/domain-setup',
+      { signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getSesDomainSetup('example.com')).rejects.toThrow(
+      'SES domain setup request failed with status 404',
+    );
+  });
+});
+
+describe('verifySesDomainIdentity', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts the domain name', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await verifySesDomainIdentity('example.com');
+
+    expect(fetchMock).toHaveBeenCalledWith('/api/services/ses/domains', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ domain: 'example.com' }),
+      signal: undefined,
+    });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 400 }));
+
+    await expect(verifySesDomainIdentity('example.com')).rejects.toThrow(
+      'SES domain verification request failed with status 400',
+    );
+  });
+});
+
+describe('enableSesDomainDkim', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('posts to the dkim endpoint', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await enableSesDomainDkim('example.com');
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/ses/identities/example.com/dkim',
+      { method: 'POST', signal: undefined },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(enableSesDomainDkim('example.com')).rejects.toThrow(
+      'SES DKIM request failed with status 500',
     );
   });
 });

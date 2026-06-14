@@ -83,6 +83,46 @@ internal sealed class SnsClientAdapter : ISnsClient
         return result.IsSuccess ? Result.Success() : result.Error!.Value;
     }
 
+    public async Task<Result> SubscribeAsync(
+        string topicArn, string protocol, string endpoint, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonSimpleNotificationServiceClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                await client.SubscribeAsync(
+                    new SubscribeRequest
+                    {
+                        TopicArn = topicArn,
+                        Protocol = protocol,
+                        Endpoint = endpoint,
+                        ReturnSubscriptionArn = true,
+                    },
+                    token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
+    public async Task<Result> UnsubscribeAsync(
+        string subscriptionArn, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonSimpleNotificationServiceClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                await client.UnsubscribeAsync(
+                    new UnsubscribeRequest { SubscriptionArn = subscriptionArn },
+                    token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
     public Task<Result<IReadOnlyList<SnsSubscription>>> ListSubscriptionsByTopicAsync(
         string topicArn, CancellationToken cancellationToken)
         => _gateway.ExecuteAsync<AmazonSimpleNotificationServiceClient, IReadOnlyList<SnsSubscription>>(

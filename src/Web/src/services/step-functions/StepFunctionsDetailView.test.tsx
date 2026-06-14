@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { StepFunctionsDetailView } from './StepFunctionsDetailView';
-import { getExecutions, getStateMachine, resolveReference } from '../../api/client';
+import { getExecutions, getStateMachine, resolveReference, updateStateMachineDefinition } from '../../api/client';
 import type { StateMachineDetailResult } from '../../api/client';
 
 vi.mock('../../api/client');
@@ -10,6 +10,7 @@ vi.mock('../../api/client');
 const getStateMachineMock = vi.mocked(getStateMachine);
 const getExecutionsMock = vi.mocked(getExecutions);
 const resolveReferenceMock = vi.mocked(resolveReference);
+const updateStateMachineDefinitionMock = vi.mocked(updateStateMachineDefinition);
 
 const stateMachineArn = 'arn:aws:states:eu-west-1:000000000000:stateMachine:orders-workflow';
 
@@ -36,6 +37,7 @@ describe('StepFunctionsDetailView', () => {
     getStateMachineMock.mockResolvedValue(detailResult);
     getExecutionsMock.mockResolvedValue({ executions: [] });
     resolveReferenceMock.mockResolvedValue(null as never);
+    updateStateMachineDefinitionMock.mockResolvedValue();
   });
 
   afterEach(() => {
@@ -120,5 +122,93 @@ describe('StepFunctionsDetailView', () => {
     );
 
     expect(screen.getByTestId('raw-json-title')).toHaveTextContent('ASL definition');
+  });
+
+  const newDefinition = '{"StartAt":"Next","States":{"Next":{"Type":"Pass","End":true}}}';
+
+  it('edits and saves the definition', async () => {
+    renderView();
+    await waitFor(() => expect(screen.getByTestId('step-functions-detail-view')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('step-functions-definition-edit'));
+    fireEvent.change(screen.getByTestId('step-functions-definition-editor'), {
+      target: { value: newDefinition },
+    });
+    fireEvent.click(screen.getByTestId('step-functions-definition-save'));
+
+    await waitFor(() =>
+      expect(updateStateMachineDefinitionMock).toHaveBeenCalledWith(stateMachineArn, newDefinition),
+    );
+    await waitFor(() => expect(getStateMachineMock).toHaveBeenCalledTimes(2));
+  });
+
+  it('blocks saving an invalid definition', async () => {
+    renderView();
+    await waitFor(() => expect(screen.getByTestId('step-functions-detail-view')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('step-functions-definition-edit'));
+    fireEvent.change(screen.getByTestId('step-functions-definition-editor'), {
+      target: { value: '{"States":{}}' },
+    });
+    fireEvent.click(screen.getByTestId('step-functions-definition-save'));
+
+    expect(screen.getByTestId('step-functions-definition-invalid')).toBeInTheDocument();
+    expect(updateStateMachineDefinitionMock).not.toHaveBeenCalled();
+  });
+
+  it('blocks saving a definition that is not a JSON object', async () => {
+    renderView();
+    await waitFor(() => expect(screen.getByTestId('step-functions-detail-view')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('step-functions-definition-edit'));
+    fireEvent.change(screen.getByTestId('step-functions-definition-editor'), {
+      target: { value: '[1,2,3]' },
+    });
+    fireEvent.click(screen.getByTestId('step-functions-definition-save'));
+
+    expect(screen.getByTestId('step-functions-definition-invalid')).toBeInTheDocument();
+    expect(updateStateMachineDefinitionMock).not.toHaveBeenCalled();
+  });
+
+  it('blocks saving malformed JSON', async () => {
+    renderView();
+    await waitFor(() => expect(screen.getByTestId('step-functions-detail-view')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('step-functions-definition-edit'));
+    fireEvent.change(screen.getByTestId('step-functions-definition-editor'), {
+      target: { value: 'not valid json {' },
+    });
+    fireEvent.click(screen.getByTestId('step-functions-definition-save'));
+
+    expect(screen.getByTestId('step-functions-definition-invalid')).toBeInTheDocument();
+    expect(updateStateMachineDefinitionMock).not.toHaveBeenCalled();
+  });
+
+  it('shows an error when saving the definition fails', async () => {
+    updateStateMachineDefinitionMock.mockRejectedValue(new Error('boom'));
+    renderView();
+    await waitFor(() => expect(screen.getByTestId('step-functions-detail-view')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('step-functions-definition-edit'));
+    fireEvent.change(screen.getByTestId('step-functions-definition-editor'), {
+      target: { value: newDefinition },
+    });
+    fireEvent.click(screen.getByTestId('step-functions-definition-save'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('step-functions-definition-error')).toBeInTheDocument(),
+    );
+  });
+
+  it('cancels editing without saving', async () => {
+    renderView();
+    await waitFor(() => expect(screen.getByTestId('step-functions-detail-view')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('step-functions-definition-edit'));
+    expect(screen.getByTestId('step-functions-definition-editor')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('step-functions-definition-cancel'));
+
+    expect(screen.queryByTestId('step-functions-definition-editor')).not.toBeInTheDocument();
+    expect(updateStateMachineDefinitionMock).not.toHaveBeenCalled();
   });
 });

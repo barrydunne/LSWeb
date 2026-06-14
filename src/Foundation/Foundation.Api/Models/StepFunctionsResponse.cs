@@ -84,6 +84,37 @@ public sealed record StartExecutionResponse(
     DateTimeOffset StartDate);
 
 /// <summary>
+/// A request to create a Step Functions state machine.
+/// </summary>
+/// <param name="Name">The name of the state machine.</param>
+/// <param name="Definition">The Amazon States Language definition as a JSON document.</param>
+/// <param name="RoleArn">The Amazon Resource Name of the IAM role the state machine assumes.</param>
+/// <param name="Type">The state machine type, either <c>STANDARD</c> or <c>EXPRESS</c>.</param>
+public sealed record CreateStateMachineRequest(
+    string Name,
+    string Definition,
+    string RoleArn,
+    string Type);
+
+/// <summary>
+/// The result of creating a Step Functions state machine.
+/// </summary>
+/// <param name="StateMachineArn">The Amazon Resource Name that uniquely identifies the new state machine.</param>
+/// <param name="CreationDate">The moment the state machine was created.</param>
+public sealed record CreateStateMachineResponse(
+    string StateMachineArn,
+    DateTimeOffset CreationDate);
+
+/// <summary>
+/// A request to update the Amazon States Language definition of a state machine.
+/// </summary>
+/// <param name="StateMachineArn">The Amazon Resource Name of the state machine to update.</param>
+/// <param name="Definition">The new Amazon States Language definition as a JSON document.</param>
+public sealed record UpdateStateMachineDefinitionRequest(
+    string StateMachineArn,
+    string Definition);
+
+/// <summary>
 /// The ordered history of a single Step Functions execution.
 /// </summary>
 /// <param name="Events">The history events, ordered as returned by the backend.</param>

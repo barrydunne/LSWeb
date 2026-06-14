@@ -69,3 +69,14 @@ public sealed record SnsSubscriptionFilterPolicyResponse(string FilterPolicy);
 public sealed record SnsSubscriptionFilterPolicyRequest(
     string SubscriptionArn,
     string FilterPolicy);
+
+/// <summary>
+/// A request to subscribe an endpoint to an SNS topic using the supplied protocol.
+/// </summary>
+/// <param name="TopicArn">The Amazon Resource Name of the topic to subscribe to.</param>
+/// <param name="Protocol">The delivery protocol, for example <c>sqs</c>, <c>lambda</c>, or <c>email</c>.</param>
+/// <param name="Endpoint">The endpoint to deliver to.</param>
+public sealed record SnsSubscribeRequest(
+    string TopicArn,
+    string Protocol,
+    string Endpoint);

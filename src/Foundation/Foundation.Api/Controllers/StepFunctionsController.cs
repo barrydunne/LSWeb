@@ -1,6 +1,8 @@
 using AspNet.KickStarter.FunctionalResult.Extensions;
 using Foundation.Api.Models;
+using Foundation.Application.Commands.CreateStateMachine;
 using Foundation.Application.Commands.StartExecution;
+using Foundation.Application.Commands.UpdateStateMachineDefinition;
 using Foundation.Application.Queries.GetExecutionHistory;
 using Foundation.Application.Queries.GetStateMachine;
 using Foundation.Application.Queries.ListExecutions;
@@ -135,6 +137,50 @@ public partial class StepFunctionsController : ControllerBase
     }
 
     /// <summary>
+    /// Creates a new Step Functions state machine from an Amazon States Language definition.
+    /// </summary>
+    /// <param name="request">The state machine name, ASL definition, role ARN, and type.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 201 result carrying the created state machine.</returns>
+    [HttpPost("state-machines")]
+    [ProducesResponseType(typeof(CreateStateMachineResponse), StatusCodes.Status201Created)]
+    public async Task<IResult> CreateStateMachine(
+        [FromBody] CreateStateMachineRequest request, CancellationToken cancellationToken)
+    {
+        LogHandlingCreateStateMachine(request.Name);
+        var result = await _sender.Send(
+            new CreateStateMachineCommand(request.Name, request.Definition, request.RoleArn, request.Type),
+            cancellationToken);
+        LogCreateStateMachineHandled(result.IsSuccess);
+        return result.Match(
+            stateMachine => Results.Created(
+                $"/api/services/step-functions/state-machine?arn={Uri.EscapeDataString(stateMachine.StateMachineArn)}",
+                new CreateStateMachineResponse(stateMachine.StateMachineArn, stateMachine.CreationDate)),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Updates the Amazon States Language definition of an existing state machine.
+    /// </summary>
+    /// <param name="request">The state machine ARN and the new ASL definition.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 204 result on success.</returns>
+    [HttpPut("state-machine/definition")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IResult> UpdateStateMachineDefinition(
+        [FromBody] UpdateStateMachineDefinitionRequest request, CancellationToken cancellationToken)
+    {
+        LogHandlingUpdateDefinition(request.StateMachineArn);
+        var result = await _sender.Send(
+            new UpdateStateMachineDefinitionCommand(request.StateMachineArn, request.Definition),
+            cancellationToken);
+        LogUpdateDefinitionHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.NoContent(),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
     /// Gets the ordered history of a single Step Functions execution.
     /// </summary>
     /// <param name="arn">The Amazon Resource Name of the execution whose history to read.</param>
@@ -188,6 +234,18 @@ public partial class StepFunctionsController : ControllerBase
 
     [LoggerMessage(LogLevel.Trace, "Step Functions start execution request handled. Success: {Success}")]
     private partial void LogStartExecutionHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling Step Functions create state machine request for {Name}.")]
+    private partial void LogHandlingCreateStateMachine(string name);
+
+    [LoggerMessage(LogLevel.Trace, "Step Functions create state machine request handled. Success: {Success}")]
+    private partial void LogCreateStateMachineHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling Step Functions update definition request for {Arn}.")]
+    private partial void LogHandlingUpdateDefinition(string arn);
+
+    [LoggerMessage(LogLevel.Trace, "Step Functions update definition request handled. Success: {Success}")]
+    private partial void LogUpdateDefinitionHandled(bool success);
 
     [LoggerMessage(LogLevel.Trace, "Handling Step Functions execution history request for {Arn}.")]
     private partial void LogHandlingGetExecutionHistory(string arn);

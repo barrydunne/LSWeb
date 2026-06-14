@@ -344,6 +344,124 @@ export async function getLambdaFunction(
   return (await response.json()) as LambdaFunctionResult;
 }
 
+export interface LambdaFunctionCodeResult {
+  functionName: string;
+  runtime: string;
+  handler: string;
+  packageType: string;
+  codeSize: number;
+  codeSha256: string;
+  repositoryType: string;
+  location: string;
+  imageUri: string;
+}
+
+export async function getLambdaFunctionCode(
+  functionName: string,
+  signal?: AbortSignal,
+): Promise<LambdaFunctionCodeResult> {
+  const response = await fetch(
+    `/api/services/lambda/functions/${encodeURIComponent(functionName)}/code`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`Lambda function code request failed with status ${response.status}`);
+  }
+  return (await response.json()) as LambdaFunctionCodeResult;
+}
+
+export interface LambdaFunctionUrlResult {
+  configured: boolean;
+  functionUrl: string;
+  authType: string;
+  creationTime: string;
+  lastModifiedTime: string;
+}
+
+export interface LambdaFunctionUrlTestResult {
+  statusCode: number;
+  body: string;
+}
+
+export async function getLambdaFunctionUrl(
+  functionName: string,
+  signal?: AbortSignal,
+): Promise<LambdaFunctionUrlResult> {
+  const response = await fetch(
+    `/api/services/lambda/functions/${encodeURIComponent(functionName)}/url`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`Lambda function URL request failed with status ${response.status}`);
+  }
+  return (await response.json()) as LambdaFunctionUrlResult;
+}
+
+export async function createLambdaFunctionUrl(
+  functionName: string,
+  authType: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/lambda/functions/${encodeURIComponent(functionName)}/url`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ authType }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Lambda function URL create request failed with status ${response.status}`);
+  }
+}
+
+export async function updateLambdaFunctionUrl(
+  functionName: string,
+  authType: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/lambda/functions/${encodeURIComponent(functionName)}/url`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ authType }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Lambda function URL update request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteLambdaFunctionUrl(
+  functionName: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/lambda/functions/${encodeURIComponent(functionName)}/url`,
+    { method: 'DELETE', signal },
+  );
+  if (!response.ok) {
+    throw new Error(`Lambda function URL delete request failed with status ${response.status}`);
+  }
+}
+
+export async function testLambdaFunctionUrl(
+  functionName: string,
+  signal?: AbortSignal,
+): Promise<LambdaFunctionUrlTestResult> {
+  const response = await fetch(
+    `/api/services/lambda/functions/${encodeURIComponent(functionName)}/url/test`,
+    { method: 'POST', signal },
+  );
+  if (!response.ok) {
+    throw new Error(`Lambda function URL test request failed with status ${response.status}`);
+  }
+  return (await response.json()) as LambdaFunctionUrlTestResult;
+}
+
 export interface LambdaEnvironmentVariableItem {
   name: string;
   value: string;
@@ -832,6 +950,26 @@ export async function deleteSqsMessage(
   }
 }
 
+export async function changeSqsMessageVisibility(
+  queueName: string,
+  receiptHandle: string,
+  visibilityTimeoutSeconds: number,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/sqs/queues/${encodeURIComponent(queueName)}/messages/visibility`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ receiptHandle, visibilityTimeoutSeconds }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`SQS change message visibility request failed with status ${response.status}`);
+  }
+}
+
 export async function purgeSqsQueue(queueName: string, signal?: AbortSignal): Promise<void> {
   const response = await fetch(
     `/api/services/sqs/queues/${encodeURIComponent(queueName)}/purge`,
@@ -1018,6 +1156,26 @@ export async function redriveSqsQueue(queueName: string, signal?: AbortSignal): 
   );
   if (!response.ok) {
     throw new Error(`SQS redrive start request failed with status ${response.status}`);
+  }
+}
+
+export async function setSqsRedrivePolicy(
+  queueName: string,
+  deadLetterTargetArn: string,
+  maxReceiveCount: number,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/sqs/queues/${encodeURIComponent(queueName)}/redrive-policy`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deadLetterTargetArn, maxReceiveCount }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`SQS redrive policy request failed with status ${response.status}`);
   }
 }
 
@@ -1280,6 +1438,119 @@ export async function getS3BucketConfiguration(
     throw new Error(`S3 bucket configuration request failed with status ${response.status}`);
   }
   return (await response.json()) as S3BucketConfigurationResult;
+}
+
+export async function putS3BucketPolicy(
+  bucketName: string,
+  policy: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/s3/buckets/${encodeURIComponent(bucketName)}/policy`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ policy }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`S3 bucket policy save request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteS3BucketPolicy(
+  bucketName: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/s3/buckets/${encodeURIComponent(bucketName)}/policy`,
+    { method: 'DELETE', signal },
+  );
+  if (!response.ok) {
+    throw new Error(`S3 bucket policy delete request failed with status ${response.status}`);
+  }
+}
+
+export interface S3ObjectVersionItem {
+  key: string;
+  versionId: string;
+  isLatest: boolean;
+  isDeleteMarker: boolean;
+  size: number;
+  lastModified: string;
+}
+
+export interface S3ObjectVersionListResult {
+  versions: S3ObjectVersionItem[];
+}
+
+export async function setS3BucketVersioning(
+  bucketName: string,
+  enabled: boolean,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/s3/buckets/${encodeURIComponent(bucketName)}/versioning`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`S3 bucket versioning request failed with status ${response.status}`);
+  }
+}
+
+export async function getS3ObjectVersions(
+  bucketName: string,
+  prefix: string,
+  signal?: AbortSignal,
+): Promise<S3ObjectVersionListResult> {
+  const response = await fetch(
+    `/api/services/s3/buckets/${encodeURIComponent(bucketName)}/versions?prefix=${encodeURIComponent(prefix)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`S3 object versions request failed with status ${response.status}`);
+  }
+  return (await response.json()) as S3ObjectVersionListResult;
+}
+
+export async function deleteS3ObjectVersion(
+  bucketName: string,
+  key: string,
+  versionId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/s3/buckets/${encodeURIComponent(bucketName)}/versions?key=${encodeURIComponent(key)}&versionId=${encodeURIComponent(versionId)}`,
+    { method: 'DELETE', signal },
+  );
+  if (!response.ok) {
+    throw new Error(`S3 object version delete request failed with status ${response.status}`);
+  }
+}
+
+export async function putS3BucketNotifications(
+  bucketName: string,
+  notifications: S3NotificationResult[],
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/s3/buckets/${encodeURIComponent(bucketName)}/notifications`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notifications }),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`S3 bucket notifications request failed with status ${response.status}`);
+  }
 }
 
 export interface S3BucketStorageSummaryResult {
@@ -2297,6 +2568,36 @@ export async function setSnsSubscriptionFilterPolicy(
   });
   if (!response.ok) {
     throw new Error(`SNS filter policy update request failed with status ${response.status}`);
+  }
+}
+
+export async function subscribeSnsTopic(
+  topicArn: string,
+  protocol: string,
+  endpoint: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/sns/subscriptions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ topicArn, protocol, endpoint }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`SNS subscribe request failed with status ${response.status}`);
+  }
+}
+
+export async function unsubscribeSnsTopic(
+  subscriptionArn: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/sns/subscriptions?arn=${encodeURIComponent(subscriptionArn)}`,
+    { method: 'DELETE', signal },
+  );
+  if (!response.ok) {
+    throw new Error(`SNS unsubscribe request failed with status ${response.status}`);
   }
 }
 
@@ -3541,6 +3842,50 @@ export async function startExecution(
     throw new Error(`Step Functions start execution request failed with status ${response.status}`);
   }
   return (await response.json()) as StartExecutionResult;
+}
+
+export interface CreateStateMachineRequest {
+  name: string;
+  definition: string;
+  roleArn: string;
+  type: string;
+}
+
+export interface CreateStateMachineResult {
+  stateMachineArn: string;
+  creationDate: string;
+}
+
+export async function createStateMachine(
+  request: CreateStateMachineRequest,
+  signal?: AbortSignal,
+): Promise<CreateStateMachineResult> {
+  const response = await fetch('/api/services/step-functions/state-machines', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`Step Functions create state machine request failed with status ${response.status}`);
+  }
+  return (await response.json()) as CreateStateMachineResult;
+}
+
+export async function updateStateMachineDefinition(
+  stateMachineArn: string,
+  definition: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/step-functions/state-machine/definition', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ stateMachineArn, definition }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`Step Functions update definition request failed with status ${response.status}`);
+  }
 }
 
 export interface ExecutionHistoryEvent {
@@ -5221,6 +5566,85 @@ export async function getRoute53HostedZones(
   return (await response.json()) as Route53HostedZoneListResult;
 }
 
+export async function createRoute53HostedZone(
+  name: string,
+  comment: string | null,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/route53/hostedzones', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, comment }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`Route 53 hosted zone create request failed with status ${response.status}`);
+  }
+}
+
+export interface Route53RecordItem {
+  name: string;
+  type: string;
+  ttl: number;
+  values: string[];
+}
+
+export interface Route53RecordListResult {
+  records: Route53RecordItem[];
+}
+
+export async function getRoute53Records(
+  zoneId: string,
+  signal?: AbortSignal,
+): Promise<Route53RecordListResult> {
+  const response = await fetch(
+    `/api/services/route53/records?zoneId=${encodeURIComponent(zoneId)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`Route 53 records request failed with status ${response.status}`);
+  }
+  return (await response.json()) as Route53RecordListResult;
+}
+
+export async function upsertRoute53Record(
+  zoneId: string,
+  record: Route53RecordItem,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/route53/records?zoneId=${encodeURIComponent(zoneId)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(record),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Route 53 record save request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteRoute53Record(
+  zoneId: string,
+  record: Route53RecordItem,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/route53/records?zoneId=${encodeURIComponent(zoneId)}`,
+    {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(record),
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Route 53 record delete request failed with status ${response.status}`);
+  }
+}
+
 export interface SesIdentityItem {
   identity: string;
   identityType: string;
@@ -5239,6 +5663,104 @@ export async function getSesIdentities(
     throw new Error(`SES identities request failed with status ${response.status}`);
   }
   return (await response.json()) as SesIdentityListResult;
+}
+
+export interface SesIdentityDetailResult {
+  identity: string;
+  identityType: string;
+  verificationStatus: string;
+}
+
+export async function getSesIdentityDetail(
+  identity: string,
+  signal?: AbortSignal,
+): Promise<SesIdentityDetailResult> {
+  const response = await fetch(
+    `/api/services/ses/identities/${encodeURIComponent(identity)}`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`SES identity request failed with status ${response.status}`);
+  }
+  return (await response.json()) as SesIdentityDetailResult;
+}
+
+export async function verifySesEmailIdentity(
+  emailAddress: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/ses/identities', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ emailAddress }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`SES email verification request failed with status ${response.status}`);
+  }
+}
+
+export async function deleteSesIdentity(
+  identity: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/ses/identities/${encodeURIComponent(identity)}`,
+    { method: 'DELETE', signal },
+  );
+  if (!response.ok) {
+    throw new Error(`SES identity delete request failed with status ${response.status}`);
+  }
+}
+
+export interface SesDomainSetupResult {
+  domain: string;
+  verificationStatus: string;
+  verificationToken: string;
+  dkimVerificationStatus: string;
+  dkimTokens: string[];
+}
+
+export async function getSesDomainSetup(
+  domain: string,
+  signal?: AbortSignal,
+): Promise<SesDomainSetupResult> {
+  const response = await fetch(
+    `/api/services/ses/identities/${encodeURIComponent(domain)}/domain-setup`,
+    { signal },
+  );
+  if (!response.ok) {
+    throw new Error(`SES domain setup request failed with status ${response.status}`);
+  }
+  return (await response.json()) as SesDomainSetupResult;
+}
+
+export async function verifySesDomainIdentity(
+  domain: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch('/api/services/ses/domains', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ domain }),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error(`SES domain verification request failed with status ${response.status}`);
+  }
+}
+
+export async function enableSesDomainDkim(
+  domain: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `/api/services/ses/identities/${encodeURIComponent(domain)}/dkim`,
+    { method: 'POST', signal },
+  );
+  if (!response.ok) {
+    throw new Error(`SES DKIM request failed with status ${response.status}`);
+  }
 }
 
 export interface ScheduleSummaryItem {

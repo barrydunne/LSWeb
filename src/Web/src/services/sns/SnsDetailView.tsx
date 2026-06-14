@@ -6,6 +6,8 @@ import {
   getSnsSubscriptionFilterPolicy,
   publishSnsMessage,
   setSnsSubscriptionFilterPolicy,
+  subscribeSnsTopic,
+  unsubscribeSnsTopic,
 } from '../../api/client';
 import type { SnsSubscriptionItem } from '../../api/client';
 import type { ServiceDetailViewProps } from '../serviceViewRegistry';
@@ -296,6 +298,10 @@ export function SnsDetailView({ resourceId }: ServiceDetailViewProps) {
   const [message, setMessage] = useState('');
   const [attributes, setAttributes] = useState<{ key: string; value: string }[]>([]);
   const [publishState, setPublishState] = useState<PublishState>({ kind: 'idle' });
+  const [subscribeProtocol, setSubscribeProtocol] = useState('sqs');
+  const [subscribeEndpoint, setSubscribeEndpoint] = useState('');
+  const [subscribeState, setSubscribeState] = useState<'idle' | 'saving' | 'error'>('idle');
+  const [unsubscribeError, setUnsubscribeError] = useState(false);
 
   const load = useCallback(
     (signal?: AbortSignal) => {
@@ -332,6 +338,32 @@ export function SnsDetailView({ resourceId }: ServiceDetailViewProps) {
   const removeAttribute = useCallback((index: number) => {
     setAttributes((current) => current.filter((_, position) => position !== index));
   }, []);
+
+  const handleSubscribe = useCallback(() => {
+    const endpoint = subscribeEndpoint.trim();
+    if (endpoint === '') {
+      setSubscribeState('error');
+      return;
+    }
+    setSubscribeState('saving');
+    subscribeSnsTopic(resourceId, subscribeProtocol, endpoint)
+      .then(() => {
+        setSubscribeState('idle');
+        setSubscribeEndpoint('');
+        void load();
+      })
+      .catch(() => setSubscribeState('error'));
+  }, [resourceId, subscribeProtocol, subscribeEndpoint, load]);
+
+  const handleUnsubscribe = useCallback(
+    (subscriptionArn: string) => {
+      setUnsubscribeError(false);
+      unsubscribeSnsTopic(subscriptionArn)
+        .then(() => load())
+        .catch(() => setUnsubscribeError(true));
+    },
+    [load],
+  );
 
   const handlePublish = useCallback(() => {
     setPublishState({ kind: 'sending' });
@@ -403,12 +435,71 @@ export function SnsDetailView({ resourceId }: ServiceDetailViewProps) {
                     {subscription.protocol}
                   </span>
                   <ResourceLink reference={subscription.endpoint} service={subscription.protocol} />
+                  {subscription.subscriptionArn.startsWith('arn:') ? (
+                    <button
+                      type="button"
+                      data-testid="sns-subscription-unsubscribe"
+                      style={linkButtonStyle}
+                      onClick={() => handleUnsubscribe(subscription.subscriptionArn)}
+                    >
+                      Unsubscribe
+                    </button>
+                  ) : (
+                    <span data-testid="sns-subscription-pending" style={hintStyle}>
+                      Pending confirmation
+                    </span>
+                  )}
                 </div>
                 <SubscriptionFilterPolicy subscriptionArn={subscription.subscriptionArn} />
               </li>
             ))}
           </ul>
         )}
+        {unsubscribeError ? (
+          <span data-testid="sns-unsubscribe-error" style={hintStyle}>
+            Unable to remove the subscription.
+          </span>
+        ) : null}
+        <div data-testid="sns-subscribe-form" style={fieldRowStyle}>
+          <label htmlFor="sns-subscribe-protocol" style={labelStyle}>
+            Add a subscription
+          </label>
+          <select
+            id="sns-subscribe-protocol"
+            data-testid="sns-subscribe-protocol"
+            style={inputStyle}
+            value={subscribeProtocol}
+            onChange={(event) => setSubscribeProtocol(event.target.value)}
+          >
+            <option value="sqs">SQS queue</option>
+            <option value="lambda">Lambda function</option>
+            <option value="email">Email</option>
+            <option value="http">HTTP</option>
+            <option value="https">HTTPS</option>
+            <option value="sms">SMS</option>
+          </select>
+          <input
+            data-testid="sns-subscribe-endpoint"
+            style={inputStyle}
+            placeholder="Endpoint (ARN or address)"
+            value={subscribeEndpoint}
+            onChange={(event) => setSubscribeEndpoint(event.target.value)}
+          />
+          <button
+            type="button"
+            data-testid="sns-subscribe-submit"
+            style={buttonStyle}
+            disabled={subscribeState === 'saving'}
+            onClick={handleSubscribe}
+          >
+            {subscribeState === 'saving' ? 'Subscribing\u2026' : 'Subscribe'}
+          </button>
+          {subscribeState === 'error' ? (
+            <span data-testid="sns-subscribe-error" style={hintStyle}>
+              Enter an endpoint and try again.
+            </span>
+          ) : null}
+        </div>
       </section>
       <section data-testid="sns-detail-publish" style={publishSectionStyle}>
         <Text style={labelStyle}>Publish a message</Text>

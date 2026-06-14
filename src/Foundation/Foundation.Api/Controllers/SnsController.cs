@@ -4,6 +4,8 @@ using Foundation.Application.Commands.CreateSnsTopic;
 using Foundation.Application.Commands.DeleteSnsTopic;
 using Foundation.Application.Commands.PublishSnsMessage;
 using Foundation.Application.Commands.SetSnsSubscriptionFilterPolicy;
+using Foundation.Application.Commands.SubscribeSnsTopic;
+using Foundation.Application.Commands.UnsubscribeSnsTopic;
 using Foundation.Application.Queries.GetSnsSubscriptionFilterPolicy;
 using Foundation.Application.Queries.ListSnsSubscriptions;
 using Foundation.Application.Queries.ListSnsTopics;
@@ -187,6 +189,47 @@ public partial class SnsController : ControllerBase
             error => error.AsHttpResult());
     }
 
+    /// <summary>
+    /// Subscribes an endpoint to an SNS topic using the supplied protocol.
+    /// </summary>
+    /// <param name="request">The topic, protocol, and endpoint to subscribe.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 201 result on success.</returns>
+    [HttpPost("subscriptions")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    public async Task<IResult> Subscribe(
+        [FromBody] SnsSubscribeRequest request, CancellationToken cancellationToken)
+    {
+        LogHandlingSubscribe(request.TopicArn, request.Protocol);
+        var result = await _sender.Send(
+            new SubscribeSnsTopicCommand(request.TopicArn, request.Protocol, request.Endpoint),
+            cancellationToken);
+        LogSubscribeHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.Created(
+                $"/api/services/sns/subscriptions?arn={Uri.EscapeDataString(request.TopicArn)}", null),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Removes a subscription from an SNS topic by its Amazon Resource Name.
+    /// </summary>
+    /// <param name="arn">The Amazon Resource Name of the subscription to remove.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 204 result on success.</returns>
+    [HttpDelete("subscriptions")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IResult> Unsubscribe(
+        [FromQuery] string arn, CancellationToken cancellationToken)
+    {
+        LogHandlingUnsubscribe(arn);
+        var result = await _sender.Send(new UnsubscribeSnsTopicCommand(arn), cancellationToken);
+        LogUnsubscribeHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.NoContent(),
+            error => error.AsHttpResult());
+    }
+
     [LoggerMessage(LogLevel.Trace, "Handling SNS topic list request.")]
     private partial void LogHandlingListTopics();
 
@@ -228,4 +271,16 @@ public partial class SnsController : ControllerBase
 
     [LoggerMessage(LogLevel.Trace, "SNS filter policy set request handled. Success: {Success}")]
     private partial void LogSetFilterPolicyHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling SNS subscribe request for {TopicArn} using protocol {Protocol}.")]
+    private partial void LogHandlingSubscribe(string topicArn, string protocol);
+
+    [LoggerMessage(LogLevel.Trace, "SNS subscribe request handled. Success: {Success}")]
+    private partial void LogSubscribeHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling SNS unsubscribe request for {Arn}.")]
+    private partial void LogHandlingUnsubscribe(string arn);
+
+    [LoggerMessage(LogLevel.Trace, "SNS unsubscribe request handled. Success: {Success}")]
+    private partial void LogUnsubscribeHandled(bool success);
 }

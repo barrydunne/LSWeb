@@ -152,6 +152,49 @@ internal sealed class StepFunctionsClientAdapter : IStepFunctionsClient
             },
             cancellationToken);
 
+    public Task<Result<StateMachineCreateResult>> CreateStateMachineAsync(
+        string name, string definition, string roleArn, string type, CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonStepFunctionsClient, StateMachineCreateResult>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                var response = await client.CreateStateMachineAsync(
+                    new CreateStateMachineRequest
+                    {
+                        Name = name,
+                        Definition = definition,
+                        RoleArn = roleArn,
+                        Type = StateMachineType.FindValue(type),
+                    },
+                    token);
+
+                return new StateMachineCreateResult(
+                    response.StateMachineArn ?? string.Empty,
+                    response.CreationDate ?? default);
+            },
+            cancellationToken);
+
+    public async Task<Result> UpdateStateMachineDefinitionAsync(
+        string stateMachineArn, string definition, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonStepFunctionsClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                await client.UpdateStateMachineAsync(
+                    new UpdateStateMachineRequest
+                    {
+                        StateMachineArn = stateMachineArn,
+                        Definition = definition,
+                    },
+                    token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
     private static StateMachineSummary ToSummary(StateMachineListItem stateMachine)
         => new(
             stateMachine.Name ?? string.Empty,

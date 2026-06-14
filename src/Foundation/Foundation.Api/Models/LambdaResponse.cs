@@ -47,6 +47,59 @@ public sealed record LambdaFunctionResponse(
     string Role);
 
 /// <summary>
+/// The deployed package and entry point of a single Lambda function for the read-only code viewer.
+/// </summary>
+/// <param name="FunctionName">The unique name of the function.</param>
+/// <param name="Runtime">The managed runtime identifier, for example <c>python3.12</c>; empty for image packages.</param>
+/// <param name="Handler">The entry point the runtime invokes, for example <c>index.handler</c>.</param>
+/// <param name="PackageType">The deployment package type, either <c>Zip</c> or <c>Image</c>.</param>
+/// <param name="CodeSize">The size of the deployed package in bytes.</param>
+/// <param name="CodeSha256">The base64 SHA-256 hash of the deployed package.</param>
+/// <param name="RepositoryType">The repository hosting the code, for example <c>S3</c> or <c>ECR</c>.</param>
+/// <param name="Location">The download location for a zip package, or the resolved image URI for an image package.</param>
+/// <param name="ImageUri">The container image URI for an image package; empty for zip packages.</param>
+public sealed record LambdaFunctionCodeResponse(
+    string FunctionName,
+    string Runtime,
+    string Handler,
+    string PackageType,
+    long CodeSize,
+    string CodeSha256,
+    string RepositoryType,
+    string Location,
+    string ImageUri);
+
+/// <summary>
+/// The HTTP function URL configuration of a Lambda function.
+/// </summary>
+/// <param name="Configured">Whether a function URL is configured for the function.</param>
+/// <param name="FunctionUrl">The HTTPS endpoint that invokes the function; empty when not configured.</param>
+/// <param name="AuthType">The authentication mode, either <c>NONE</c> or <c>AWS_IAM</c>; empty when not configured.</param>
+/// <param name="CreationTime">The timestamp the URL configuration was created; empty when not configured.</param>
+/// <param name="LastModifiedTime">The timestamp the URL configuration was last updated; empty when not configured.</param>
+public sealed record LambdaFunctionUrlResponse(
+    bool Configured,
+    string FunctionUrl,
+    string AuthType,
+    string CreationTime,
+    string LastModifiedTime);
+
+/// <summary>
+/// The request to create or update a Lambda function URL.
+/// </summary>
+/// <param name="AuthType">The authentication mode, either <c>NONE</c> or <c>AWS_IAM</c>.</param>
+public sealed record LambdaFunctionUrlRequest(string AuthType);
+
+/// <summary>
+/// The outcome of testing a Lambda function URL with an HTTP request.
+/// </summary>
+/// <param name="StatusCode">The HTTP status code returned by the function URL.</param>
+/// <param name="Body">The response body returned by the function URL, truncated for display.</param>
+public sealed record LambdaFunctionUrlTestResponse(
+    int StatusCode,
+    string Body);
+
+/// <summary>
 /// The environment variables of a Lambda function, with sensitive values masked as required.
 /// </summary>
 /// <param name="Variables">The environment variables ordered by name.</param>

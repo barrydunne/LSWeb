@@ -1,12 +1,14 @@
 using AspNet.KickStarter.FunctionalResult.Extensions;
 using Foundation.Api.Models;
 using Foundation.Application.Commands.CreateSqsQueue;
+using Foundation.Application.Commands.ChangeSqsMessageVisibility;
 using Foundation.Application.Commands.DeleteSqsMessage;
 using Foundation.Application.Commands.DeleteSqsQueue;
 using Foundation.Application.Commands.PurgeSqsQueue;
 using Foundation.Application.Commands.RedriveSqsMessages;
 using Foundation.Application.Commands.SendSqsMessage;
 using Foundation.Application.Commands.SetSqsQueueAttributes;
+using Foundation.Application.Commands.SetSqsRedrivePolicy;
 using Foundation.Application.Queries.GetSqsQueueAttributes;
 using Foundation.Application.Queries.GetSqsQueueRedrive;
 using Foundation.Application.Queries.ListSqsConsumerLambdas;
@@ -158,6 +160,29 @@ public partial class SqsController : ControllerBase
         var result = await _sender.Send(
             new DeleteSqsMessageCommand(queueName, receiptHandle), cancellationToken);
         LogDeleteHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.NoContent(),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Overrides the visibility timeout of a single in-flight message in a queue.
+    /// </summary>
+    /// <param name="queueName">The name of the queue the message was received from.</param>
+    /// <param name="request">The receipt handle and new visibility timeout.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 204 result on success.</returns>
+    [HttpPost("queues/{queueName}/messages/visibility")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IResult> ChangeMessageVisibility(
+        string queueName, [FromBody] SqsChangeMessageVisibilityRequest request, CancellationToken cancellationToken)
+    {
+        LogHandlingChangeVisibility(queueName, request.VisibilityTimeoutSeconds);
+        var result = await _sender.Send(
+            new ChangeSqsMessageVisibilityCommand(
+                queueName, request.ReceiptHandle, request.VisibilityTimeoutSeconds),
+            cancellationToken);
+        LogChangeVisibilityHandled(result.IsSuccess);
         return result.Match(
             () => Results.NoContent(),
             error => error.AsHttpResult());
@@ -359,6 +384,28 @@ public partial class SqsController : ControllerBase
             error => error.AsHttpResult());
     }
 
+    /// <summary>
+    /// Configures the redrive (dead-letter queue) policy of a source queue.
+    /// </summary>
+    /// <param name="queueName">The name of the source queue to configure.</param>
+    /// <param name="request">The dead-letter target and max receive count.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 204 result on success.</returns>
+    [HttpPut("queues/{queueName}/redrive-policy")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IResult> SetRedrivePolicy(
+        string queueName, [FromBody] SqsRedrivePolicyRequest request, CancellationToken cancellationToken)
+    {
+        LogHandlingSetRedrivePolicy(queueName, request.MaxReceiveCount);
+        var result = await _sender.Send(
+            new SetSqsRedrivePolicyCommand(queueName, request.DeadLetterTargetArn, request.MaxReceiveCount),
+            cancellationToken);
+        LogSetRedrivePolicyHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.NoContent(),
+            error => error.AsHttpResult());
+    }
+
     [LoggerMessage(LogLevel.Trace, "Handling SQS queue list request.")]
     private partial void LogHandlingList();
 
@@ -388,6 +435,12 @@ public partial class SqsController : ControllerBase
 
     [LoggerMessage(LogLevel.Trace, "SQS delete message request handled. Success: {Success}")]
     private partial void LogDeleteHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling SQS change message visibility request for {QueueName} to {VisibilityTimeoutSeconds}s.")]
+    private partial void LogHandlingChangeVisibility(string queueName, int visibilityTimeoutSeconds);
+
+    [LoggerMessage(LogLevel.Trace, "SQS change message visibility request handled. Success: {Success}")]
+    private partial void LogChangeVisibilityHandled(bool success);
 
     [LoggerMessage(LogLevel.Trace, "Handling SQS purge request for {QueueName}.")]
     private partial void LogHandlingPurge(string queueName);
@@ -436,4 +489,10 @@ public partial class SqsController : ControllerBase
 
     [LoggerMessage(LogLevel.Trace, "SQS redrive request handled. Success: {Success}")]
     private partial void LogRedriveHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling SQS set redrive policy request for {QueueName} with max receive count {MaxReceiveCount}.")]
+    private partial void LogHandlingSetRedrivePolicy(string queueName, int maxReceiveCount);
+
+    [LoggerMessage(LogLevel.Trace, "SQS set redrive policy request handled. Success: {Success}")]
+    private partial void LogSetRedrivePolicyHandled(bool success);
 }

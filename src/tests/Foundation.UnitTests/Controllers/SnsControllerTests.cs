@@ -5,6 +5,8 @@ using Foundation.Application.Commands.CreateSnsTopic;
 using Foundation.Application.Commands.DeleteSnsTopic;
 using Foundation.Application.Commands.PublishSnsMessage;
 using Foundation.Application.Commands.SetSnsSubscriptionFilterPolicy;
+using Foundation.Application.Commands.SubscribeSnsTopic;
+using Foundation.Application.Commands.UnsubscribeSnsTopic;
 using Foundation.Application.Queries.GetSnsSubscriptionFilterPolicy;
 using Foundation.Application.Queries.ListSnsSubscriptions;
 using Foundation.Application.Queries.ListSnsTopics;
@@ -350,6 +352,90 @@ public class SnsControllerTests
             new SnsSubscriptionFilterPolicyRequest(
                 "arn:aws:sns:eu-west-1:000000000000:orders-topic:8c1f", "{}"),
             TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task Subscribe_WhenCommandSucceeds_ReturnsCreated()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<SubscribeSnsTopicCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.Subscribe(
+            new SnsSubscribeRequest(
+                "arn:aws:sns:eu-west-1:000000000000:topic",
+                "sqs",
+                "arn:aws:sqs:eu-west-1:000000000000:q"),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        result.Should().BeOfType<Created>();
+        await _sender.Received(1).Send(
+            Arg.Is<SubscribeSnsTopicCommand>(command =>
+                command.Protocol == "sqs"
+                && command.Endpoint == "arn:aws:sqs:eu-west-1:000000000000:q"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Subscribe_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<SubscribeSnsTopicCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.Subscribe(
+            new SnsSubscribeRequest("arn:aws:sns:eu-west-1:000000000000:topic", "sqs", "e"),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task Unsubscribe_WhenCommandSucceeds_ReturnsNoContent()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<UnsubscribeSnsTopicCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.Unsubscribe(
+            "arn:aws:sns:eu-west-1:000000000000:topic:sub", TestContext.Current.CancellationToken);
+
+        // Assert
+        result.Should().BeOfType<NoContent>();
+        await _sender.Received(1).Send(
+            Arg.Is<UnsubscribeSnsTopicCommand>(command =>
+                command.SubscriptionArn == "arn:aws:sns:eu-west-1:000000000000:topic:sub"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task Unsubscribe_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<UnsubscribeSnsTopicCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.Unsubscribe(
+            "arn:aws:sns:eu-west-1:000000000000:topic:sub", TestContext.Current.CancellationToken);
 
         // Assert
         var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;

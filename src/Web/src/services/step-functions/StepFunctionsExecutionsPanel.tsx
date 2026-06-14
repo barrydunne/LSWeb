@@ -81,12 +81,18 @@ const historyButtonStyle: CSSProperties = {
   cursor: 'pointer',
 };
 
+const failureStatusStyle: CSSProperties = { color: '#f85149', fontWeight: 600 };
+
+const failureStatuses = new Set(['FAILED', 'TIMED_OUT', 'ABORTED']);
+
+const statusFilters = ['ALL', 'RUNNING', 'SUCCEEDED', 'FAILED', 'TIMED_OUT', 'ABORTED'];
+
 type ListState =
   | { kind: 'loading' }
   | { kind: 'ready'; executions: ExecutionSummary[] }
   | { kind: 'error' };
 
-type StartState = 'idle' | 'saving' | 'started' | 'error';
+type StartState = 'idle' | 'saving' | 'started' | 'invalid' | 'error';
 
 export function StepFunctionsExecutionsPanel({ stateMachineArn }: { stateMachineArn: string }) {
   const [state, setState] = useState<ListState>({ kind: 'loading' });
@@ -95,6 +101,7 @@ export function StepFunctionsExecutionsPanel({ stateMachineArn }: { stateMachine
   const [input, setInput] = useState('');
   const [startState, setStartState] = useState<StartState>('idle');
   const [historyArn, setHistoryArn] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState('ALL');
 
   useEffect(() => {
     const controller = new AbortController();
@@ -110,9 +117,17 @@ export function StepFunctionsExecutionsPanel({ stateMachineArn }: { stateMachine
   }, []);
 
   const handleStart = () => {
-    setStartState('saving');
     const trimmedName = name.trim();
     const trimmedInput = input.trim();
+    if (trimmedInput !== '') {
+      try {
+        JSON.parse(trimmedInput);
+      } catch {
+        setStartState('invalid');
+        return;
+      }
+    }
+    setStartState('saving');
     startExecution({
       stateMachineArn,
       name: trimmedName === '' ? null : trimmedName,
@@ -166,6 +181,11 @@ export function StepFunctionsExecutionsPanel({ stateMachineArn }: { stateMachine
         >
           Start execution
         </button>
+        {startState === 'invalid' && (
+          <p data-testid="step-functions-execution-input-error" style={messageStyle}>
+            The execution input must be valid JSON.
+          </p>
+        )}
         {startState === 'error' && (
           <p data-testid="step-functions-execution-start-error" style={messageStyle}>
             Unable to start the execution.
@@ -187,54 +207,92 @@ export function StepFunctionsExecutionsPanel({ stateMachineArn }: { stateMachine
           No executions found.
         </p>
       )}
-      {state.kind === 'ready' && state.executions.length > 0 && (
-        <table data-testid="step-functions-executions-table" style={tableStyle}>
-          <thead>
-            <tr>
-              <th style={headerCellStyle}>Name</th>
-              <th style={headerCellStyle}>Status</th>
-              <th style={headerCellStyle}>Started</th>
-              <th style={headerCellStyle}>Stopped</th>
-              <th style={headerCellStyle}>History</th>
-            </tr>
-          </thead>
-          <tbody>
-            {state.executions.map((execution) => (
-              <Fragment key={execution.executionArn}>
-                <tr data-testid="step-functions-execution-row">
-                  <td style={cellStyle}>{execution.name}</td>
-                  <td style={cellStyle} data-testid="step-functions-execution-status">
-                    {execution.status}
-                  </td>
-                  <td style={cellStyle}>{execution.startDate}</td>
-                  <td style={cellStyle}>{execution.stopDate ?? '—'}</td>
-                  <td style={cellStyle}>
-                    <button
-                      type="button"
-                      data-testid="step-functions-execution-history-toggle"
-                      style={historyButtonStyle}
-                      onClick={() =>
-                        setHistoryArn((current) =>
-                          current === execution.executionArn ? null : execution.executionArn,
-                        )
-                      }
-                    >
-                      {historyArn === execution.executionArn ? 'Hide history' : 'View history'}
-                    </button>
-                  </td>
-                </tr>
-                {historyArn === execution.executionArn && (
-                  <tr data-testid="step-functions-execution-history-row">
-                    <td style={cellStyle} colSpan={5}>
-                      <StepFunctionsExecutionHistoryPanel executionArn={execution.executionArn} />
-                    </td>
+      {state.kind === 'ready' && state.executions.length > 0 && (() => {
+        const visibleExecutions = statusFilter === 'ALL'
+          ? state.executions
+          : state.executions.filter((execution) => execution.status === statusFilter);
+        return (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '8px 0' }}>
+              <label style={labelStyle} htmlFor="step-functions-executions-filter">
+                Status
+              </label>
+              <select
+                id="step-functions-executions-filter"
+                data-testid="step-functions-executions-filter"
+                style={inputStyle}
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+              >
+                {statusFilters.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {visibleExecutions.length === 0 ? (
+              <p data-testid="step-functions-executions-filter-empty" style={messageStyle}>
+                No executions match the selected status.
+              </p>
+            ) : (
+              <table data-testid="step-functions-executions-table" style={tableStyle}>
+                <thead>
+                  <tr>
+                    <th style={headerCellStyle}>Name</th>
+                    <th style={headerCellStyle}>Status</th>
+                    <th style={headerCellStyle}>Started</th>
+                    <th style={headerCellStyle}>Stopped</th>
+                    <th style={headerCellStyle}>History</th>
                   </tr>
-                )}
-              </Fragment>
-            ))}
-          </tbody>
-        </table>
-      )}
+                </thead>
+                <tbody>
+                  {visibleExecutions.map((execution) => (
+                    <Fragment key={execution.executionArn}>
+                      <tr data-testid="step-functions-execution-row">
+                        <td style={cellStyle}>{execution.name}</td>
+                        <td
+                          style={
+                            failureStatuses.has(execution.status)
+                              ? { ...cellStyle, ...failureStatusStyle }
+                              : cellStyle
+                          }
+                          data-testid="step-functions-execution-status"
+                        >
+                          {execution.status}
+                        </td>
+                        <td style={cellStyle}>{execution.startDate}</td>
+                        <td style={cellStyle}>{execution.stopDate ?? '—'}</td>
+                        <td style={cellStyle}>
+                          <button
+                            type="button"
+                            data-testid="step-functions-execution-history-toggle"
+                            style={historyButtonStyle}
+                            onClick={() =>
+                              setHistoryArn((current) =>
+                                current === execution.executionArn ? null : execution.executionArn,
+                              )
+                            }
+                          >
+                            {historyArn === execution.executionArn ? 'Hide history' : 'View history'}
+                          </button>
+                        </td>
+                      </tr>
+                      {historyArn === execution.executionArn && (
+                        <tr data-testid="step-functions-execution-history-row">
+                          <td style={cellStyle} colSpan={5}>
+                            <StepFunctionsExecutionHistoryPanel executionArn={execution.executionArn} />
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 }

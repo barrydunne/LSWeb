@@ -104,6 +104,132 @@ public class LambdaFunctionMapperTests
     }
 
     [Fact]
+    public void ToCode_WhenZipPackage_MapsConfigurationAndDownloadLocation()
+    {
+        // Arrange
+        var configuration = new FunctionConfiguration
+        {
+            FunctionName = "process-orders",
+            Runtime = Amazon.Lambda.Runtime.Dotnet8,
+            Handler = "Orders::Handler",
+            PackageType = Amazon.Lambda.PackageType.Zip,
+            CodeSize = 2048,
+            CodeSha256 = "abc123=",
+        };
+        var code = new FunctionCodeLocation
+        {
+            RepositoryType = "S3",
+            Location = "https://localstack/download.zip",
+        };
+
+        // Act
+        var mapped = LambdaFunctionMapper.ToCode(configuration, code);
+
+        // Assert
+        mapped.FunctionName.Should().Be("process-orders");
+        mapped.Runtime.Should().Be("dotnet8");
+        mapped.Handler.Should().Be("Orders::Handler");
+        mapped.PackageType.Should().Be("Zip");
+        mapped.CodeSize.Should().Be(2048);
+        mapped.CodeSha256.Should().Be("abc123=");
+        mapped.RepositoryType.Should().Be("S3");
+        mapped.Location.Should().Be("https://localstack/download.zip");
+        mapped.ImageUri.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void ToCode_WhenImagePackageWithResolvedUri_UsesResolvedImageUriAsLocation()
+    {
+        // Arrange
+        var configuration = new FunctionConfiguration
+        {
+            FunctionName = "image-fn",
+            PackageType = Amazon.Lambda.PackageType.Image,
+        };
+        var code = new FunctionCodeLocation
+        {
+            RepositoryType = "ECR",
+            ImageUri = "000000000000.dkr.ecr.eu-west-1.amazonaws.com/app:latest",
+            ResolvedImageUri = "000000000000.dkr.ecr.eu-west-1.amazonaws.com/app@sha256:deadbeef",
+        };
+
+        // Act
+        var mapped = LambdaFunctionMapper.ToCode(configuration, code);
+
+        // Assert
+        mapped.PackageType.Should().Be("Image");
+        mapped.RepositoryType.Should().Be("ECR");
+        mapped.ImageUri.Should().Be("000000000000.dkr.ecr.eu-west-1.amazonaws.com/app:latest");
+        mapped.Location.Should().Be("000000000000.dkr.ecr.eu-west-1.amazonaws.com/app@sha256:deadbeef");
+    }
+
+    [Fact]
+    public void ToCode_WhenImagePackageWithoutResolvedUri_UsesImageUriAsLocation()
+    {
+        // Arrange
+        var configuration = new FunctionConfiguration { FunctionName = "image-fn" };
+        var code = new FunctionCodeLocation
+        {
+            ImageUri = "000000000000.dkr.ecr.eu-west-1.amazonaws.com/app:latest",
+        };
+
+        // Act
+        var mapped = LambdaFunctionMapper.ToCode(configuration, code);
+
+        // Assert
+        mapped.ImageUri.Should().Be("000000000000.dkr.ecr.eu-west-1.amazonaws.com/app:latest");
+        mapped.Location.Should().Be("000000000000.dkr.ecr.eu-west-1.amazonaws.com/app:latest");
+    }
+
+    [Fact]
+    public void ToCode_WhenCodeNullAndFieldsUnset_AppliesSafeDefaults()
+    {
+        // Arrange
+        var configuration = new FunctionConfiguration();
+
+        // Act
+        var mapped = LambdaFunctionMapper.ToCode(configuration, null);
+
+        // Assert
+        mapped.FunctionName.Should().BeEmpty();
+        mapped.Runtime.Should().BeEmpty();
+        mapped.Handler.Should().BeEmpty();
+        mapped.PackageType.Should().BeEmpty();
+        mapped.CodeSize.Should().Be(0);
+        mapped.CodeSha256.Should().BeEmpty();
+        mapped.RepositoryType.Should().BeEmpty();
+        mapped.Location.Should().BeEmpty();
+        mapped.ImageUri.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void ToFunctionUrl_WhenAllFieldsPopulated_MapsEveryValue()
+    {
+        // Act
+        var url = LambdaFunctionMapper.ToFunctionUrl(
+            "https://abc.lambda-url.eu-west-1.on.aws/", "NONE", "t1", "t2");
+
+        // Assert
+        url.FunctionUrl.Should().Be("https://abc.lambda-url.eu-west-1.on.aws/");
+        url.AuthType.Should().Be("NONE");
+        url.CreationTime.Should().Be("t1");
+        url.LastModifiedTime.Should().Be("t2");
+    }
+
+    [Fact]
+    public void ToFunctionUrl_WhenFieldsNull_AppliesSafeDefaults()
+    {
+        // Act
+        var url = LambdaFunctionMapper.ToFunctionUrl(null, null, null, null);
+
+        // Assert
+        url.FunctionUrl.Should().BeEmpty();
+        url.AuthType.Should().BeEmpty();
+        url.CreationTime.Should().BeEmpty();
+        url.LastModifiedTime.Should().BeEmpty();
+    }
+
+    [Fact]
     public void ToEventSourceMapping_WhenAllFieldsPopulated_MapsEveryValue()
     {
         // Arrange

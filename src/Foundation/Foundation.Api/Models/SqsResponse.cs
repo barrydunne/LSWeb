@@ -129,6 +129,24 @@ public sealed record SqsQueueAttributesUpdateRequest(
     int ReceiveMessageWaitTimeSeconds);
 
 /// <summary>
+/// A request to override the visibility timeout of a single in-flight SQS message.
+/// </summary>
+/// <param name="ReceiptHandle">The receipt handle identifying the message to update.</param>
+/// <param name="VisibilityTimeoutSeconds">The new visibility timeout, in seconds.</param>
+public sealed record SqsChangeMessageVisibilityRequest(
+    string ReceiptHandle,
+    int VisibilityTimeoutSeconds);
+
+/// <summary>
+/// A request to configure the redrive (dead-letter queue) policy of a source SQS queue.
+/// </summary>
+/// <param name="DeadLetterTargetArn">The Amazon Resource Name of the dead-letter queue.</param>
+/// <param name="MaxReceiveCount">The number of receives after which a message is moved to the dead-letter queue.</param>
+public sealed record SqsRedrivePolicyRequest(
+    string DeadLetterTargetArn,
+    int MaxReceiveCount);
+
+/// <summary>
 /// The dead-letter queue relationships of an SQS queue.
 /// </summary>
 /// <param name="DeadLetterTarget">The dead-letter queue this queue feeds, or <see langword="null"/> when none is configured.</param>

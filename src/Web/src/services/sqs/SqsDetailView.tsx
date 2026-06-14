@@ -3,7 +3,7 @@ import type { CSSProperties } from 'react';
 import { ConfirmationHost } from '../../components/ConfirmationHost';
 import { RawJsonViewer } from '../../components/RawJsonViewer';
 import { ResourceLink } from '../../components/ResourceLink';
-import { deleteSqsMessage, getSqsQueueAttributes, getSqsQueueConsumerLambdas, getSqsQueueRedrive, getSqsQueueSubscriptions, pollSqsMessages, purgeSqsQueue, redriveSqsQueue, sendSqsMessage, updateSqsQueueAttributes } from '../../api/client';
+import { changeSqsMessageVisibility, deleteSqsMessage, getSqsQueueAttributes, getSqsQueueConsumerLambdas, getSqsQueueRedrive, getSqsQueueSubscriptions, pollSqsMessages, purgeSqsQueue, redriveSqsQueue, sendSqsMessage, setSqsRedrivePolicy, updateSqsQueueAttributes } from '../../api/client';
 import type { SqsConsumerLambdaItem, SqsMessageItem, SqsPollMode, SqsQueueAttributesItem, SqsRedriveResult, SqsSubscriptionItem } from '../../api/client';
 import type { ServiceDetailViewProps } from '../serviceViewRegistry';
 
@@ -305,6 +305,11 @@ export function SqsDetailView({ resourceId }: ServiceDetailViewProps) {
   const [attributesSaveState, setAttributesSaveState] = useState<AttributesSaveState>({ kind: 'idle' });
   const [redrive, setRedrive] = useState<SqsRedriveResult>({ deadLetterTarget: null, sources: [] });
   const [redriveState, setRedriveState] = useState<RedriveState>({ kind: 'idle' });
+  const [visibilityValues, setVisibilityValues] = useState<Record<string, string>>({});
+  const [visibilityStatus, setVisibilityStatus] = useState<Record<string, 'saving' | 'applied' | 'error'>>({});
+  const [dlqArn, setDlqArn] = useState('');
+  const [dlqMaxReceive, setDlqMaxReceive] = useState('5');
+  const [dlqState, setDlqState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
   useEffect(() => {
     const controller = new AbortController();
@@ -461,6 +466,39 @@ export function SqsDetailView({ resourceId }: ServiceDetailViewProps) {
       .then(() => setRedriveState({ kind: 'started' }))
       .catch(() => setRedriveState({ kind: 'error' }));
   }, [queueName]);
+
+  const handleChangeVisibility = useCallback(
+    (receiptHandle: string) => {
+      const raw = visibilityValues[receiptHandle] ?? '30';
+      const seconds = Number(raw);
+      if (raw.trim() === '' || seconds < 0) {
+        setVisibilityStatus((current) => ({ ...current, [receiptHandle]: 'error' }));
+        return;
+      }
+      setVisibilityStatus((current) => ({ ...current, [receiptHandle]: 'saving' }));
+      changeSqsMessageVisibility(queueName, receiptHandle, seconds)
+        .then(() => setVisibilityStatus((current) => ({ ...current, [receiptHandle]: 'applied' })))
+        .catch(() => setVisibilityStatus((current) => ({ ...current, [receiptHandle]: 'error' })));
+    },
+    [queueName, visibilityValues],
+  );
+
+  const handleSetRedrivePolicy = useCallback(() => {
+    const arn = dlqArn.trim();
+    const maxReceive = Number(dlqMaxReceive);
+    if (!arn.startsWith('arn:') || dlqMaxReceive.trim() === '' || maxReceive < 1 || maxReceive > 1000) {
+      setDlqState('error');
+      return;
+    }
+    setDlqState('saving');
+    setSqsRedrivePolicy(queueName, arn, maxReceive)
+      .then(() => {
+        setDlqState('saved');
+        return getSqsQueueRedrive(queueName);
+      })
+      .then((result) => setRedrive(result))
+      .catch(() => setDlqState('error'));
+  }, [queueName, dlqArn, dlqMaxReceive]);
 
   const canSend = sendBody.trim() !== '' && (!isFifo || messageGroupId.trim() !== '') && sendState.kind !== 'sending';
 
@@ -732,6 +770,59 @@ export function SqsDetailView({ resourceId }: ServiceDetailViewProps) {
         </section>
       ) : null}
 
+      {tab === 'overview' ? (
+        <section data-testid="sqs-dlq-config" style={attributesSectionStyle}>
+          <h3 style={headingStyle}>Dead-letter queue</h3>
+          <div style={sendRowStyle}>
+            <div style={fieldRowStyle}>
+              <label htmlFor="sqs-dlq-arn" style={labelStyle}>
+                Dead-letter queue ARN
+              </label>
+              <input
+                id="sqs-dlq-arn"
+                data-testid="sqs-dlq-arn"
+                style={inputStyle}
+                placeholder="arn:aws:sqs:..."
+                value={dlqArn}
+                onChange={(event) => setDlqArn(event.target.value)}
+              />
+            </div>
+            <div style={fieldRowStyle}>
+              <label htmlFor="sqs-dlq-max-receive" style={labelStyle}>
+                Max receive count
+              </label>
+              <input
+                id="sqs-dlq-max-receive"
+                data-testid="sqs-dlq-max-receive"
+                type="number"
+                style={inputStyle}
+                value={dlqMaxReceive}
+                onChange={(event) => setDlqMaxReceive(event.target.value)}
+              />
+            </div>
+          </div>
+          <button
+            type="button"
+            data-testid="sqs-dlq-submit"
+            style={buttonStyle}
+            disabled={dlqState === 'saving'}
+            onClick={handleSetRedrivePolicy}
+          >
+            Save dead-letter queue
+          </button>
+          {dlqState === 'saved' ? (
+            <span data-testid="sqs-dlq-status" style={hintStyle}>
+              Dead-letter queue configured.
+            </span>
+          ) : null}
+          {dlqState === 'error' ? (
+            <span data-testid="sqs-dlq-error" style={hintStyle}>
+              Enter a dead-letter queue ARN and a max receive count between 1 and 1000.
+            </span>
+          ) : null}
+        </section>
+      ) : null}
+
       {tab === 'overview' && attributes !== null ? (
         <section data-testid="sqs-attributes" style={attributesSectionStyle}>
           <h3 style={headingStyle}>Queue attributes</h3>
@@ -900,6 +991,45 @@ export function SqsDetailView({ resourceId }: ServiceDetailViewProps) {
                     <RawJsonViewer value={message.body} title="Body" />
                     <RawJsonViewer value={message.attributes} title="System attributes" />
                     <RawJsonViewer value={message.messageAttributes} title="Message attributes" />
+                    <div data-testid="sqs-message-visibility" style={sendRowStyle}>
+                      <div style={fieldRowStyle}>
+                        <label htmlFor={`sqs-visibility-${message.receiptHandle}`} style={labelStyle}>
+                          Visibility timeout (seconds)
+                        </label>
+                        <input
+                          id={`sqs-visibility-${message.receiptHandle}`}
+                          data-testid="sqs-message-visibility-input"
+                          type="number"
+                          style={inputStyle}
+                          value={visibilityValues[message.receiptHandle] ?? '30'}
+                          onChange={(event) =>
+                            setVisibilityValues((current) => ({
+                              ...current,
+                              [message.receiptHandle]: event.target.value,
+                            }))
+                          }
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        data-testid="sqs-message-visibility-apply"
+                        style={buttonStyle}
+                        disabled={visibilityStatus[message.receiptHandle] === 'saving'}
+                        onClick={() => handleChangeVisibility(message.receiptHandle)}
+                      >
+                        Apply visibility
+                      </button>
+                      {visibilityStatus[message.receiptHandle] === 'applied' ? (
+                        <span data-testid="sqs-message-visibility-status" style={hintStyle}>
+                          Visibility updated.
+                        </span>
+                      ) : null}
+                      {visibilityStatus[message.receiptHandle] === 'error' ? (
+                        <span data-testid="sqs-message-visibility-error" style={hintStyle}>
+                          Unable to update visibility.
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 ) : null}
               </div>

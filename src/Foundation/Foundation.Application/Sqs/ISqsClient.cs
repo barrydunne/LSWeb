@@ -55,6 +55,18 @@ public interface ISqsClient
     Task<Result> DeleteMessageAsync(string queueName, string receiptHandle, CancellationToken cancellationToken);
 
     /// <summary>
+    /// Override the visibility timeout of a single in-flight message, controlling how long it stays
+    /// hidden from other consumers before becoming available again.
+    /// </summary>
+    /// <param name="queueName">The name of the queue the message was received from.</param>
+    /// <param name="receiptHandle">The receipt handle identifying the message to update.</param>
+    /// <param name="visibilityTimeoutSeconds">The new visibility timeout, in seconds.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>Success when the timeout is applied; otherwise a failure describing the error.</returns>
+    Task<Result> ChangeMessageVisibilityAsync(
+        string queueName, string receiptHandle, int visibilityTimeoutSeconds, CancellationToken cancellationToken);
+
+    /// <summary>
     /// Purge all messages from a queue. The operation is asynchronous on the backend and cannot be
     /// undone.
     /// </summary>
@@ -128,4 +140,15 @@ public interface ISqsClient
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>Success when the redrive task is started; otherwise a failure describing the error.</returns>
     Task<Result> StartMessageRedriveAsync(string queueName, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Configure the redrive (dead-letter queue) policy of a source queue.
+    /// </summary>
+    /// <param name="queueName">The name of the source queue to configure.</param>
+    /// <param name="deadLetterTargetArn">The Amazon Resource Name of the dead-letter queue.</param>
+    /// <param name="maxReceiveCount">The number of receives after which a message is moved to the dead-letter queue.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>Success when the policy is applied; otherwise a failure describing the error.</returns>
+    Task<Result> SetRedrivePolicyAsync(
+        string queueName, string deadLetterTargetArn, int maxReceiveCount, CancellationToken cancellationToken);
 }

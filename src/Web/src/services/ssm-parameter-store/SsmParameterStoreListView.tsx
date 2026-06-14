@@ -51,6 +51,73 @@ const buttonStyle: CSSProperties = {
 
 const parameterTypes = ['String', 'StringList', 'SecureString'];
 
+const breadcrumbStyle: CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  alignItems: 'center',
+  gap: 4,
+  marginBottom: 8,
+  fontSize: 13,
+  fontFamily: 'monospace',
+};
+
+const breadcrumbButtonStyle: CSSProperties = {
+  fontSize: 13,
+  padding: '1px 6px',
+  borderRadius: 6,
+  border: '1px solid #30363d',
+  background: '#21262d',
+  color: 'inherit',
+  cursor: 'pointer',
+  fontFamily: 'monospace',
+};
+
+const folderListStyle: CSSProperties = {
+  display: 'flex',
+  flexWrap: 'wrap',
+  gap: 8,
+  marginBottom: 12,
+};
+
+const folderButtonStyle: CSSProperties = {
+  fontSize: 13,
+  padding: '4px 10px',
+  borderRadius: 6,
+  border: '1px solid #30363d',
+  background: '#161b22',
+  color: 'inherit',
+  cursor: 'pointer',
+  fontFamily: 'monospace',
+};
+
+function childPrefix(path: string): string {
+  return path === '/' ? '/' : `${path}/`;
+}
+
+function directParameters(parameters: ParameterItem[], path: string): ParameterItem[] {
+  const prefix = childPrefix(path);
+  return parameters.filter(
+    (parameter) =>
+      parameter.name.startsWith(prefix) && !parameter.name.slice(prefix.length).includes('/'),
+  );
+}
+
+function childFolders(parameters: ParameterItem[], path: string): string[] {
+  const prefix = childPrefix(path);
+  const folders = new Set<string>();
+  for (const parameter of parameters) {
+    if (!parameter.name.startsWith(prefix)) {
+      continue;
+    }
+    const remainder = parameter.name.slice(prefix.length);
+    const separator = remainder.indexOf('/');
+    if (separator > 0) {
+      folders.add(remainder.slice(0, separator));
+    }
+  }
+  return Array.from(folders).sort((left, right) => left.localeCompare(right));
+}
+
 const columns: DataListColumn[] = [
   { key: 'name', label: 'Name' },
   { key: 'type', label: 'Type' },
@@ -69,6 +136,7 @@ type CreateState = 'idle' | 'saving' | 'created' | 'error';
 export function SsmParameterStoreListView({ serviceKey }: ServiceListViewProps) {
   const [state, setState] = useState<ListState>({ kind: 'loading' });
   const [reloadToken, setReloadToken] = useState(0);
+  const [currentPath, setCurrentPath] = useState('/');
   const [showCreate, setShowCreate] = useState(false);
   const [name, setName] = useState('');
   const [type, setType] = useState('String');
@@ -135,7 +203,11 @@ export function SsmParameterStoreListView({ serviceKey }: ServiceListViewProps) 
     );
   }
 
-  const rows: DataListRow[] = state.parameters.map((parameter) => ({
+  const folders = childFolders(state.parameters, currentPath);
+  const visibleParameters = directParameters(state.parameters, currentPath);
+  const segments = currentPath === '/' ? [] : currentPath.slice(1).split('/');
+
+  const rows: DataListRow[] = visibleParameters.map((parameter) => ({
     id: parameter.name,
     filterText: parameter.name,
     cells: {
@@ -163,11 +235,59 @@ export function SsmParameterStoreListView({ serviceKey }: ServiceListViewProps) 
 
   return (
     <div data-testid="ssm-parameter-store-list-view">
+      <nav data-testid="ssm-path-breadcrumb" style={breadcrumbStyle}>
+        <button
+          type="button"
+          data-testid="ssm-path-root"
+          style={breadcrumbButtonStyle}
+          onClick={() => setCurrentPath('/')}
+        >
+          /
+        </button>
+        {segments.map((segment, index) => {
+          const targetPath = `/${segments.slice(0, index + 1).join('/')}`;
+          return (
+            <span key={targetPath} style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <span aria-hidden="true">/</span>
+              <button
+                type="button"
+                data-testid="ssm-path-segment"
+                style={breadcrumbButtonStyle}
+                onClick={() => setCurrentPath(targetPath)}
+              >
+                {segment}
+              </button>
+            </span>
+          );
+        })}
+      </nav>
+      {folders.length > 0 ? (
+        <div data-testid="ssm-folder-list" style={folderListStyle}>
+          {folders.map((folder) => (
+            <button
+              key={folder}
+              type="button"
+              data-testid="ssm-folder"
+              style={folderButtonStyle}
+              onClick={() => setCurrentPath(`${childPrefix(currentPath)}${folder}`)}
+            >
+              {folder}/
+            </button>
+          ))}
+        </div>
+      ) : null}
       <button
         type="button"
         data-testid="ssm-parameter-store-create-toggle"
         style={buttonStyle}
-        onClick={() => setShowCreate((current) => !current)}
+        onClick={() => {
+          setShowCreate((current) => {
+            if (!current && name === '') {
+              setName(childPrefix(currentPath));
+            }
+            return !current;
+          });
+        }}
       >
         {showCreate ? 'Cancel' : 'Create parameter'}
       </button>

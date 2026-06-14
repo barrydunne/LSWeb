@@ -1,13 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { StepFunctionsListView } from './StepFunctionsListView';
-import { getStateMachines } from '../../api/client';
+import { createStateMachine, getStateMachines } from '../../api/client';
 import type { StateMachineListResult } from '../../api/client';
 
 vi.mock('../../api/client');
 
 const getStateMachinesMock = vi.mocked(getStateMachines);
+const createStateMachineMock = vi.mocked(createStateMachine);
 
 const listResult: StateMachineListResult = {
   stateMachines: [
@@ -37,10 +38,15 @@ function renderView() {
 describe('StepFunctionsListView', () => {
   beforeEach(() => {
     getStateMachinesMock.mockResolvedValue(listResult);
+    createStateMachineMock.mockResolvedValue({
+      stateMachineArn: 'arn:aws:states:eu-west-1:000000000000:stateMachine:new',
+      creationDate: '2024-03-01T00:00:00+00:00',
+    });
   });
 
   afterEach(() => {
-    vi.resetAllMocks();
+    cleanup();
+    vi.clearAllMocks();
   });
 
   it('shows a loading state before state machines arrive', () => {
@@ -130,5 +136,147 @@ describe('StepFunctionsListView', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  const validDefinition = JSON.stringify({
+    StartAt: 'A',
+    States: { A: { Type: 'Pass', End: true } },
+  });
+
+  it('creates a state machine with a valid definition', async () => {
+    renderView();
+    await waitFor(() => expect(screen.getByTestId('step-functions-list-view')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('step-functions-create-toggle'));
+    fireEvent.change(screen.getByTestId('step-functions-create-name'), { target: { value: 'orders' } });
+    fireEvent.change(screen.getByTestId('step-functions-create-role'), {
+      target: { value: 'arn:aws:iam::000000000000:role/sfn' },
+    });
+    fireEvent.change(screen.getByTestId('step-functions-create-type'), { target: { value: 'EXPRESS' } });
+    fireEvent.change(screen.getByTestId('step-functions-create-definition'), {
+      target: { value: validDefinition },
+    });
+    fireEvent.click(screen.getByTestId('step-functions-create-submit'));
+
+    await waitFor(() =>
+      expect(createStateMachineMock).toHaveBeenCalledWith({
+        name: 'orders',
+        definition: validDefinition,
+        roleArn: 'arn:aws:iam::000000000000:role/sfn',
+        type: 'EXPRESS',
+      }),
+    );
+    await waitFor(() => expect(screen.getByTestId('step-functions-create-status')).toBeInTheDocument());
+  });
+
+  it('blocks creation when the name or role is missing', async () => {
+    renderView();
+    await waitFor(() => expect(screen.getByTestId('step-functions-list-view')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('step-functions-create-toggle'));
+    fireEvent.click(screen.getByTestId('step-functions-create-submit'));
+
+    expect(screen.getByTestId('step-functions-create-invalid')).toBeInTheDocument();
+    expect(createStateMachineMock).not.toHaveBeenCalled();
+  });
+
+  it('blocks creation when the definition is not valid ASL', async () => {
+    renderView();
+    await waitFor(() => expect(screen.getByTestId('step-functions-list-view')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('step-functions-create-toggle'));
+    fireEvent.change(screen.getByTestId('step-functions-create-name'), { target: { value: 'orders' } });
+    fireEvent.change(screen.getByTestId('step-functions-create-role'), {
+      target: { value: 'arn:aws:iam::000000000000:role/sfn' },
+    });
+    fireEvent.change(screen.getByTestId('step-functions-create-definition'), {
+      target: { value: '{"States":{}}' },
+    });
+    fireEvent.click(screen.getByTestId('step-functions-create-submit'));
+
+    expect(screen.getByTestId('step-functions-create-invalid')).toBeInTheDocument();
+    expect(createStateMachineMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a definition that is not a JSON object', async () => {
+    renderView();
+    await waitFor(() => expect(screen.getByTestId('step-functions-list-view')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('step-functions-create-toggle'));
+    fireEvent.change(screen.getByTestId('step-functions-create-name'), { target: { value: 'orders' } });
+    fireEvent.change(screen.getByTestId('step-functions-create-role'), {
+      target: { value: 'arn:aws:iam::000000000000:role/sfn' },
+    });
+    fireEvent.change(screen.getByTestId('step-functions-create-definition'), {
+      target: { value: '[1,2,3]' },
+    });
+    fireEvent.click(screen.getByTestId('step-functions-create-submit'));
+
+    expect(screen.getByTestId('step-functions-create-invalid')).toBeInTheDocument();
+    expect(createStateMachineMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects malformed JSON in the definition', async () => {
+    renderView();
+    await waitFor(() => expect(screen.getByTestId('step-functions-list-view')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('step-functions-create-toggle'));
+    fireEvent.change(screen.getByTestId('step-functions-create-name'), { target: { value: 'orders' } });
+    fireEvent.change(screen.getByTestId('step-functions-create-role'), {
+      target: { value: 'arn:aws:iam::000000000000:role/sfn' },
+    });
+    fireEvent.change(screen.getByTestId('step-functions-create-definition'), {
+      target: { value: 'not valid json {' },
+    });
+    fireEvent.click(screen.getByTestId('step-functions-create-submit'));
+
+    expect(screen.getByTestId('step-functions-create-invalid')).toBeInTheDocument();
+    expect(createStateMachineMock).not.toHaveBeenCalled();
+  });
+
+  it('rejects a definition with a non-string StartAt', async () => {
+    renderView();
+    await waitFor(() => expect(screen.getByTestId('step-functions-list-view')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('step-functions-create-toggle'));
+    fireEvent.change(screen.getByTestId('step-functions-create-name'), { target: { value: 'orders' } });
+    fireEvent.change(screen.getByTestId('step-functions-create-role'), {
+      target: { value: 'arn:aws:iam::000000000000:role/sfn' },
+    });
+    fireEvent.change(screen.getByTestId('step-functions-create-definition'), {
+      target: { value: '{"StartAt":1,"States":{"A":{}}}' },
+    });
+    fireEvent.click(screen.getByTestId('step-functions-create-submit'));
+
+    expect(screen.getByTestId('step-functions-create-invalid')).toBeInTheDocument();
+    expect(createStateMachineMock).not.toHaveBeenCalled();
+  });
+
+  it('shows an error when the create request fails', async () => {
+    createStateMachineMock.mockRejectedValue(new Error('boom'));
+    renderView();
+    await waitFor(() => expect(screen.getByTestId('step-functions-list-view')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('step-functions-create-toggle'));
+    fireEvent.change(screen.getByTestId('step-functions-create-name'), { target: { value: 'orders' } });
+    fireEvent.change(screen.getByTestId('step-functions-create-role'), {
+      target: { value: 'arn:aws:iam::000000000000:role/sfn' },
+    });
+    fireEvent.change(screen.getByTestId('step-functions-create-definition'), {
+      target: { value: validDefinition },
+    });
+    fireEvent.click(screen.getByTestId('step-functions-create-submit'));
+
+    await waitFor(() => expect(screen.getByTestId('step-functions-create-error')).toBeInTheDocument());
+  });
+
+  it('hides the create form when toggled off', async () => {
+    renderView();
+    await waitFor(() => expect(screen.getByTestId('step-functions-list-view')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('step-functions-create-toggle'));
+    expect(screen.getByTestId('step-functions-create-form')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('step-functions-create-toggle'));
+    expect(screen.queryByTestId('step-functions-create-form')).not.toBeInTheDocument();
   });
 });

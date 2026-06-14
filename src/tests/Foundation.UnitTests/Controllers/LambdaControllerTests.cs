@@ -2,21 +2,27 @@ using AspNet.KickStarter.FunctionalResult;
 using Foundation.Api.Controllers;
 using Foundation.Api.Models;
 using Foundation.Application.Commands.CreateLambdaFunction;
+using Foundation.Application.Commands.CreateLambdaFunctionUrl;
 using Foundation.Application.Commands.DeleteLambdaFunction;
+using Foundation.Application.Commands.DeleteLambdaFunctionUrl;
 using Foundation.Application.Commands.DeleteLambdaTestEvent;
 using Foundation.Application.Commands.InvokeLambdaFunction;
 using Foundation.Application.Commands.SaveLambdaTestEvent;
 using Foundation.Application.Commands.SetLambdaEventSourceMappingState;
 using Foundation.Application.Commands.UpdateLambdaEnvironment;
 using Foundation.Application.Commands.UpdateLambdaFunction;
+using Foundation.Application.Commands.UpdateLambdaFunctionUrl;
 using Foundation.Application.Queries.GetLambdaEnvironment;
 using Foundation.Application.Queries.GetLambdaFunction;
+using Foundation.Application.Queries.GetLambdaFunctionCode;
+using Foundation.Application.Queries.GetLambdaFunctionUrl;
 using Foundation.Application.Queries.GetLambdaInvocationInsights;
 using Foundation.Application.Queries.ListLambdaEventSourceMappings;
 using Foundation.Application.Queries.ListLambdaFunctions;
 using Foundation.Application.Queries.ListLambdaLayers;
 using Foundation.Application.Queries.ListLambdaLogEvents;
 using Foundation.Application.Queries.ListLambdaTestEvents;
+using Foundation.Application.Queries.TestLambdaFunctionUrl;
 using Foundation.Domain.Lambda;
 using MediatR;
 using Microsoft.AspNetCore.Http;
@@ -127,6 +133,266 @@ public class LambdaControllerTests
 
         // Act
         var result = await sut.GetFunction("missing", TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task GetFunctionCode_WhenQuerySucceeds_ReturnsOkWithCode()
+    {
+        // Arrange
+        var code = new LambdaFunctionCode(
+            "process-orders",
+            "dotnet8",
+            "Orders::Handler",
+            "Zip",
+            2048,
+            "abc123=",
+            "S3",
+            "https://localstack/download.zip",
+            string.Empty);
+        _sender
+            .Send(Arg.Any<GetLambdaFunctionCodeQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<GetLambdaFunctionCodeQueryResult>>(
+                new GetLambdaFunctionCodeQueryResult(code)));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.GetFunctionCode("process-orders", TestContext.Current.CancellationToken);
+
+        // Assert
+        var ok = result.Should().BeOfType<Ok<LambdaFunctionCodeResponse>>().Subject;
+        ok.Value!.FunctionName.Should().Be("process-orders");
+        ok.Value.Runtime.Should().Be("dotnet8");
+        ok.Value.Handler.Should().Be("Orders::Handler");
+        ok.Value.PackageType.Should().Be("Zip");
+        ok.Value.CodeSize.Should().Be(2048);
+        ok.Value.CodeSha256.Should().Be("abc123=");
+        ok.Value.RepositoryType.Should().Be("S3");
+        ok.Value.Location.Should().Be("https://localstack/download.zip");
+        ok.Value.ImageUri.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetFunctionCode_WhenQueryFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<GetLambdaFunctionCodeQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<GetLambdaFunctionCodeQueryResult>>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.GetFunctionCode("missing", TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task GetFunctionUrl_WhenConfigured_ReturnsOkConfigured()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<GetLambdaFunctionUrlQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<GetLambdaFunctionUrlQueryResult>>(
+                new GetLambdaFunctionUrlQueryResult(
+                    new LambdaFunctionUrl("https://abc.lambda-url.eu-west-1.on.aws/", "NONE", "t1", "t2"))));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.GetFunctionUrl("orders", TestContext.Current.CancellationToken);
+
+        // Assert
+        var ok = result.Should().BeOfType<Ok<LambdaFunctionUrlResponse>>().Subject;
+        ok.Value!.Configured.Should().BeTrue();
+        ok.Value.FunctionUrl.Should().Be("https://abc.lambda-url.eu-west-1.on.aws/");
+        ok.Value.AuthType.Should().Be("NONE");
+        ok.Value.CreationTime.Should().Be("t1");
+        ok.Value.LastModifiedTime.Should().Be("t2");
+    }
+
+    [Fact]
+    public async Task GetFunctionUrl_WhenNotConfigured_ReturnsOkNotConfigured()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<GetLambdaFunctionUrlQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<GetLambdaFunctionUrlQueryResult>>(
+                new GetLambdaFunctionUrlQueryResult(null)));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.GetFunctionUrl("orders", TestContext.Current.CancellationToken);
+
+        // Assert
+        var ok = result.Should().BeOfType<Ok<LambdaFunctionUrlResponse>>().Subject;
+        ok.Value!.Configured.Should().BeFalse();
+        ok.Value.FunctionUrl.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task GetFunctionUrl_WhenQueryFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<GetLambdaFunctionUrlQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<GetLambdaFunctionUrlQueryResult>>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.GetFunctionUrl("missing", TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task CreateFunctionUrl_WhenCommandSucceeds_ReturnsCreated()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<CreateLambdaFunctionUrlCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.CreateFunctionUrl(
+            "orders", new LambdaFunctionUrlRequest("NONE"), TestContext.Current.CancellationToken);
+
+        // Assert
+        var created = result.Should().BeOfType<Created>().Subject;
+        created.Location.Should().Be("/api/services/lambda/functions/orders/url");
+        await _sender.Received(1).Send(
+            Arg.Is<CreateLambdaFunctionUrlCommand>(command =>
+                command.FunctionName == "orders" && command.AuthType == "NONE"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task CreateFunctionUrl_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<CreateLambdaFunctionUrlCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.CreateFunctionUrl(
+            "orders", new LambdaFunctionUrlRequest("NONE"), TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task UpdateFunctionUrl_WhenCommandSucceeds_ReturnsNoContent()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<UpdateLambdaFunctionUrlCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.UpdateFunctionUrl(
+            "orders", new LambdaFunctionUrlRequest("AWS_IAM"), TestContext.Current.CancellationToken);
+
+        // Assert
+        result.Should().BeOfType<NoContent>();
+        await _sender.Received(1).Send(
+            Arg.Is<UpdateLambdaFunctionUrlCommand>(command =>
+                command.FunctionName == "orders" && command.AuthType == "AWS_IAM"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task UpdateFunctionUrl_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<UpdateLambdaFunctionUrlCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.UpdateFunctionUrl(
+            "orders", new LambdaFunctionUrlRequest("AWS_IAM"), TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task DeleteFunctionUrl_WhenCommandSucceeds_ReturnsNoContent()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<DeleteLambdaFunctionUrlCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.DeleteFunctionUrl("orders", TestContext.Current.CancellationToken);
+
+        // Assert
+        result.Should().BeOfType<NoContent>();
+    }
+
+    [Fact]
+    public async Task DeleteFunctionUrl_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<DeleteLambdaFunctionUrlCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.DeleteFunctionUrl("orders", TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task TestFunctionUrl_WhenQuerySucceeds_ReturnsOk()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<TestLambdaFunctionUrlQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<TestLambdaFunctionUrlQueryResult>>(
+                new TestLambdaFunctionUrlQueryResult(new LambdaFunctionUrlTest(200, "{\"ok\":true}"))));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.TestFunctionUrl("orders", TestContext.Current.CancellationToken);
+
+        // Assert
+        var ok = result.Should().BeOfType<Ok<LambdaFunctionUrlTestResponse>>().Subject;
+        ok.Value!.StatusCode.Should().Be(200);
+        ok.Value.Body.Should().Be("{\"ok\":true}");
+    }
+
+    [Fact]
+    public async Task TestFunctionUrl_WhenQueryFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<TestLambdaFunctionUrlQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<TestLambdaFunctionUrlQueryResult>>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.TestFunctionUrl("missing", TestContext.Current.CancellationToken);
 
         // Assert
         var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;

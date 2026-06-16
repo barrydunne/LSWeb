@@ -73,8 +73,21 @@ describe('ResourceDetailPage', () => {
 
     await waitFor(() => expect(screen.getByTestId('sqs-detail')).toBeInTheDocument());
     await waitFor(() =>
-      expect(recordRecentlyViewedMock).toHaveBeenCalledWith('sqs://orders', expect.any(AbortSignal)),
+      expect(recordRecentlyViewedMock).toHaveBeenCalledWith('sqs://orders'),
     );
+  });
+
+  it('records each resource only once while staying on the same detail page', async () => {
+    registerServiceView('sqs', {
+      detail: ({ resourceId }) => <div data-testid="sqs-detail">{resourceId}</div>,
+    });
+
+    renderAt('/services/sqs/orders');
+
+    await waitFor(() => expect(screen.getByTestId('sqs-detail')).toBeInTheDocument());
+    await waitFor(() => expect(recordRecentlyViewedMock).toHaveBeenCalledTimes(1));
+
+    expect(recordRecentlyViewedMock).toHaveBeenCalledWith('sqs://orders');
   });
 
   it('ignores a failure to record the recently-viewed resource', async () => {

@@ -2,6 +2,7 @@ using AspNet.KickStarter.FunctionalResult;
 using Foundation.Api.Controllers;
 using Foundation.Api.Models;
 using Foundation.Application.Commands.CreateStateMachine;
+using Foundation.Application.Commands.DeleteStateMachine;
 using Foundation.Application.Commands.StartExecution;
 using Foundation.Application.Commands.UpdateStateMachineDefinition;
 using Foundation.Application.Queries.GetExecutionHistory;
@@ -326,6 +327,47 @@ public class StepFunctionsControllerTests
             new UpdateStateMachineDefinitionRequest(
                 "arn:aws:states:eu-west-1:000000000000:stateMachine:orders",
                 "{\"StartAt\":\"A\",\"States\":{}}"),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task DeleteStateMachine_WhenCommandSucceeds_ReturnsNoContentAndForwardsArn()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<DeleteStateMachineCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.DeleteStateMachine(
+            "arn:aws:states:eu-west-1:000000000000:stateMachine:orders",
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        result.Should().BeOfType<NoContent>();
+        await _sender.Received(1).Send(
+            Arg.Is<DeleteStateMachineCommand>(command =>
+                command.StateMachineArn == "arn:aws:states:eu-west-1:000000000000:stateMachine:orders"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task DeleteStateMachine_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<DeleteStateMachineCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new Error("boom")));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.DeleteStateMachine(
+            "arn:aws:states:eu-west-1:000000000000:stateMachine:orders",
             TestContext.Current.CancellationToken);
 
         // Assert

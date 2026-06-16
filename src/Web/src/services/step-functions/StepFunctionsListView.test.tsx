@@ -2,13 +2,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { StepFunctionsListView } from './StepFunctionsListView';
-import { createStateMachine, getStateMachines } from '../../api/client';
+import { createStateMachine, deleteStateMachine, getStateMachines } from '../../api/client';
 import type { StateMachineListResult } from '../../api/client';
 
 vi.mock('../../api/client');
 
 const getStateMachinesMock = vi.mocked(getStateMachines);
 const createStateMachineMock = vi.mocked(createStateMachine);
+const deleteStateMachineMock = vi.mocked(deleteStateMachine);
 
 const listResult: StateMachineListResult = {
   stateMachines: [
@@ -47,6 +48,39 @@ describe('StepFunctionsListView', () => {
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
+  });
+
+  it('deletes a state machine after confirmation and refreshes the list', async () => {
+    deleteStateMachineMock.mockResolvedValue();
+
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('step-functions-list-view')).toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByTestId('confirm-trigger')[0]);
+    fireEvent.click(screen.getByTestId('confirm-accept'));
+
+    await waitFor(() =>
+      expect(deleteStateMachineMock).toHaveBeenCalledWith(
+        'arn:aws:states:eu-west-1:000000000000:stateMachine:orders-workflow',
+      ),
+    );
+    await waitFor(() => expect(getStateMachinesMock).toHaveBeenCalledTimes(2));
+  });
+
+  it('shows an error when state machine deletion fails', async () => {
+    deleteStateMachineMock.mockRejectedValue(new Error('boom'));
+
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('step-functions-list-view')).toBeInTheDocument());
+
+    fireEvent.click(screen.getAllByTestId('confirm-trigger')[0]);
+    fireEvent.click(screen.getByTestId('confirm-accept'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('step-functions-list-error')).toBeInTheDocument(),
+    );
   });
 
   it('shows a loading state before state machines arrive', () => {

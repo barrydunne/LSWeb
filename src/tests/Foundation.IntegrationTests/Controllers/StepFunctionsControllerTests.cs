@@ -74,4 +74,20 @@ public class StepFunctionsControllerTests
             payload!.Events.Should().NotBeNull();
         }
     }
+
+    [Fact]
+    public async Task DeleteStateMachine_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
+    {
+        // Arrange
+        var client = _fixture.CreateClient();
+
+        // Act
+        var response = await client.DeleteAsync(
+            "/api/services/step-functions/state-machine?arn=arn:aws:states:eu-west-1:000000000000:stateMachine:integration-missing",
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        response.StatusCode.Should().NotBe(HttpStatusCode.NotFound);
+        response.StatusCode.Should().NotBe(HttpStatusCode.MethodNotAllowed);
+    }
 }

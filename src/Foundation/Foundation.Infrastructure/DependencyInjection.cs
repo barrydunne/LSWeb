@@ -167,7 +167,8 @@ public static class DependencyInjection
             .AddSingleton<IUserDataStore>(CreateUserDataStore)
             .AddSingleton<ITestEventStore>(CreateTestEventStore)
             .AddHostedService<HealthMonitor>()
-            .AddHostedService<SearchIndexer>();
+            .AddHostedService<SearchIndexer>()
+            .AddHostedService<RecentlyViewedPruneMonitor>();
     }
 
     private static IUserDataStore CreateUserDataStore(IServiceProvider provider)

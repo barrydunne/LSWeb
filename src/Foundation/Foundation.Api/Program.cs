@@ -51,6 +51,7 @@ try
 
     app.UseDefaultFiles();
     app.UseStaticFiles();
+    app.UseWebSockets();
     app.MapControllers();
     app.MapFoundationStreaming();
     app.MapFallbackToFile("index.html");

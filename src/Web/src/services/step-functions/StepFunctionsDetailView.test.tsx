@@ -2,8 +2,21 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { StepFunctionsDetailView } from './StepFunctionsDetailView';
-import { getExecutions, getStateMachine, resolveReference, updateStateMachineDefinition } from '../../api/client';
+import {
+  deleteStateMachine,
+  getExecutions,
+  getStateMachine,
+  resolveReference,
+  updateStateMachineDefinition,
+} from '../../api/client';
 import type { StateMachineDetailResult } from '../../api/client';
+
+const navigateMock = vi.fn();
+
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>();
+  return { ...actual, useNavigate: () => navigateMock };
+});
 
 vi.mock('../../api/client');
 
@@ -11,6 +24,7 @@ const getStateMachineMock = vi.mocked(getStateMachine);
 const getExecutionsMock = vi.mocked(getExecutions);
 const resolveReferenceMock = vi.mocked(resolveReference);
 const updateStateMachineDefinitionMock = vi.mocked(updateStateMachineDefinition);
+const deleteStateMachineMock = vi.mocked(deleteStateMachine);
 
 const stateMachineArn = 'arn:aws:states:eu-west-1:000000000000:stateMachine:orders-workflow';
 
@@ -38,6 +52,7 @@ describe('StepFunctionsDetailView', () => {
     getExecutionsMock.mockResolvedValue({ executions: [] });
     resolveReferenceMock.mockResolvedValue(null as never);
     updateStateMachineDefinitionMock.mockResolvedValue();
+    deleteStateMachineMock.mockResolvedValue();
   });
 
   afterEach(() => {
@@ -210,5 +225,30 @@ describe('StepFunctionsDetailView', () => {
 
     expect(screen.queryByTestId('step-functions-definition-editor')).not.toBeInTheDocument();
     expect(updateStateMachineDefinitionMock).not.toHaveBeenCalled();
+  });
+
+  it('deletes the state machine after confirmation and navigates back to the list', async () => {
+    renderView();
+    await waitFor(() => expect(screen.getByTestId('step-functions-detail-view')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('confirm-trigger'));
+    fireEvent.click(screen.getByTestId('confirm-accept'));
+
+    await waitFor(() => expect(deleteStateMachineMock).toHaveBeenCalledWith(stateMachineArn));
+    await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/services/step-functions'));
+  });
+
+  it('shows an error when deleting the state machine fails', async () => {
+    deleteStateMachineMock.mockRejectedValue(new Error('boom'));
+    renderView();
+    await waitFor(() => expect(screen.getByTestId('step-functions-detail-view')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('confirm-trigger'));
+    fireEvent.click(screen.getByTestId('confirm-accept'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('step-functions-detail-delete-error')).toBeInTheDocument(),
+    );
+    expect(navigateMock).not.toHaveBeenCalled();
   });
 });

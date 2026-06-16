@@ -2,6 +2,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using AspNet.KickStarter.CQRS;
 using FluentValidation;
+using Foundation.Application.Preferences;
 using Foundation.Application.Seed;
 using Foundation.Application.Snapshot;
 using Microsoft.Extensions.DependencyInjection;
@@ -26,5 +27,6 @@ public static class DependencyInjection
             .AddValidatorsFromAssembly(Assembly.GetExecutingAssembly(), includeInternalTypes: true)
             .AddSingleton<ISeedTemplateCatalogue, SeedTemplateCatalogue>()
             .AddSingleton<IWorkspaceSnapshotExporter, WorkspaceSnapshotExporter>()
-            .AddSingleton<IWorkspaceSnapshotImporter, WorkspaceSnapshotImporter>();
+            .AddSingleton<IWorkspaceSnapshotImporter, WorkspaceSnapshotImporter>()
+            .AddSingleton<IRecentlyViewedPruner, RecentlyViewedPruner>();
 }

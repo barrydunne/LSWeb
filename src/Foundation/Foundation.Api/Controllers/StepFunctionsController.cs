@@ -1,6 +1,7 @@
 using AspNet.KickStarter.FunctionalResult.Extensions;
 using Foundation.Api.Models;
 using Foundation.Application.Commands.CreateStateMachine;
+using Foundation.Application.Commands.DeleteStateMachine;
 using Foundation.Application.Commands.StartExecution;
 using Foundation.Application.Commands.UpdateStateMachineDefinition;
 using Foundation.Application.Queries.GetExecutionHistory;
@@ -181,6 +182,25 @@ public partial class StepFunctionsController : ControllerBase
     }
 
     /// <summary>
+    /// Deletes a Step Functions state machine by its Amazon Resource Name.
+    /// </summary>
+    /// <param name="arn">The Amazon Resource Name of the state machine to delete.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 204 result on success.</returns>
+    [HttpDelete("state-machine")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IResult> DeleteStateMachine(
+        [FromQuery] string arn, CancellationToken cancellationToken)
+    {
+        LogHandlingDeleteStateMachine(arn);
+        var result = await _sender.Send(new DeleteStateMachineCommand(arn), cancellationToken);
+        LogDeleteStateMachineHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.NoContent(),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
     /// Gets the ordered history of a single Step Functions execution.
     /// </summary>
     /// <param name="arn">The Amazon Resource Name of the execution whose history to read.</param>
@@ -246,6 +266,12 @@ public partial class StepFunctionsController : ControllerBase
 
     [LoggerMessage(LogLevel.Trace, "Step Functions update definition request handled. Success: {Success}")]
     private partial void LogUpdateDefinitionHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling Step Functions delete state machine request for {Arn}.")]
+    private partial void LogHandlingDeleteStateMachine(string arn);
+
+    [LoggerMessage(LogLevel.Trace, "Step Functions delete state machine request handled. Success: {Success}")]
+    private partial void LogDeleteStateMachineHandled(bool success);
 
     [LoggerMessage(LogLevel.Trace, "Handling Step Functions execution history request for {Arn}.")]
     private partial void LogHandlingGetExecutionHistory(string arn);

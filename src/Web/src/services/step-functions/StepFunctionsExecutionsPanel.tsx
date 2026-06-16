@@ -84,6 +84,7 @@ const historyButtonStyle: CSSProperties = {
 const failureStatusStyle: CSSProperties = { color: '#f85149', fontWeight: 600 };
 
 const failureStatuses = new Set(['FAILED', 'TIMED_OUT', 'ABORTED']);
+const terminalStatuses = new Set(['SUCCEEDED', 'FAILED', 'TIMED_OUT', 'ABORTED']);
 
 const statusFilters = ['ALL', 'RUNNING', 'SUCCEEDED', 'FAILED', 'TIMED_OUT', 'ABORTED'];
 
@@ -105,16 +106,48 @@ export function StepFunctionsExecutionsPanel({ stateMachineArn }: { stateMachine
 
   useEffect(() => {
     const controller = new AbortController();
+    let pollTimer: ReturnType<typeof setTimeout> | null = null;
     getExecutions(stateMachineArn, controller.signal)
-      .then((result) => setState({ kind: 'ready', executions: result.executions }))
-      .catch(() => setState({ kind: 'error' }));
-    return () => controller.abort();
+      .then((result) => {
+        setState({ kind: 'ready', executions: result.executions });
+        if (result.executions.some((execution) => !terminalStatuses.has(execution.status))) {
+          pollTimer = setTimeout(() => {
+            setReloadToken((token) => token + 1);
+          }, 1500);
+        }
+      })
+      .catch((error: unknown) => {
+        // Aborts are expected while reloading and should not surface as an error state.
+        if (error instanceof DOMException && error.name === 'AbortError') {
+          return;
+        }
+        setState({ kind: 'error' });
+      });
+    return () => {
+      controller.abort();
+      if (pollTimer !== null) {
+        clearTimeout(pollTimer);
+      }
+    };
   }, [stateMachineArn, reloadToken]);
 
   const refresh = useCallback(() => {
     setState({ kind: 'loading' });
     setReloadToken((token) => token + 1);
   }, []);
+
+  const reconcile = useCallback(() => {
+    setReloadToken((token) => token + 1);
+  }, []);
+
+  const handleResolvedStatus = useCallback(
+    (rowStatus: string, resolvedStatus: string) => {
+      if (resolvedStatus !== rowStatus) {
+        reconcile();
+      }
+    },
+    [reconcile],
+  );
 
   const handleStart = () => {
     const trimmedName = name.trim();
@@ -281,7 +314,12 @@ export function StepFunctionsExecutionsPanel({ stateMachineArn }: { stateMachine
                       {historyArn === execution.executionArn && (
                         <tr data-testid="step-functions-execution-history-row">
                           <td style={cellStyle} colSpan={5}>
-                            <StepFunctionsExecutionHistoryPanel executionArn={execution.executionArn} />
+                            <StepFunctionsExecutionHistoryPanel
+                              executionArn={execution.executionArn}
+                              onResolvedStatus={(resolvedStatus) =>
+                                handleResolvedStatus(execution.status, resolvedStatus)
+                              }
+                            />
                           </td>
                         </tr>
                       )}

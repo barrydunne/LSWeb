@@ -77,4 +77,14 @@ public interface IStepFunctionsClient
     /// <returns>A successful result, or an error when the backend rejects the request.</returns>
     Task<Result> UpdateStateMachineDefinitionAsync(
         string stateMachineArn, string definition, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// Delete a state machine by its Amazon Resource Name. This is a destructive action that cannot
+    /// be undone.
+    /// </summary>
+    /// <param name="stateMachineArn">The Amazon Resource Name of the state machine to delete.</param>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>A successful result, or an error when the backend rejects the request.</returns>
+    Task<Result> DeleteStateMachineAsync(
+        string stateMachineArn, CancellationToken cancellationToken);
 }

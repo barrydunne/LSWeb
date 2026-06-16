@@ -195,6 +195,23 @@ internal sealed class StepFunctionsClientAdapter : IStepFunctionsClient
         return result.IsSuccess ? Result.Success() : result.Error!.Value;
     }
 
+    public async Task<Result> DeleteStateMachineAsync(
+        string stateMachineArn, CancellationToken cancellationToken)
+    {
+        var result = await _gateway.ExecuteAsync<AmazonStepFunctionsClient, bool>(
+            ServiceKey,
+            async (client, token) =>
+            {
+                await client.DeleteStateMachineAsync(
+                    new DeleteStateMachineRequest { StateMachineArn = stateMachineArn },
+                    token);
+                return true;
+            },
+            cancellationToken);
+
+        return result.IsSuccess ? Result.Success() : result.Error!.Value;
+    }
+
     private static StateMachineSummary ToSummary(StateMachineListItem stateMachine)
         => new(
             stateMachine.Name ?? string.Empty,

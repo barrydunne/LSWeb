@@ -3888,6 +3888,19 @@ export async function updateStateMachineDefinition(
   }
 }
 
+export async function deleteStateMachine(arn: string, signal?: AbortSignal): Promise<void> {
+  const response = await fetch(
+    `/api/services/step-functions/state-machine?arn=${encodeURIComponent(arn)}`,
+    {
+      method: 'DELETE',
+      signal,
+    },
+  );
+  if (!response.ok) {
+    throw new Error(`Step Functions delete state machine request failed with status ${response.status}`);
+  }
+}
+
 export interface ExecutionHistoryEvent {
   id: number;
   previousEventId: number | null;

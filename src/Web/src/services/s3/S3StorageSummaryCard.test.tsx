@@ -42,4 +42,20 @@ describe('S3StorageSummaryCard', () => {
     expect(screen.getByTestId('s3-storage-summary-total-size')).toHaveTextContent('2.0 KB');
     expect(getSummaryMock).toHaveBeenCalledWith('data', expect.any(AbortSignal));
   });
+
+  it('re-fetches the summary when the reload token changes', async () => {
+    getSummaryMock.mockResolvedValue({ objectCount: 1, totalSizeBytes: 10 });
+
+    const { rerender } = render(<S3StorageSummaryCard bucketName="data" reloadToken={0} />);
+
+    await waitFor(() => expect(getSummaryMock).toHaveBeenCalledTimes(1));
+
+    getSummaryMock.mockResolvedValue({ objectCount: 2, totalSizeBytes: 20 });
+    rerender(<S3StorageSummaryCard bucketName="data" reloadToken={1} />);
+
+    await waitFor(() => expect(getSummaryMock).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(screen.getByTestId('s3-storage-summary-object-count')).toHaveTextContent('2'),
+    );
+  });
 });

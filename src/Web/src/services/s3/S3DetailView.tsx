@@ -663,7 +663,7 @@ export function S3DetailView({ resourceId }: ServiceDetailViewProps) {
         </button>
       </div>
 
-      <S3StorageSummaryCard bucketName={bucketName} />
+      <S3StorageSummaryCard bucketName={bucketName} reloadToken={reloadToken} />
 
       {viewMode === 'configuration' ? <S3ConfigurationPanel bucketName={bucketName} /> : null}
 

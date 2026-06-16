@@ -134,4 +134,48 @@ describe('StepFunctionsExecutionHistoryPanel', () => {
     );
     expect(screen.getByTestId('step-functions-history-event-error')).not.toHaveTextContent(':');
   });
+
+  it('reports the resolved terminal status from the history events', async () => {
+    const onResolvedStatus = vi.fn();
+
+    render(
+      <StepFunctionsExecutionHistoryPanel
+        executionArn={executionArn}
+        onResolvedStatus={onResolvedStatus}
+      />,
+    );
+
+    await waitFor(() => expect(onResolvedStatus).toHaveBeenCalledWith('FAILED'));
+  });
+
+  it('does not report a status when no terminal event is present', async () => {
+    getExecutionHistoryMock.mockResolvedValue({
+      events: [
+        {
+          id: 1,
+          previousEventId: null,
+          type: 'ExecutionStarted',
+          timestamp: '2024-01-01T00:00:00+00:00',
+          name: null,
+          input: null,
+          output: null,
+          error: null,
+          cause: null,
+        },
+      ],
+    });
+    const onResolvedStatus = vi.fn();
+
+    render(
+      <StepFunctionsExecutionHistoryPanel
+        executionArn={executionArn}
+        onResolvedStatus={onResolvedStatus}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId('step-functions-history-event')).toBeInTheDocument(),
+    );
+    expect(onResolvedStatus).not.toHaveBeenCalled();
+  });
 });

@@ -3,7 +3,8 @@ import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { DataListShell } from '../../components/DataListShell';
 import type { DataListColumn, DataListRow } from '../../components/DataListShell';
-import { createStateMachine, getStateMachines } from '../../api/client';
+import { ConfirmationHost } from '../../components/ConfirmationHost';
+import { createStateMachine, deleteStateMachine, getStateMachines } from '../../api/client';
 import type { StateMachineItem } from '../../api/client';
 import type { ServiceListViewProps } from '../serviceViewRegistry';
 
@@ -93,6 +94,7 @@ const columns: DataListColumn[] = [
   { key: 'name', label: 'State machine' },
   { key: 'type', label: 'Type' },
   { key: 'arn', label: 'ARN' },
+  { key: 'actions', label: 'Actions' },
 ];
 
 type ListState =
@@ -124,6 +126,15 @@ export function StepFunctionsListView({ serviceKey }: ServiceListViewProps) {
     setState({ kind: 'loading' });
     setReloadToken((token) => token + 1);
   }, []);
+
+  const handleDelete = useCallback(
+    (arn: string) => {
+      deleteStateMachine(arn)
+        .then(() => refresh())
+        .catch(() => setState({ kind: 'error' }));
+    },
+    [refresh],
+  );
 
   const handleCreate = () => {
     if (name.trim() === '' || !roleArn.trim().startsWith('arn:') || !isValidAslDefinition(definition)) {
@@ -181,6 +192,14 @@ export function StepFunctionsListView({ serviceKey }: ServiceListViewProps) {
         <span data-testid="step-functions-list-arn" style={arnCellStyle}>
           {stateMachine.stateMachineArn}
         </span>
+      ),
+      actions: (
+        <ConfirmationHost
+          actionLabel="Delete"
+          prompt={`Delete ${stateMachine.name}?`}
+          confirmLabel="Confirm"
+          onConfirm={() => handleDelete(stateMachine.stateMachineArn)}
+        />
       ),
     },
   }));

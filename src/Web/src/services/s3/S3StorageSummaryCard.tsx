@@ -32,7 +32,13 @@ type SummaryState =
   | { kind: 'ready'; summary: S3BucketStorageSummaryResult }
   | { kind: 'error' };
 
-export function S3StorageSummaryCard({ bucketName }: { bucketName: string }) {
+export function S3StorageSummaryCard({
+  bucketName,
+  reloadToken = 0,
+}: {
+  bucketName: string;
+  reloadToken?: number;
+}) {
   const [state, setState] = useState<SummaryState>({ kind: 'loading' });
 
   useEffect(() => {
@@ -42,7 +48,7 @@ export function S3StorageSummaryCard({ bucketName }: { bucketName: string }) {
       .then((summary) => setState({ kind: 'ready', summary }))
       .catch(() => setState({ kind: 'error' }));
     return () => controller.abort();
-  }, [bucketName]);
+  }, [bucketName, reloadToken]);
 
   if (state.kind === 'loading') {
     return (

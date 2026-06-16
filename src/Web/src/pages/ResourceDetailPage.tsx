@@ -1,4 +1,4 @@
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useRef } from 'react';
 import type { CSSProperties } from 'react';
 import { Heading, Text } from '@primer/react';
 import { useParams } from 'react-router-dom';
@@ -17,6 +17,7 @@ export function ResourceDetailPage() {
   const rawResourceId = params['*'] ?? '';
   const resourceId = rawResourceId ? decodeURIComponent(rawResourceId) : '';
   const state = useCatalogueService(serviceKey);
+  const lastRecordedResource = useRef('');
 
   // Record the visit once the resource has resolved so it surfaces in the
   // home page's recently-viewed list. Recording is best-effort: a failure must
@@ -25,9 +26,13 @@ export function ResourceDetailPage() {
     if (state.kind !== 'ready' || resourceId === '') {
       return;
     }
-    const controller = new AbortController();
-    void recordRecentlyViewed(`${serviceKey}://${resourceId}`, controller.signal).catch(() => {});
-    return () => controller.abort();
+    const resourceReference = `${serviceKey}://${resourceId}`;
+    if (lastRecordedResource.current === resourceReference) {
+      return;
+    }
+
+    lastRecordedResource.current = resourceReference;
+    void recordRecentlyViewed(resourceReference).catch(() => {});
   }, [state.kind, serviceKey, resourceId]);
 
   if (state.kind === 'loading') {

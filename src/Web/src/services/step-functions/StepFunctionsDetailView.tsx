@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Heading } from '@primer/react';
-import { getStateMachine, updateStateMachineDefinition } from '../../api/client';
+import { deleteStateMachine, getStateMachine, updateStateMachineDefinition } from '../../api/client';
 import type { StateMachineDetailResult } from '../../api/client';
 import type { ServiceDetailViewProps } from '../serviceViewRegistry';
+import { ConfirmationHost } from '../../components/ConfirmationHost';
 import { ResourceLink } from '../../components/ResourceLink';
 import { RawJsonViewer } from '../../components/RawJsonViewer';
 import { StateMachineGraph } from './StateMachineGraph';
@@ -91,12 +93,14 @@ type LoadState =
   | { kind: 'ready'; stateMachine: StateMachineDetailResult }
   | { kind: 'error' };
 
-export function StepFunctionsDetailView({ resourceId }: ServiceDetailViewProps) {
+export function StepFunctionsDetailView({ serviceKey, resourceId }: ServiceDetailViewProps) {
+  const navigate = useNavigate();
   const [state, setState] = useState<LoadState>({ kind: 'loading' });
   const [reloadToken, setReloadToken] = useState(0);
   const [editing, setEditing] = useState(false);
   const [draftDefinition, setDraftDefinition] = useState('');
   const [editState, setEditState] = useState<EditState>('idle');
+  const [deleteError, setDeleteError] = useState(false);
 
   const definition = state.kind === 'ready' ? state.stateMachine.definition : '';
   const parsedDefinition = useMemo(() => parseDefinition(definition), [definition]);
@@ -131,6 +135,16 @@ export function StepFunctionsDetailView({ resourceId }: ServiceDetailViewProps) 
         .catch(() => setEditState('error'));
     },
     [draftDefinition],
+  );
+
+  const handleDelete = useCallback(
+    (stateMachineArn: string) => {
+      setDeleteError(false);
+      deleteStateMachine(stateMachineArn)
+        .then(() => navigate(`/services/${serviceKey}`))
+        .catch(() => setDeleteError(true));
+    },
+    [navigate, serviceKey],
   );
 
   if (state.kind === 'loading') {
@@ -255,6 +269,17 @@ export function StepFunctionsDetailView({ resourceId }: ServiceDetailViewProps) 
         )}
       </div>
       <StepFunctionsExecutionsPanel stateMachineArn={stateMachine.stateMachineArn} />
+      <ConfirmationHost
+        actionLabel="Delete state machine"
+        prompt={`Delete ${stateMachine.name}? This cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={() => handleDelete(stateMachine.stateMachineArn)}
+      />
+      {deleteError ? (
+        <p data-testid="step-functions-detail-delete-error" style={messageStyle}>
+          Unable to delete the state machine.
+        </p>
+      ) : null}
     </div>
   );
 }

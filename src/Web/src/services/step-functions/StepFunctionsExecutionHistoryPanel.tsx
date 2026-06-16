@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Heading } from '@primer/react';
 import { getExecutionHistory } from '../../api/client';
@@ -44,6 +44,23 @@ type HistoryState =
   | { kind: 'ready'; events: ExecutionHistoryEvent[] }
   | { kind: 'error' };
 
+const terminalEventStatuses: Record<string, string> = {
+  ExecutionSucceeded: 'SUCCEEDED',
+  ExecutionFailed: 'FAILED',
+  ExecutionAborted: 'ABORTED',
+  ExecutionTimedOut: 'TIMED_OUT',
+};
+
+function resolveTerminalStatus(events: ExecutionHistoryEvent[]): string | null {
+  for (const event of events) {
+    const status = terminalEventStatuses[event.type];
+    if (status !== undefined) {
+      return status;
+    }
+  }
+  return null;
+}
+
 function parseJson(value: string): unknown {
   try {
     return JSON.parse(value) as unknown;
@@ -52,13 +69,27 @@ function parseJson(value: string): unknown {
   }
 }
 
-export function StepFunctionsExecutionHistoryPanel({ executionArn }: { executionArn: string }) {
+export function StepFunctionsExecutionHistoryPanel({
+  executionArn,
+  onResolvedStatus,
+}: {
+  executionArn: string;
+  onResolvedStatus?: (status: string) => void;
+}) {
   const [state, setState] = useState<HistoryState>({ kind: 'loading' });
+  const onResolvedStatusRef = useRef(onResolvedStatus);
+  onResolvedStatusRef.current = onResolvedStatus;
 
   useEffect(() => {
     const controller = new AbortController();
     getExecutionHistory(executionArn, controller.signal)
-      .then((result) => setState({ kind: 'ready', events: result.events }))
+      .then((result) => {
+        setState({ kind: 'ready', events: result.events });
+        const terminalStatus = resolveTerminalStatus(result.events);
+        if (terminalStatus !== null) {
+          onResolvedStatusRef.current?.(terminalStatus);
+        }
+      })
       .catch(() => setState({ kind: 'error' }));
     return () => controller.abort();
   }, [executionArn]);

@@ -133,6 +133,7 @@ import {
   startExecution,
   createStateMachine,
   updateStateMachineDefinition,
+  deleteStateMachine,
   getExecutionHistory,
   getStacks,
   getStack,
@@ -4936,6 +4937,39 @@ describe('updateStateMachineDefinition', () => {
     await expect(
       updateStateMachineDefinition('arn:aws:states:eu-west-1:000000000000:stateMachine:orders', '{}'),
     ).rejects.toThrow('Step Functions update definition request failed with status 400');
+  });
+});
+
+describe('deleteStateMachine', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('deletes the state machine by arn', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true });
+    vi.stubGlobal('fetch', fetchMock);
+    const controller = new AbortController();
+
+    await deleteStateMachine(
+      'arn:aws:states:eu-west-1:000000000000:stateMachine:orders',
+      controller.signal,
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/services/step-functions/state-machine?arn=arn%3Aaws%3Astates%3Aeu-west-1%3A000000000000%3AstateMachine%3Aorders',
+      {
+        method: 'DELETE',
+        signal: controller.signal,
+      },
+    );
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500 }));
+
+    await expect(
+      deleteStateMachine('arn:aws:states:eu-west-1:000000000000:stateMachine:orders'),
+    ).rejects.toThrow('Step Functions delete state machine request failed with status 500');
   });
 });
 

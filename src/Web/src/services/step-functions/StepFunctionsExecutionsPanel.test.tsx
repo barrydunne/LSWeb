@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { StepFunctionsExecutionsPanel } from './StepFunctionsExecutionsPanel';
 import { getExecutions, getExecutionHistory, startExecution } from '../../api/client';
 import type { ExecutionListResult, StartExecutionResult } from '../../api/client';
@@ -53,6 +53,45 @@ describe('StepFunctionsExecutionsPanel', () => {
 
   afterEach(() => {
     vi.resetAllMocks();
+  });
+
+  it('polls while there are non-terminal executions', async () => {
+    const timeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+    renderPanel();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('step-functions-executions-table')).toBeInTheDocument(),
+    );
+
+    expect(getExecutionsMock).toHaveBeenCalledTimes(1);
+    const pollCall = timeoutSpy.mock.calls.find((call) => call[1] === 1500);
+    expect(pollCall).toBeDefined();
+
+    const tick = pollCall![0] as () => void;
+    await act(async () => {
+      tick();
+    });
+    await waitFor(() => expect(getExecutionsMock).toHaveBeenCalledTimes(2));
+
+    const pollSchedules = timeoutSpy.mock.calls.filter((call) => call[1] === 1500);
+    expect(pollSchedules.length).toBeGreaterThanOrEqual(2);
+
+    timeoutSpy.mockRestore();
+  });
+
+  it('does not poll when all executions are terminal', async () => {
+    const timeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+    getExecutionsMock.mockResolvedValue({ executions: [listResult.executions[0]] });
+    renderPanel();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('step-functions-executions-table')).toBeInTheDocument(),
+    );
+
+    expect(getExecutionsMock).toHaveBeenCalledTimes(1);
+    const pollCall = timeoutSpy.mock.calls.find((call) => call[1] === 1500);
+    expect(pollCall).toBeUndefined();
+    timeoutSpy.mockRestore();
   });
 
   it('shows a loading state before executions arrive', () => {
@@ -208,6 +247,78 @@ describe('StepFunctionsExecutionsPanel', () => {
         screen.queryByTestId('step-functions-execution-history-row'),
       ).not.toBeInTheDocument(),
     );
+  });
+
+  it('reconciles a stale row status when its history reveals a terminal status', async () => {
+    const reconciled: ExecutionListResult = {
+      executions: [
+        listResult.executions[0],
+        { ...listResult.executions[1], status: 'SUCCEEDED', stopDate: '2024-01-02T00:00:05+00:00' },
+      ],
+    };
+    getExecutionsMock.mockResolvedValueOnce(listResult).mockResolvedValueOnce(reconciled);
+    getExecutionHistoryMock.mockResolvedValue({
+      events: [
+        {
+          id: 1,
+          previousEventId: null,
+          type: 'ExecutionSucceeded',
+          timestamp: '2024-01-02T00:00:05+00:00',
+          name: null,
+          input: null,
+          output: null,
+          error: null,
+          cause: null,
+        },
+      ],
+    });
+
+    renderPanel();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('step-functions-executions-table')).toBeInTheDocument(),
+    );
+    expect(screen.getAllByTestId('step-functions-execution-status')[1]).toHaveTextContent('RUNNING');
+
+    fireEvent.click(screen.getAllByTestId('step-functions-execution-history-toggle')[1]);
+
+    await waitFor(() => expect(getExecutionsMock).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(screen.getAllByTestId('step-functions-execution-status')[1]).toHaveTextContent(
+        'SUCCEEDED',
+      ),
+    );
+  });
+
+  it('does not reconcile when the history status matches the row status', async () => {
+    getExecutionHistoryMock.mockResolvedValue({
+      events: [
+        {
+          id: 1,
+          previousEventId: null,
+          type: 'ExecutionSucceeded',
+          timestamp: '2024-01-01T00:01:00+00:00',
+          name: null,
+          input: null,
+          output: null,
+          error: null,
+          cause: null,
+        },
+      ],
+    });
+
+    renderPanel();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('step-functions-executions-table')).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getAllByTestId('step-functions-execution-history-toggle')[0]);
+
+    await waitFor(() =>
+      expect(screen.getByTestId('step-functions-execution-history-row')).toBeInTheDocument(),
+    );
+    expect(getExecutionsMock).toHaveBeenCalledTimes(1);
   });
 
   const withFailure: ExecutionListResult = {

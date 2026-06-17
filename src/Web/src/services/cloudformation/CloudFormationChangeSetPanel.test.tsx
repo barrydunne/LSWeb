@@ -187,7 +187,7 @@ describe('CloudFormationChangeSetPanel', () => {
       [{ parameterKey: 'Env', parameterValue: 'dev' }],
       ['CAPABILITY_IAM'],
     );
-    expect(getChangeSetsMock).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(getChangeSetsMock).toHaveBeenCalledTimes(2));
     expect(screen.queryByTestId('cloudformation-changesets-create')).not.toBeInTheDocument();
   });
 

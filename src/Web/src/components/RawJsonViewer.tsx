@@ -71,19 +71,26 @@ export function RawJsonViewer({
   title = 'Raw JSON',
   sensitiveKeys = [],
   initiallyExpanded = false,
+  renderStringAsText = false,
 }: {
   value: unknown;
   title?: string;
   sensitiveKeys?: readonly string[];
   initiallyExpanded?: boolean;
+  renderStringAsText?: boolean;
 }) {
   const [expanded, setExpanded] = useState(initiallyExpanded);
   const [copied, setCopied] = useState(false);
 
   const json = useMemo(() => {
+    // A plain-text value (for example an SQS message body that is not JSON) must be shown
+    // verbatim; JSON.stringify would wrap it in quotes and escape its characters.
+    if (renderStringAsText && typeof value === 'string') {
+      return value;
+    }
     const masked = maskSensitive(value, new Set(sensitiveKeys));
     return JSON.stringify(masked, null, 2);
-  }, [value, sensitiveKeys]);
+  }, [value, sensitiveKeys, renderStringAsText]);
 
   const handleCopy = async () => {
     try {

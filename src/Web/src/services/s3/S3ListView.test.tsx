@@ -60,6 +60,16 @@ describe('S3ListView', () => {
     expect(screen.getByTestId('data-list-row-invoices')).toBeInTheDocument();
   });
 
+  it('formats the bucket creation date', async () => {
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('s3-list-view')).toBeInTheDocument());
+
+    const created = screen.getByText('02 Jan 2026, 03:04:05 UTC');
+    expect(created).toBeInTheDocument();
+    expect(created).toHaveAttribute('title', '2026-01-02T03:04:05.0000000Z');
+  });
+
   it('links each bucket name to its detail route', async () => {
     renderView();
 

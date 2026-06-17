@@ -23,6 +23,8 @@ import { ConfirmationHost } from '../../components/ConfirmationHost';
 import { RawJsonViewer } from '../../components/RawJsonViewer';
 import { S3ConfigurationPanel } from './S3ConfigurationPanel';
 import { S3StorageSummaryCard } from './S3StorageSummaryCard';
+import { formatBytes } from './formatBytes';
+import { formatTimestamp } from './formatTimestamp';
 import type { ServiceDetailViewProps } from '../serviceViewRegistry';
 
 const containerStyle: CSSProperties = {
@@ -108,6 +110,14 @@ const buttonStyle: CSSProperties = {
   color: 'inherit',
   cursor: 'pointer',
   alignSelf: 'flex-start',
+};
+
+// In the inline "New folder" form the field column stacks a label above the input, so a
+// flex-start button aligns with the label rather than the input it submits. Aligning to the
+// end of the row keeps the Create button level with the input box.
+const submitButtonStyle: CSSProperties = {
+  ...buttonStyle,
+  alignSelf: 'flex-end',
 };
 
 const dropzoneStyle: CSSProperties = {
@@ -448,6 +458,9 @@ export function S3DetailView({ resourceId }: ServiceDetailViewProps) {
 
   const handlePreview = useCallback(
     (key: string) => {
+      setPresign({ kind: 'closed' });
+      setMeta({ kind: 'closed' });
+      setTransfer((current) => ({ ...current, kind: 'closed', status: 'idle' }));
       setPreview({ kind: 'loading', key });
       getS3ObjectPreview(bucketName, key)
         .then((result) => setPreview({ kind: 'ready', key, preview: result }))
@@ -461,6 +474,9 @@ export function S3DetailView({ resourceId }: ServiceDetailViewProps) {
   }, []);
 
   const openPresign = useCallback((key: string) => {
+    setPreview({ kind: 'closed' });
+    setMeta({ kind: 'closed' });
+    setTransfer((current) => ({ ...current, kind: 'closed', status: 'idle' }));
     setCopied(false);
     setPresign({ kind: 'idle', key, expirySeconds: defaultExpirySeconds });
   }, []);
@@ -495,6 +511,9 @@ export function S3DetailView({ resourceId }: ServiceDetailViewProps) {
 
   const openMeta = useCallback(
     (key: string) => {
+      setPreview({ kind: 'closed' });
+      setPresign({ kind: 'closed' });
+      setTransfer((current) => ({ ...current, kind: 'closed', status: 'idle' }));
       setMeta({ kind: 'loading', key });
       getS3ObjectMetadata(bucketName, key)
         .then((metadata) =>
@@ -519,6 +538,9 @@ export function S3DetailView({ resourceId }: ServiceDetailViewProps) {
 
   const openTransfer = useCallback(
     (key: string) => {
+      setPreview({ kind: 'closed' });
+      setPresign({ kind: 'closed' });
+      setMeta({ kind: 'closed' });
       setTransfer({
         kind: 'open',
         key,
@@ -712,7 +734,7 @@ export function S3DetailView({ resourceId }: ServiceDetailViewProps) {
             <button
               type="button"
               data-testid="s3-detail-create-submit"
-              style={buttonStyle}
+              style={submitButtonStyle}
               disabled={createState === 'saving'}
               onClick={handleCreateFolder}
             >
@@ -812,8 +834,10 @@ export function S3DetailView({ resourceId }: ServiceDetailViewProps) {
               <tr key={`object:${object.key}`} data-testid="s3-detail-object-row">
                 <td style={cellStyle}>{objectName(object.key, prefix)}</td>
                 <td style={cellStyle}>Object</td>
-                <td style={cellStyle}>{object.size}</td>
-                <td style={cellStyle}>{object.lastModified}</td>
+                <td style={cellStyle}>{formatBytes(object.size)}</td>
+                <td style={cellStyle}>
+                  <span title={object.lastModified}>{formatTimestamp(object.lastModified)}</span>
+                </td>
                 <td style={actionsCellStyle}>
                   <div style={actionsRowStyle}>
                     <button
@@ -1008,11 +1032,15 @@ export function S3DetailView({ resourceId }: ServiceDetailViewProps) {
                   </tr>
                   <tr>
                     <td style={cellStyle}>Content length</td>
-                    <td style={cellStyle}>{meta.metadata.contentLength}</td>
+                    <td style={cellStyle}>{formatBytes(meta.metadata.contentLength)}</td>
                   </tr>
                   <tr>
                     <td style={cellStyle}>Last modified</td>
-                    <td style={cellStyle}>{meta.metadata.lastModified}</td>
+                    <td style={cellStyle}>
+                      <span title={meta.metadata.lastModified}>
+                        {formatTimestamp(meta.metadata.lastModified)}
+                      </span>
+                    </td>
                   </tr>
                   <tr>
                     <td style={cellStyle}>ETag</td>

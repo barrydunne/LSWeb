@@ -13,8 +13,6 @@ public class GetIamRoleQueryHandlerTests
     private GetIamRoleQueryHandler CreateSut()
         => new(_client, NullLogger<GetIamRoleQueryHandler>.Instance);
 
-    private static Result<T> Ok<T>(T value) => value;
-
     [Fact]
     public async Task Handle_WhenClientSucceeds_ReturnsRoleDetail()
     {
@@ -34,7 +32,7 @@ public class GetIamRoleQueryHandlerTests
             "arn:aws:iam::aws:policy/Boundary");
         _client
             .GetRoleAsync("deploy-role", Arg.Any<CancellationToken>())
-            .Returns(Ok(detail));
+            .Returns(Task.FromResult<Result<IamRoleDetail?>>(detail));
         var sut = CreateSut();
 
         // Act
@@ -43,7 +41,8 @@ public class GetIamRoleQueryHandlerTests
         // Assert
         result.IsSuccess.Should().BeTrue();
         var actual = result.Value.Role;
-        actual.RoleName.Should().Be(detail.RoleName);
+        actual.Should().NotBeNull();
+        actual!.RoleName.Should().Be(detail.RoleName);
         actual.Arn.Should().Be(detail.Arn);
         actual.RoleId.Should().Be(detail.RoleId);
         actual.Path.Should().Be(detail.Path);
@@ -78,5 +77,22 @@ public class GetIamRoleQueryHandlerTests
         // Assert
         result.IsSuccess.Should().BeFalse();
         result.Error!.Value.Message.Should().Be("get boom");
+    }
+
+    [Fact]
+    public async Task Handle_WhenRoleDoesNotExist_ReturnsSuccessWithNullRole()
+    {
+        // Arrange
+        _client
+            .GetRoleAsync("missing", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<IamRoleDetail?>>((IamRoleDetail?)null));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.Handle(new GetIamRoleQuery("missing"), TestContext.Current.CancellationToken);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Role.Should().BeNull();
     }
 }

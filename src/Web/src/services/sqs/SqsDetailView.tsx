@@ -7,6 +7,18 @@ import { changeSqsMessageVisibility, deleteSqsMessage, getSqsQueueAttributes, ge
 import type { SqsConsumerLambdaItem, SqsMessageItem, SqsPollMode, SqsQueueAttributesItem, SqsRedriveResult, SqsSubscriptionItem } from '../../api/client';
 import type { ServiceDetailViewProps } from '../serviceViewRegistry';
 
+// An SQS message body is an arbitrary string. Pretty-print it as JSON only when it is a JSON
+// object or array; a plain string (or a bare JSON scalar) is shown verbatim so the viewer never
+// wraps it in extra quotes.
+function parseStructuredBody(body: string): unknown | undefined {
+  try {
+    const parsed: unknown = JSON.parse(body);
+    return parsed !== null && typeof parsed === 'object' ? parsed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 const containerStyle: CSSProperties = {
   display: 'flex',
   flexDirection: 'column',
@@ -988,7 +1000,11 @@ export function SqsDetailView({ resourceId }: ServiceDetailViewProps) {
                 </div>
                 {expanded ? (
                   <div data-testid="sqs-message-detail" style={messageDetailStyle}>
-                    <RawJsonViewer value={message.body} title="Body" />
+                    {parseStructuredBody(message.body) !== undefined ? (
+                      <RawJsonViewer value={parseStructuredBody(message.body)} title="Body" />
+                    ) : (
+                      <RawJsonViewer value={message.body} title="Body" renderStringAsText />
+                    )}
                     <RawJsonViewer value={message.attributes} title="System attributes" />
                     <RawJsonViewer value={message.messageAttributes} title="Message attributes" />
                     <div data-testid="sqs-message-visibility" style={sendRowStyle}>

@@ -27,6 +27,19 @@ export async function getHealth(signal?: AbortSignal): Promise<HealthResult> {
   return (await response.json()) as HealthResult;
 }
 
+export interface CircuitStatusResult {
+  isOpen: boolean;
+  affectedServices: string[];
+}
+
+export async function getCircuitStatus(signal?: AbortSignal): Promise<CircuitStatusResult> {
+  const response = await fetch('/api/system/circuit', { signal });
+  if (!response.ok) {
+    throw new Error(`Circuit status request failed with status ${response.status}`);
+  }
+  return (await response.json()) as CircuitStatusResult;
+}
+
 export interface ConnectivityResult {
   status: string;
   endpoint: string;
@@ -3093,11 +3106,14 @@ export interface IamRoleDetail {
   permissionsBoundaryArn: string | null;
 }
 
-export async function getIamRole(roleName: string, signal?: AbortSignal): Promise<IamRoleDetail> {
+export async function getIamRole(roleName: string, signal?: AbortSignal): Promise<IamRoleDetail | null> {
   const response = await fetch(
     `/api/services/iam/roles/${encodeURIComponent(roleName)}`,
     { signal },
   );
+  if (response.status === 404) {
+    return null;
+  }
   if (!response.ok) {
     throw new Error(`IAM role request failed with status ${response.status}`);
   }
@@ -7101,19 +7117,12 @@ export interface WorkspaceSnapshot {
   resources: Record<string, SnapshotResourceData[]>;
 }
 
-export interface SnapshotExportResult {
-  snapshotId: string;
-  exportedAt: string;
-  services: string[];
-  totalResources: number;
-}
-
-export async function exportWorkspaceSnapshot(signal?: AbortSignal): Promise<SnapshotExportResult> {
+export async function exportWorkspaceSnapshot(signal?: AbortSignal): Promise<WorkspaceSnapshot> {
   const response = await fetch('/api/snapshot/export', { signal });
   if (!response.ok) {
     throw new Error(`Snapshot export request failed with status ${response.status}`);
   }
-  return (await response.json()) as SnapshotExportResult;
+  return (await response.json()) as WorkspaceSnapshot;
 }
 
 export interface SnapshotFailureItem {

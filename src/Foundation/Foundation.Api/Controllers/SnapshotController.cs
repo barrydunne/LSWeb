@@ -32,23 +32,21 @@ public partial class SnapshotController : ControllerBase
     }
 
     /// <summary>
-    /// Exports the current workspace state as a downloadable snapshot file.
+    /// Exports the current workspace state as a downloadable snapshot file. The response is the full
+    /// snapshot document (the same shape the import endpoint accepts) so an exported snapshot can be
+    /// re-imported without transformation.
     /// </summary>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>An HTTP 200 result carrying the snapshot data as JSON for download.</returns>
+    /// <returns>An HTTP 200 result carrying the full snapshot document as JSON for download.</returns>
     [HttpGet("export")]
-    [ProducesResponseType(typeof(SnapshotExportResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(WorkspaceSnapshot), StatusCodes.Status200OK)]
     public async Task<IResult> Export(CancellationToken cancellationToken)
     {
         LogHandlingExport();
         var result = await _sender.Send(new ExportWorkspaceSnapshotQuery(), cancellationToken);
         LogExportHandled(result.IsSuccess);
         return result.Match(
-            snapshot => Results.Ok(new SnapshotExportResponse(
-                snapshot.Id,
-                snapshot.ExportedAt,
-                snapshot.Resources.Keys.ToList(),
-                snapshot.Resources.Values.Sum(r => r.Count))),
+            snapshot => Results.Ok(snapshot),
             error => error.AsHttpResult());
     }
 

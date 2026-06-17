@@ -1,5 +1,6 @@
 using AspNet.KickStarter.FunctionalResult;
 using Foundation.Application.Navigation;
+using Foundation.Domain.Catalogue;
 using Foundation.Domain.Navigation;
 
 namespace Foundation.Infrastructure.Navigation;
@@ -11,26 +12,36 @@ namespace Foundation.Infrastructure.Navigation;
 /// </summary>
 internal sealed class ReferenceResolver : IReferenceResolver
 {
-    private static readonly Dictionary<string, string> _catalogueKeyByAlias =
+    /// <summary>
+    /// Extra aliases for AWS ARN/SDK service names that differ from the catalogue key (for example
+    /// the ARN service <c>logs</c> maps to the <c>cloudwatch-logs</c> catalogue entry).
+    /// </summary>
+    private static readonly Dictionary<string, string> _extraAliases =
         new(StringComparer.OrdinalIgnoreCase)
         {
-            ["sqs"] = "sqs",
-            ["sns"] = "sns",
-            ["lambda"] = "lambda",
-            ["s3"] = "s3",
-            ["dynamodb"] = "dynamodb",
-            ["iam"] = "iam",
             ["logs"] = "cloudwatch-logs",
-            ["cloudwatch-logs"] = "cloudwatch-logs",
             ["cognito-idp"] = "cognito",
-            ["cognito"] = "cognito",
             ["secretsmanager"] = "secrets-manager",
-            ["secrets-manager"] = "secrets-manager",
             ["ssm"] = "ssm-parameter-store",
-            ["ssm-parameter-store"] = "ssm-parameter-store",
             ["states"] = "step-functions",
-            ["step-functions"] = "step-functions",
         };
+
+    /// <summary>
+    /// Every catalogue service key mapped to itself, plus the ARN/SDK aliases. Derived from the
+    /// <see cref="ServiceCatalogue"/> so every service that can be recorded as a recent destination
+    /// resolves, and new services are supported automatically without updating this map.
+    /// </summary>
+    private static readonly Dictionary<string, string> _catalogueKeyByAlias = BuildAliasMap();
+
+    private static Dictionary<string, string> BuildAliasMap()
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var service in ServiceCatalogue.Services)
+            map[service.Key] = service.Key;
+        foreach (var alias in _extraAliases)
+            map[alias.Key] = alias.Value;
+        return map;
+    }
 
     /// <summary>
     /// Services whose resource ids carry a type prefix (for example <c>role/Name</c> or
@@ -39,6 +50,15 @@ internal sealed class ReferenceResolver : IReferenceResolver
     /// </summary>
     private static readonly HashSet<string> _typePrefixedAliases =
         new(StringComparer.OrdinalIgnoreCase) { "iam" };
+
+    /// <summary>
+    /// Services whose detail view is keyed by the full ARN rather than the bare resource name (for
+    /// example the SNS topic detail loads subscriptions by topic ARN). For these, an ARN reference
+    /// keeps the whole ARN as the route id so the link matches how the service list links the
+    /// resource.
+    /// </summary>
+    private static readonly HashSet<string> _arnKeyedAliases =
+        new(StringComparer.OrdinalIgnoreCase) { "sns" };
 
     public Result<ResourceReference> Resolve(string reference, string? service = null)
     {
@@ -51,7 +71,9 @@ internal sealed class ReferenceResolver : IReferenceResolver
         if (ArnParts.TryParse(reference, out var arn))
         {
             alias = arn.Service;
-            resourceId = _typePrefixedAliases.Contains(alias) ? arn.Resource : arn.ResourceId;
+            resourceId = _arnKeyedAliases.Contains(alias)
+                ? reference
+                : _typePrefixedAliases.Contains(alias) ? arn.Resource : arn.ResourceId;
         }
         else if (reference.StartsWith("arn:", StringComparison.OrdinalIgnoreCase))
         {

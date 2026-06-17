@@ -20,7 +20,7 @@ public class GetIamRoleConsumersQueryHandlerTests
 
     private static Result<T> Ok<T>(T value) => value;
 
-    private static IamRoleDetail Role(string arn)
+    private static IamRoleDetail? Role(string arn)
         => new(
             "LambdaExec",
             arn,
@@ -121,6 +121,24 @@ public class GetIamRoleConsumersQueryHandlerTests
         // Assert
         result.IsSuccess.Should().BeFalse();
         result.Error!.Value.Message.Should().Be("role boom");
+    }
+
+    [Fact]
+    public async Task Handle_WhenRoleDoesNotExist_ReturnsNoConsumers()
+    {
+        // Arrange
+        _iamClient
+            .GetRoleAsync("missing", Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<IamRoleDetail?>>((IamRoleDetail?)null));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.Handle(new GetIamRoleConsumersQuery("missing"), TestContext.Current.CancellationToken);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Consumers.Should().BeEmpty();
+        await _lambdaClient.DidNotReceive().ListFunctionsAsync(Arg.Any<CancellationToken>());
     }
 
     [Fact]

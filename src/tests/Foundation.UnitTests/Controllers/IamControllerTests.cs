@@ -1177,6 +1177,23 @@ public class IamControllerTests
     }
 
     [Fact]
+    public async Task GetRole_WhenRoleDoesNotExist_ReturnsNotFound()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<GetIamRoleQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<GetIamRoleQueryResult>>(new GetIamRoleQueryResult(null)));
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.GetRole("missing-role", TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().Be(StatusCodes.Status404NotFound);
+    }
+
+    [Fact]
     public async Task GetRoleUsedBy_WhenQuerySucceeds_ReturnsOkWithConsumersAndForwardsName()
     {
         // Arrange

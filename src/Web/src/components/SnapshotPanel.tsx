@@ -4,10 +4,29 @@ import { Heading, Text } from '@primer/react';
 import {
   exportWorkspaceSnapshot,
   importWorkspaceSnapshot,
-  type SnapshotExportResult,
   type SnapshotImportResult,
   type WorkspaceSnapshot,
 } from '../api/client';
+
+function countResources(snapshot: WorkspaceSnapshot): number {
+  return Object.values(snapshot.resources).reduce((total, items) => total + items.length, 0);
+}
+
+function serviceCount(snapshot: WorkspaceSnapshot): number {
+  return Object.keys(snapshot.resources).length;
+}
+
+function downloadSnapshot(snapshot: WorkspaceSnapshot): void {
+  const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = `workspace-snapshot-${snapshot.id}.json`;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  URL.revokeObjectURL(url);
+}
 
 type ExportState =
   | { kind: 'idle' }
@@ -60,23 +79,22 @@ const descriptionStyle: CSSProperties = {
 export function SnapshotPanel() {
   const [exportState, setExportState] = useState<ExportState>({ kind: 'idle' });
   const [importState, setImportState] = useState<ImportState>({ kind: 'idle' });
-  const [lastExport, setLastExport] = useState<SnapshotExportResult | null>(null);
+  const [lastExport, setLastExport] = useState<WorkspaceSnapshot | null>(null);
   const [lastImport, setLastImport] = useState<SnapshotImportResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExport = () => {
     setExportState({ kind: 'exporting' });
     exportWorkspaceSnapshot()
-      .then((result) => {
-        setLastExport(result);
+      .then((snapshot) => {
+        setLastExport(snapshot);
         setExportState({ kind: 'idle' });
-        // TODO: Trigger the actual snapshot download and show success notification
-        console.log(`Snapshot exported: ${result.totalResources} resource(s) captured`);
+        // Download the full snapshot document so it can be re-imported later.
+        downloadSnapshot(snapshot);
       })
       .catch((err) => {
         const error = err instanceof Error ? err.message : 'Failed to export snapshot';
         setExportState({ kind: 'error', error });
-        console.error(`Export failed: ${error}`);
       });
   };
 
@@ -181,8 +199,8 @@ export function SnapshotPanel() {
         )}
 
         {lastExport && (
-          <Text as="p" style={messageStyle}>
-            Last export: {lastExport.totalResources} resource(s) from {lastExport.services.length} service(s)
+          <Text as="p" style={messageStyle} data-testid="snapshot-last-export">
+            Last export: {countResources(lastExport)} resource(s) from {serviceCount(lastExport)} service(s)
           </Text>
         )}
 

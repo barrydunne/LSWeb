@@ -207,6 +207,15 @@ export function SsmParameterStoreListView({ serviceKey }: ServiceListViewProps) 
   const visibleParameters = directParameters(state.parameters, currentPath);
   const segments = currentPath === '/' ? [] : currentPath.slice(1).split('/');
 
+  // The empty-state copy must reflect the current path, not the whole backend: a path can have
+  // sub-folders (which are the content) while having no direct parameters of its own.
+  const emptyStateMessage =
+    folders.length > 0
+      ? 'No parameters directly under this path \u2014 open a folder to drill in.'
+      : currentPath === '/'
+        ? 'No parameters found on this backend.'
+        : 'No parameters found under this path.';
+
   const rows: DataListRow[] = visibleParameters.map((parameter) => ({
     id: parameter.name,
     filterText: parameter.name,
@@ -379,7 +388,7 @@ export function SsmParameterStoreListView({ serviceKey }: ServiceListViewProps) 
         itemCount={rows.length}
         filterPlaceholder="Filter parameters"
         columnPrefsKey="ssm-parameter-store-parameters"
-        emptyState={{ message: 'No parameters found on this backend.' }}
+        emptyState={{ message: emptyStateMessage }}
       />
     </div>
   );

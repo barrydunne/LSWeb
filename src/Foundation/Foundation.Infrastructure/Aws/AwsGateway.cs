@@ -1,5 +1,6 @@
 using Amazon.Runtime;
 using AspNet.KickStarter.FunctionalResult;
+using Foundation.Application.Resilience;
 using Foundation.Infrastructure.Capabilities;
 using Foundation.Infrastructure.Errors;
 using Microsoft.Extensions.Logging;
@@ -23,6 +24,7 @@ internal sealed partial class AwsGateway : IAwsGateway
     private readonly IAwsClientFactory _clientFactory;
     private readonly IErrorTranslator _errorTranslator;
     private readonly ICapabilityDetector _capabilityDetector;
+    private readonly ICircuitBreakerMonitor _circuitBreakerMonitor;
     private readonly ILogger _logger;
     private readonly ResiliencePipeline _pipeline;
 
@@ -30,11 +32,13 @@ internal sealed partial class AwsGateway : IAwsGateway
         IAwsClientFactory clientFactory,
         IErrorTranslator errorTranslator,
         ICapabilityDetector capabilityDetector,
+        ICircuitBreakerMonitor circuitBreakerMonitor,
         ILogger<AwsGateway> logger)
     {
         _clientFactory = clientFactory;
         _errorTranslator = errorTranslator;
         _capabilityDetector = capabilityDetector;
+        _circuitBreakerMonitor = circuitBreakerMonitor;
         _logger = logger;
         _pipeline = BuildPipeline();
     }
@@ -52,10 +56,14 @@ internal sealed partial class AwsGateway : IAwsGateway
                 async token => await operation(client, token),
                 cancellationToken);
             _capabilityDetector.RecordSuccess(serviceKey);
+            _circuitBreakerMonitor.RecordRecovered(serviceKey);
             return value;
         }
         catch (Exception exception) when (exception is not OperationCanceledException)
         {
+            if (exception is BrokenCircuitException)
+                _circuitBreakerMonitor.RecordSuspended(serviceKey);
+
             var error = _errorTranslator.Translate(exception);
             _capabilityDetector.RecordError(serviceKey, error);
             LogOperationFailed(serviceKey, error.Code, error.Message);

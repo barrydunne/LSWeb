@@ -17,6 +17,7 @@ using Foundation.Application.Iam;
 using Foundation.Application.Lambda;
 using Foundation.Application.Navigation;
 using Foundation.Application.Preferences;
+using Foundation.Application.Resilience;
 using Foundation.Application.Route53;
 using Foundation.Application.S3;
 using Foundation.Application.Scheduler;
@@ -49,6 +50,7 @@ using Foundation.Infrastructure.Iam;
 using Foundation.Infrastructure.Lambda;
 using Foundation.Infrastructure.Navigation;
 using Foundation.Infrastructure.Preferences;
+using Foundation.Infrastructure.Resilience;
 using Foundation.Infrastructure.Route53;
 using Foundation.Infrastructure.S3;
 using Foundation.Infrastructure.Scheduler;
@@ -106,6 +108,9 @@ public static class DependencyInjection
             .AddSingleton<IAwsClientFactory, AwsClientFactory>()
             .AddSingleton<IAwsGateway, AwsGateway>()
             .AddSingleton<IErrorTranslator, ErrorTranslator>()
+            .AddSingleton<CircuitBreakerMonitor>()
+            .AddSingleton<ICircuitBreakerMonitor>(_ => _.GetRequiredService<CircuitBreakerMonitor>())
+            .AddSingleton<ICircuitBreakerStateProvider>(_ => _.GetRequiredService<CircuitBreakerMonitor>())
             .AddSingleton<CapabilityDetector>()
             .AddSingleton<ICapabilityDetector>(_ => _.GetRequiredService<CapabilityDetector>())
             .AddSingleton<ICapabilityProvider>(_ => _.GetRequiredService<CapabilityDetector>())
@@ -113,6 +118,8 @@ public static class DependencyInjection
             .AddSingleton<ILambdaClient, LambdaClientAdapter>()
             .AddSingleton<IResourceSource, LambdaResourceSource>()
             .AddSingleton<IS3Client, S3ClientAdapter>()
+            .AddSingleton<IPresignedUrlRewriter>(
+                _ => new PresignedUrlRewriter(settings.ServiceUrl, Environment.GetEnvironmentVariable("LSW_PUBLIC_AWS_ENDPOINT_URL")))
             .AddSingleton<IResourceSource, S3ResourceSource>()
             .AddSingleton<ISqsClient, SqsClientAdapter>()
             .AddSingleton<IResourceSource, SqsResourceSource>()

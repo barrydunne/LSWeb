@@ -12,11 +12,13 @@ internal sealed partial class PresignS3ObjectQueryHandler : IQueryHandler<Presig
     private const int MaxExpirySeconds = 604800;
 
     private readonly IS3Client _client;
+    private readonly IPresignedUrlRewriter _urlRewriter;
     private readonly ILogger _logger;
 
-    public PresignS3ObjectQueryHandler(IS3Client client, ILogger<PresignS3ObjectQueryHandler> logger)
+    public PresignS3ObjectQueryHandler(IS3Client client, IPresignedUrlRewriter urlRewriter, ILogger<PresignS3ObjectQueryHandler> logger)
     {
         _client = client;
+        _urlRewriter = urlRewriter;
         _logger = logger;
     }
 
@@ -34,7 +36,7 @@ internal sealed partial class PresignS3ObjectQueryHandler : IQueryHandler<Presig
             return failure;
         }
 
-        return new PresignS3ObjectQueryResult(url.Value, expirySeconds);
+        return new PresignS3ObjectQueryResult(_urlRewriter.Rewrite(url.Value), expirySeconds);
     }
 
     private static int ClampExpiry(int requested)

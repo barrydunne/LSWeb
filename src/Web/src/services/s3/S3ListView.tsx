@@ -6,6 +6,7 @@ import type { DataListColumn, DataListRow } from '../../components/DataListShell
 import { ConfirmationHost } from '../../components/ConfirmationHost';
 import { createS3Bucket, deleteS3Bucket, getS3Buckets } from '../../api/client';
 import type { S3BucketSummaryItem } from '../../api/client';
+import { formatTimestamp } from './formatTimestamp';
 import type { ServiceListViewProps } from '../serviceViewRegistry';
 
 const messageStyle: CSSProperties = { fontSize: 14 };
@@ -128,7 +129,7 @@ export function S3ListView({ serviceKey }: ServiceListViewProps) {
           {bucket.name}
         </Link>
       ),
-      creationDate: bucket.creationDate,
+      creationDate: <span title={bucket.creationDate}>{formatTimestamp(bucket.creationDate)}</span>,
       actions: (
         <ConfirmationHost
           actionLabel="Delete"

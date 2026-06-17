@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ThemeProvider } from '@primer/react';
 import { MemoryRouter } from 'react-router-dom';
@@ -58,8 +58,9 @@ describe('GlobalSearchBar', () => {
   });
 
   afterEach(() => {
+    cleanup();
     vi.useRealTimers();
-    vi.resetAllMocks();
+    vi.clearAllMocks();
   });
 
   it('renders the search input without a results panel initially', () => {

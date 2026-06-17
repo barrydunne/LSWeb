@@ -112,6 +112,18 @@ describe('StepFunctionsExecutionsPanel', () => {
     );
   });
 
+  it('ignores an aborted request without surfacing an error state', async () => {
+    getExecutionsMock.mockRejectedValue(
+      new DOMException('The operation was aborted.', 'AbortError'),
+    );
+
+    renderPanel();
+
+    await waitFor(() => expect(getExecutionsMock).toHaveBeenCalled());
+    expect(screen.queryByTestId('step-functions-executions-error')).not.toBeInTheDocument();
+    expect(screen.getByTestId('step-functions-executions-loading')).toBeInTheDocument();
+  });
+
   it('shows an empty state when there are no executions', async () => {
     getExecutionsMock.mockResolvedValue({ executions: [] });
 

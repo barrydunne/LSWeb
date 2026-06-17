@@ -130,6 +130,58 @@ describe('S3DetailView', () => {
     expect(getS3ObjectsMock).toHaveBeenCalledWith('data', '', expect.any(AbortSignal));
   });
 
+  it('formats the object size with a unit and the last-modified timestamp', async () => {
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('s3-detail-table')).toBeInTheDocument());
+
+    const row = screen.getByTestId('s3-detail-object-row');
+    expect(within(row).getByText('12 B')).toBeInTheDocument();
+    expect(within(row).getByText('02 Jan 2026, 03:04:05 UTC')).toBeInTheDocument();
+    expect(within(row).getByText('02 Jan 2026, 03:04:05 UTC')).toHaveAttribute(
+      'title',
+      '2026-01-02T03:04:05.0000000Z',
+    );
+  });
+
+  it('replaces an open object-action panel when another action is opened', async () => {
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('s3-detail-table')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('s3-detail-preview-button'));
+    await waitFor(() => expect(screen.getByTestId('s3-detail-preview-panel')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('s3-detail-presign-button'));
+    expect(screen.getByTestId('s3-detail-presign-panel')).toBeInTheDocument();
+    expect(screen.queryByTestId('s3-detail-preview-panel')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('s3-detail-meta-button'));
+    await waitFor(() => expect(screen.getByTestId('s3-detail-meta-panel')).toBeInTheDocument());
+    expect(screen.queryByTestId('s3-detail-presign-panel')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('s3-detail-transfer-button'));
+    expect(screen.getByTestId('s3-detail-transfer-panel')).toBeInTheDocument();
+    expect(screen.queryByTestId('s3-detail-meta-panel')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('s3-detail-preview-button'));
+    await waitFor(() => expect(screen.getByTestId('s3-detail-preview-panel')).toBeInTheDocument());
+    expect(screen.queryByTestId('s3-detail-transfer-panel')).not.toBeInTheDocument();
+  });
+
+  it('formats the content length and last-modified timestamp in the details panel', async () => {
+    renderView();
+
+    await waitFor(() => expect(screen.getByTestId('s3-detail-table')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId('s3-detail-meta-button'));
+
+    await waitFor(() => expect(screen.getByTestId('s3-detail-meta-table')).toBeInTheDocument());
+    const metaTable = screen.getByTestId('s3-detail-meta-table');
+    expect(within(metaTable).getByText('12 B')).toBeInTheDocument();
+    expect(within(metaTable).getByText('02 Jan 2026, 03:04:05 UTC')).toBeInTheDocument();
+  });
+
   it('shows an empty row when the location has no folders or objects', async () => {
     getS3ObjectsMock.mockResolvedValue({ prefixes: [], objects: [] });
 

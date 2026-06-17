@@ -9,7 +9,7 @@ public class ReferenceResolverTests
 
     [Theory]
     [InlineData("arn:aws:sqs:eu-west-1:000000000000:my-queue", "sqs", "my-queue", "/services/sqs/my-queue")]
-    [InlineData("arn:aws:sns:eu-west-1:000000000000:my-topic", "sns", "my-topic", "/services/sns/my-topic")]
+    [InlineData("arn:aws:sns:eu-west-1:000000000000:my-topic", "sns", "arn:aws:sns:eu-west-1:000000000000:my-topic", "/services/sns/arn%3Aaws%3Asns%3Aeu-west-1%3A000000000000%3Amy-topic")]
     [InlineData("arn:aws:lambda:eu-west-1:000000000000:function:my-func", "lambda", "my-func", "/services/lambda/my-func")]
     [InlineData("arn:aws:s3:::my-bucket", "s3", "my-bucket", "/services/s3/my-bucket")]
     [InlineData("arn:aws:dynamodb:eu-west-1:000000000000:table/my-table", "dynamodb", "my-table", "/services/dynamodb/my-table")]
@@ -66,6 +66,11 @@ public class ReferenceResolverTests
     [InlineData("lambda://pineapple-weather-sync", "lambda", "pineapple-weather-sync", "/services/lambda/pineapple-weather-sync")]
     [InlineData("logs://my-group", "cloudwatch-logs", "my-group", "/services/cloudwatch-logs/my-group")]
     [InlineData("s3://bucket/path/to/key.json", "s3", "bucket/path/to/key.json", "/services/s3/bucket%2Fpath%2Fto%2Fkey.json")]
+    [InlineData("cloudformation://MyStack", "cloudformation", "MyStack", "/services/cloudformation/MyStack")]
+    [InlineData("scheduler://default/qa-schedule", "scheduler", "default/qa-schedule", "/services/scheduler/default%2Fqa-schedule")]
+    [InlineData("eventbridge://default", "eventbridge", "default", "/services/eventbridge/default")]
+    [InlineData("ses://identity@example.com", "ses", "identity@example.com", "/services/ses/identity%40example.com")]
+    [InlineData("route53://Z123", "route53", "Z123", "/services/route53/Z123")]
     public void Resolve_WhenSchemeReference_ReturnsReference(
         string reference,
         string expectedKey,

@@ -4,6 +4,7 @@ import { BrowserRouter, Outlet, Route, Routes } from 'react-router-dom';
 import { getLiveness } from './api/client';
 import { ActivityLogPanel } from './components/ActivityLogPanel';
 import { Breadcrumbs } from './components/Breadcrumbs';
+import { CircuitBreakerBanner } from './components/CircuitBreakerBanner';
 import { ConnectivityIndicator } from './components/ConnectivityIndicator';
 import { DashboardPage } from './components/DashboardPage';
 import { GlobalSearchBar } from './components/GlobalSearchBar';
@@ -47,6 +48,7 @@ function AppShell() {
         </PageLayout.Header>
         <PageLayout.Content>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 24 }}>
+            <CircuitBreakerBanner />
             <Breadcrumbs />
             <Text data-testid="health-status">Service status: {status}</Text>
             <Outlet />

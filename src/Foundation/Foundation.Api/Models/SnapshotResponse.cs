@@ -1,19 +1,6 @@
 namespace Foundation.Api.Models;
 
 /// <summary>
-/// Response model for a successful snapshot export operation.
-/// </summary>
-/// <param name="SnapshotId">The identifier of the exported snapshot.</param>
-/// <param name="ExportedAt">The UTC timestamp when the snapshot was captured.</param>
-/// <param name="Services">The list of services that contributed resources to the snapshot.</param>
-/// <param name="TotalResources">The total number of resources in the snapshot.</param>
-public record SnapshotExportResponse(
-    string SnapshotId,
-    DateTime ExportedAt,
-    IReadOnlyList<string> Services,
-    int TotalResources);
-
-/// <summary>
 /// Response model for a snapshot import operation.
 /// </summary>
 /// <param name="OperationId">A unique identifier for this import operation.</param>

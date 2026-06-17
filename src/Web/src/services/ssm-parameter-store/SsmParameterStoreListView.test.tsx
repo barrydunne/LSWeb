@@ -150,6 +150,45 @@ describe('SsmParameterStoreListView', () => {
     expect(screen.getByTestId('ssm-folder')).toHaveTextContent('config/');
   });
 
+  it('shows path-scoped empty-state copy when the path has folders but no direct parameters', async () => {
+    getParametersMock.mockResolvedValue({
+      path: '/',
+      parameters: [
+        {
+          name: '/qa/app/config',
+          type: 'String',
+          version: 1,
+          lastModifiedDate: null,
+          arn: 'arn:qa-config',
+        },
+      ],
+    });
+
+    renderView();
+    await waitFor(() =>
+      expect(screen.getByTestId('ssm-parameter-store-list-view')).toBeInTheDocument(),
+    );
+
+    // The qa/ folder is visible, so the empty-state must not claim the backend has no parameters.
+    expect(screen.getByTestId('ssm-folder')).toHaveTextContent('qa/');
+    expect(
+      screen.getByText('No parameters directly under this path \u2014 open a folder to drill in.'),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('No parameters found on this backend.')).not.toBeInTheDocument();
+  });
+
+  it('shows backend-scoped empty-state copy at the root when there are no parameters at all', async () => {
+    getParametersMock.mockResolvedValue({ path: '/', parameters: [] });
+
+    renderView();
+    await waitFor(() =>
+      expect(screen.getByTestId('ssm-parameter-store-list-view')).toBeInTheDocument(),
+    );
+
+    expect(screen.queryByTestId('ssm-folder')).not.toBeInTheDocument();
+    expect(screen.getByText('No parameters found on this backend.')).toBeInTheDocument();
+  });
+
   it('seeds the create form name with the current path prefix', async () => {
     renderView();
     await waitFor(() =>

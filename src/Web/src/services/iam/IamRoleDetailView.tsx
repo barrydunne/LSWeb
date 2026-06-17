@@ -110,7 +110,7 @@ const buttonStyle: CSSProperties = {
   alignSelf: 'flex-start',
 };
 
-type LoadState = 'loading' | 'ready' | 'error';
+type LoadState = 'loading' | 'ready' | 'error' | 'notFound';
 type TabKey = 'trust' | 'permissions' | 'usedby' | 'tags';
 
 interface TabDescriptor {
@@ -168,6 +168,11 @@ export function IamRoleDetailView({ roleName }: IamRoleDetailViewProps) {
       setLoadState('loading');
       return getIamRole(roleName, signal)
         .then((data) => {
+          if (data === null) {
+            setDetail(null);
+            setLoadState('notFound');
+            return;
+          }
           setDetail(data);
           setDescription(data.description ?? '');
           setMaxSession(data.maxSessionDuration === null ? '' : String(data.maxSessionDuration));
@@ -294,6 +299,15 @@ export function IamRoleDetailView({ roleName }: IamRoleDetailViewProps) {
     return (
       <p data-testid="iam-role-detail-loading" style={messageStyle}>
         Loading role&hellip;
+      </p>
+    );
+  }
+
+  if (loadState === 'notFound') {
+    return (
+      <p data-testid="iam-role-detail-not-found" style={messageStyle}>
+        This IAM role was not found. It may have been deleted, or it may be a placeholder role that
+        was never created as a real IAM resource.
       </p>
     );
   }

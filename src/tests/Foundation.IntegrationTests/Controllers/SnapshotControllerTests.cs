@@ -28,10 +28,32 @@ public class SnapshotControllerTests
 
         if (response.StatusCode == HttpStatusCode.OK)
         {
-            var payload = await response.Content.ReadFromJsonAsync<SnapshotExportResponse>(TestContext.Current.CancellationToken);
+            var payload = await response.Content.ReadFromJsonAsync<WorkspaceSnapshot>(TestContext.Current.CancellationToken);
             payload.Should().NotBeNull();
-            payload!.SnapshotId.Should().NotBeNullOrEmpty();
+            payload!.Id.Should().NotBeNullOrEmpty();
+            payload.Resources.Should().NotBeNull();
         }
+    }
+
+    [Fact]
+    public async Task ExportedSnapshot_CanBeImportedBack_RoundTrips()
+    {
+        // Arrange
+        var client = _fixture.CreateClient();
+
+        // Act
+        var exportResponse = await client.GetAsync("/api/snapshot/export", TestContext.Current.CancellationToken);
+        if (exportResponse.StatusCode != HttpStatusCode.OK)
+            return;
+
+        var exported = await exportResponse.Content.ReadFromJsonAsync<WorkspaceSnapshot>(TestContext.Current.CancellationToken);
+        exported.Should().NotBeNull();
+        var importResponse = await client.PostAsJsonAsync("/api/snapshot/import", exported, TestContext.Current.CancellationToken);
+
+        // Assert
+        // The export document must be a valid import payload: no validation 400 for a self-produced snapshot.
+        importResponse.StatusCode.Should().NotBe(HttpStatusCode.BadRequest);
+        importResponse.StatusCode.Should().NotBe(HttpStatusCode.NotFound);
     }
 
     [Fact]

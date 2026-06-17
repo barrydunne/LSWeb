@@ -4,6 +4,7 @@ import { App } from './App';
 import {
   getActivity,
   getCatalogue,
+  getCircuitStatus,
   getConnectivity,
   getDiagnostics,
   getFavourites,
@@ -22,6 +23,7 @@ const getLivenessMock = vi.mocked(getLiveness);
 const getConnectivityMock = vi.mocked(getConnectivity);
 const getCatalogueMock = vi.mocked(getCatalogue);
 const getHealthMock = vi.mocked(getHealth);
+const getCircuitStatusMock = vi.mocked(getCircuitStatus);
 const getActivityMock = vi.mocked(getActivity);
 const getSearchStateMock = vi.mocked(getSearchState);
 const getRecentlyViewedMock = vi.mocked(getRecentlyViewed);
@@ -39,6 +41,7 @@ describe('App', () => {
     });
     getCatalogueMock.mockResolvedValue({ services: [] });
     getHealthMock.mockResolvedValue({ services: [] });
+    getCircuitStatusMock.mockResolvedValue({ isOpen: false, affectedServices: [] });
     getActivityMock.mockResolvedValue({ entries: [] });
     getSearchStateMock.mockResolvedValue({
       builtAt: '2026-01-01T00:00:00Z',

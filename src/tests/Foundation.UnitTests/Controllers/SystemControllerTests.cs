@@ -5,6 +5,7 @@ using Foundation.Application.Commands.RefreshCatalogue;
 using Foundation.Application.Queries.GenerateCliSnippet;
 using Foundation.Application.Queries.GetActivity;
 using Foundation.Application.Queries.GetCatalogue;
+using Foundation.Application.Queries.GetCircuitStatus;
 using Foundation.Application.Queries.GetConnectivity;
 using Foundation.Application.Queries.GetDiagnostics;
 using Foundation.Application.Queries.GetHealth;
@@ -97,6 +98,42 @@ public class SystemControllerTests
 
         // Act
         var result = await sut.Health(TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task Circuit_WhenQuerySucceeds_ReturnsOkWithStatus()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<GetCircuitStatusQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<GetCircuitStatusQueryResult>>(
+                new GetCircuitStatusQueryResult(true, ["s3", "sqs"])));
+        var sut = new SystemController(_sender, _logger);
+
+        // Act
+        var result = await sut.Circuit(TestContext.Current.CancellationToken);
+
+        // Assert
+        var ok = result.Should().BeOfType<Ok<CircuitStatusResponse>>().Subject;
+        ok.Value!.IsOpen.Should().BeTrue();
+        ok.Value.AffectedServices.Should().Equal("s3", "sqs");
+    }
+
+    [Fact]
+    public async Task Circuit_WhenQueryFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<GetCircuitStatusQuery>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<GetCircuitStatusQueryResult>>(new InvalidOperationException("boom")));
+        var sut = new SystemController(_sender, _logger);
+
+        // Act
+        var result = await sut.Circuit(TestContext.Current.CancellationToken);
 
         // Assert
         var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;

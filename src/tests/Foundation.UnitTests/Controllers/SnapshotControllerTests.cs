@@ -42,7 +42,10 @@ public class SnapshotControllerTests
         var result = await _sut.Value.Export(TestContext.Current.CancellationToken);
 
         // Assert
-        result.Should().NotBeNull();
+        var ok = result.Should().BeOfType<Ok<WorkspaceSnapshot>>().Subject;
+        ok.Value.Should().BeSameAs(snapshot);
+        ok.Value!.Id.Should().Be("snap-abc123");
+        ok.Value.Resources.Should().ContainKey("lambda");
     }
 
     [Fact]

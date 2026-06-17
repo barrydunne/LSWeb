@@ -14,6 +14,9 @@ vi.mock('./NotificationCenter', () => ({
 describe('SnapshotPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // jsdom does not implement object URLs used by the snapshot file download.
+    URL.createObjectURL = vi.fn().mockReturnValue('blob:snapshot');
+    URL.revokeObjectURL = vi.fn();
   });
 
   afterEach(() => {
@@ -30,10 +33,24 @@ describe('SnapshotPanel', () => {
 
   it('exports workspace snapshot on button click', async () => {
     const mockExport = vi.fn().mockResolvedValue({
-      snapshotId: 'snap-123',
+      id: 'snap-123',
       exportedAt: new Date().toISOString(),
-      services: ['lambda', 'sqs'],
-      totalResources: 10,
+      resources: {
+        lambda: Array.from({ length: 6 }, (_, index) => ({
+          serviceKey: 'lambda',
+          resourceType: 'Function',
+          resourceId: `fn-${index}`,
+          resourceName: `fn-${index}`,
+          data: '{}',
+        })),
+        sqs: Array.from({ length: 4 }, (_, index) => ({
+          serviceKey: 'sqs',
+          resourceType: 'Queue',
+          resourceId: `q-${index}`,
+          resourceName: `q-${index}`,
+          data: '{}',
+        })),
+      },
     });
 
     vi.mocked(client.exportWorkspaceSnapshot).mockImplementation(mockExport);
@@ -47,6 +64,8 @@ describe('SnapshotPanel', () => {
       expect(mockExport).toHaveBeenCalledOnce();
       expect(screen.getByText(/10 resource\(s\) from 2 service\(s\)/)).toBeInTheDocument();
     });
+    // The full snapshot is offered as a downloadable file so it can be re-imported.
+    expect(URL.createObjectURL).toHaveBeenCalled();
   });
 
   it('disables buttons while exporting', async () => {
@@ -54,7 +73,12 @@ describe('SnapshotPanel', () => {
       () =>
         new Promise((resolve) =>
           setTimeout(
-            () => resolve({} as unknown as Awaited<ReturnType<typeof client.exportWorkspaceSnapshot>>),
+            () =>
+              resolve({
+                id: 'snap-slow',
+                exportedAt: new Date().toISOString(),
+                resources: {},
+              } as unknown as Awaited<ReturnType<typeof client.exportWorkspaceSnapshot>>),
             100,
           ),
         ),

@@ -44,6 +44,20 @@ describe('RawJsonViewer', () => {
     expect(screen.getByTestId('raw-json-copy')).toHaveTextContent('Copy');
   });
 
+  it('renders a plain string verbatim (without quotes) when renderStringAsText is set', () => {
+    render(<RawJsonViewer value="test order 1" renderStringAsText initiallyExpanded />);
+
+    const content = screen.getByTestId('raw-json-content');
+    expect(content).toHaveTextContent('test order 1');
+    expect(content.textContent).toBe('test order 1');
+  });
+
+  it('still JSON-stringifies a non-string value when renderStringAsText is set', () => {
+    render(<RawJsonViewer value={{ a: 1 }} renderStringAsText initiallyExpanded />);
+
+    expect(screen.getByTestId('raw-json-content')).toHaveTextContent('"a": 1');
+  });
+
   it('toggles between hidden and shown', async () => {
     render(<RawJsonViewer value={{ a: 1 }} />);
 

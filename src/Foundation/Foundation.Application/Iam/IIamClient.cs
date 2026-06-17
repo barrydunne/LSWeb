@@ -217,8 +217,8 @@ public interface IIamClient
     /// </summary>
     /// <param name="roleName">The name of the role to retrieve.</param>
     /// <param name="cancellationToken">A token to cancel the operation.</param>
-    /// <returns>The role detail, or an error if the role is missing or the backend could not be reached.</returns>
-    Task<Result<IamRoleDetail>> GetRoleAsync(string roleName, CancellationToken cancellationToken);
+    /// <returns>The role detail; <c>null</c> when no such role exists; or an error if the backend could not be reached.</returns>
+    Task<Result<IamRoleDetail?>> GetRoleAsync(string roleName, CancellationToken cancellationToken);
 
     /// <summary>
     /// Creates an IAM role with the supplied name, trust policy, and optional path, description, and session duration.

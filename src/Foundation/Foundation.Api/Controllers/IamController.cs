@@ -745,31 +745,34 @@ public partial class IamController : ControllerBase
     /// <returns>An HTTP 200 result carrying the role detail.</returns>
     [HttpGet("roles/{roleName}")]
     [ProducesResponseType(typeof(IamRoleDetailResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IResult> GetRole(string roleName, CancellationToken cancellationToken)
     {
         LogHandlingGetRole(roleName);
         var result = await _sender.Send(new GetIamRoleQuery(roleName), cancellationToken);
         LogGetRoleHandled(result.IsSuccess);
         return result.Match(
-            detail => Results.Ok(new IamRoleDetailResponse(
-                detail.Role.RoleName,
-                detail.Role.Arn,
-                detail.Role.RoleId,
-                detail.Role.Path,
-                detail.Role.CreateDate,
-                detail.Role.Description,
-                detail.Role.MaxSessionDuration,
-                detail.Role.AssumeRolePolicyDocument,
-                detail.Role.AttachedPolicies
-                    .Select(policy => new IamAttachedPolicyResponse(policy.PolicyName, policy.PolicyArn))
-                    .ToList(),
-                detail.Role.InlinePolicies
-                    .Select(policy => new IamInlinePolicyResponse(policy.PolicyName, policy.PolicyDocument))
-                    .ToList(),
-                detail.Role.Tags
-                    .Select(tag => new IamTagResponse(tag.Key, tag.Value))
-                    .ToList(),
-                detail.Role.PermissionsBoundaryArn)),
+            detail => detail.Role is null
+                ? Results.NotFound()
+                : Results.Ok(new IamRoleDetailResponse(
+                    detail.Role.RoleName,
+                    detail.Role.Arn,
+                    detail.Role.RoleId,
+                    detail.Role.Path,
+                    detail.Role.CreateDate,
+                    detail.Role.Description,
+                    detail.Role.MaxSessionDuration,
+                    detail.Role.AssumeRolePolicyDocument,
+                    detail.Role.AttachedPolicies
+                        .Select(policy => new IamAttachedPolicyResponse(policy.PolicyName, policy.PolicyArn))
+                        .ToList(),
+                    detail.Role.InlinePolicies
+                        .Select(policy => new IamInlinePolicyResponse(policy.PolicyName, policy.PolicyDocument))
+                        .ToList(),
+                    detail.Role.Tags
+                        .Select(tag => new IamTagResponse(tag.Key, tag.Value))
+                        .ToList(),
+                    detail.Role.PermissionsBoundaryArn)),
             error => error.AsHttpResult());
     }
 

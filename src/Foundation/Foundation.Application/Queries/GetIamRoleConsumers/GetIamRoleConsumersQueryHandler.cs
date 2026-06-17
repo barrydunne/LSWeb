@@ -36,6 +36,12 @@ internal sealed partial class GetIamRoleConsumersQueryHandler
             return failure;
         }
 
+        if (role.Value is null)
+        {
+            LogHandled(0);
+            return new GetIamRoleConsumersQueryResult([]);
+        }
+
         var functions = await _lambdaClient.ListFunctionsAsync(cancellationToken);
         if (!functions.IsSuccess)
         {

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   getActivity,
   getCatalogue,
+  getCircuitStatus,
   getCliSnippet,
   getConnectivity,
   getDiagnostics,
@@ -396,6 +397,35 @@ describe('getHealth', () => {
     );
 
     await expect(getHealth()).rejects.toThrow('Health request failed with status 503');
+  });
+});
+
+describe('getCircuitStatus', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('returns the parsed circuit status when the request succeeds', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ isOpen: true, affectedServices: ['s3', 'sqs'] }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await getCircuitStatus();
+
+    expect(result.isOpen).toBe(true);
+    expect(result.affectedServices).toEqual(['s3', 'sqs']);
+    expect(fetchMock).toHaveBeenCalledWith('/api/system/circuit', { signal: undefined });
+  });
+
+  it('throws when the response is not ok', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: false, status: 500 }),
+    );
+
+    await expect(getCircuitStatus()).rejects.toThrow('Circuit status request failed with status 500');
   });
 });
 
@@ -8658,10 +8688,16 @@ describe('getIamRole', () => {
 
     const result = await getIamRole('lambda-exec');
 
-    expect(result.roleName).toBe('lambda-exec');
+    expect(result?.roleName).toBe('lambda-exec');
     expect(fetchMock).toHaveBeenCalledWith('/api/services/iam/roles/lambda-exec', {
       signal: undefined,
     });
+  });
+
+  it('returns null when the role is not found (404)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404 }));
+
+    await expect(getIamRole('missing-role')).resolves.toBeNull();
   });
 
   it('throws when the response is not ok', async () => {
@@ -11875,18 +11911,17 @@ describe('exportWorkspaceSnapshot', () => {
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
       json: async () => ({
-        snapshotId: 'snap-1',
+        id: 'snap-1',
         exportedAt: '2024-01-01T00:00:00Z',
-        services: ['s3', 'sqs'],
-        totalResources: 4,
+        resources: { s3: [], sqs: [] },
       }),
     });
     vi.stubGlobal('fetch', fetchMock);
 
     const result = await exportWorkspaceSnapshot();
 
-    expect(result.snapshotId).toBe('snap-1');
-    expect(result.totalResources).toBe(4);
+    expect(result.id).toBe('snap-1');
+    expect(Object.keys(result.resources)).toEqual(['s3', 'sqs']);
     expect(fetchMock).toHaveBeenCalledWith('/api/snapshot/export', { signal: undefined });
   });
 

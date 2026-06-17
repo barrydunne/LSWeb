@@ -8,9 +8,13 @@ namespace Foundation.UnitTests.Application.Queries.PresignS3Object;
 public class PresignS3ObjectQueryHandlerTests
 {
     private readonly IS3Client _client = Substitute.For<IS3Client>();
+    private readonly IPresignedUrlRewriter _rewriter = Substitute.For<IPresignedUrlRewriter>();
+
+    public PresignS3ObjectQueryHandlerTests()
+        => _rewriter.Rewrite(Arg.Any<string>()).Returns(callInfo => callInfo.Arg<string>());
 
     private PresignS3ObjectQueryHandler CreateSut()
-        => new(_client, NullLogger<PresignS3ObjectQueryHandler>.Instance);
+        => new(_client, _rewriter, NullLogger<PresignS3ObjectQueryHandler>.Instance);
 
     [Fact]
     public async Task Handle_WhenSuccessful_ReturnsUrlAndEffectiveExpiry()
@@ -87,5 +91,27 @@ public class PresignS3ObjectQueryHandlerTests
         // Assert
         result.IsSuccess.Should().BeFalse();
         result.Error!.Value.Message.Should().Be("presign boom");
+    }
+
+    [Fact]
+    public async Task Handle_WhenSuccessful_RewritesTheUrlHostForTheBrowser()
+    {
+        // Arrange
+        _client
+            .GeneratePresignedUrlAsync("data", "readme.txt", Arg.Any<TimeSpan>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result<string>>("https://localstack:4566/data/readme.txt?sig=abc"));
+        _rewriter
+            .Rewrite("https://localstack:4566/data/readme.txt?sig=abc")
+            .Returns("http://localhost:4566/data/readme.txt?sig=abc");
+        var sut = CreateSut();
+
+        // Act
+        var result = await sut.Handle(
+            new PresignS3ObjectQuery("data", "readme.txt", 60),
+            TestContext.Current.CancellationToken);
+
+        // Assert
+        result.IsSuccess.Should().BeTrue();
+        result.Value.Url.Should().Be("http://localhost:4566/data/readme.txt?sig=abc");
     }
 }

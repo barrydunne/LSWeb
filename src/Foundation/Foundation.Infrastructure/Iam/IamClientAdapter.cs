@@ -791,29 +791,36 @@ internal sealed class IamClientAdapter : IIamClient
             },
             cancellationToken);
 
-    public Task<Result<IamRoleDetail>> GetRoleAsync(string roleName, CancellationToken cancellationToken)
-        => _gateway.ExecuteAsync<AmazonIdentityManagementServiceClient, IamRoleDetail>(
+    public Task<Result<IamRoleDetail?>> GetRoleAsync(string roleName, CancellationToken cancellationToken)
+        => _gateway.ExecuteAsync<AmazonIdentityManagementServiceClient, IamRoleDetail?>(
             ServiceKey,
             async (client, token) =>
             {
-                var response = await client.GetRoleAsync(new GetRoleRequest { RoleName = roleName }, token);
-                var role = response.Role ?? new Role { RoleName = roleName };
-                var attachedPolicies = await GetAttachedRolePoliciesAsync(client, roleName, token);
-                var inlinePolicies = await GetInlineRolePoliciesAsync(client, roleName, token);
+                try
+                {
+                    var response = await client.GetRoleAsync(new GetRoleRequest { RoleName = roleName }, token);
+                    var role = response.Role ?? new Role { RoleName = roleName };
+                    var attachedPolicies = await GetAttachedRolePoliciesAsync(client, roleName, token);
+                    var inlinePolicies = await GetInlineRolePoliciesAsync(client, roleName, token);
 
-                return new IamRoleDetail(
-                    role.RoleName ?? roleName,
-                    role.Arn ?? string.Empty,
-                    role.RoleId ?? string.Empty,
-                    role.Path ?? "/",
-                    ToOffset(role.CreateDate),
-                    string.IsNullOrEmpty(role.Description) ? null : role.Description,
-                    role.MaxSessionDuration,
-                    Uri.UnescapeDataString(role.AssumeRolePolicyDocument ?? string.Empty),
-                    attachedPolicies,
-                    inlinePolicies,
-                    ToTags(role.Tags),
-                    role.PermissionsBoundary?.PermissionsBoundaryArn);
+                    return new IamRoleDetail(
+                        role.RoleName ?? roleName,
+                        role.Arn ?? string.Empty,
+                        role.RoleId ?? string.Empty,
+                        role.Path ?? "/",
+                        ToOffset(role.CreateDate),
+                        string.IsNullOrEmpty(role.Description) ? null : role.Description,
+                        role.MaxSessionDuration,
+                        Uri.UnescapeDataString(role.AssumeRolePolicyDocument ?? string.Empty),
+                        attachedPolicies,
+                        inlinePolicies,
+                        ToTags(role.Tags),
+                        role.PermissionsBoundary?.PermissionsBoundaryArn);
+                }
+                catch (NoSuchEntityException)
+                {
+                    return null;
+                }
             },
             cancellationToken);
 

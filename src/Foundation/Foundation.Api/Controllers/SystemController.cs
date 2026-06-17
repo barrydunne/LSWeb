@@ -4,6 +4,7 @@ using Foundation.Application.Commands.RefreshCatalogue;
 using Foundation.Application.Queries.GenerateCliSnippet;
 using Foundation.Application.Queries.GetActivity;
 using Foundation.Application.Queries.GetCatalogue;
+using Foundation.Application.Queries.GetCircuitStatus;
 using Foundation.Application.Queries.GetConnectivity;
 using Foundation.Application.Queries.GetDiagnostics;
 using Foundation.Application.Queries.GetHealth;
@@ -71,6 +72,23 @@ public partial class SystemController : ControllerBase
                 health.Services
                     .Select(service => new ServiceHealthResponse(service.Key, service.Availability.ToString()))
                     .ToList())),
+            error => error.AsHttpResult());
+    }
+
+    /// <summary>
+    /// Reports whether any service's AWS gateway circuit breaker is currently open.
+    /// </summary>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 200 result carrying the circuit-breaker status and any affected services.</returns>
+    [HttpGet("circuit")]
+    [ProducesResponseType(typeof(CircuitStatusResponse), StatusCodes.Status200OK)]
+    public async Task<IResult> Circuit(CancellationToken cancellationToken)
+    {
+        LogHandlingCircuit();
+        var result = await _sender.Send(new GetCircuitStatusQuery(), cancellationToken);
+        LogCircuitHandled(result.IsSuccess);
+        return result.Match(
+            status => Results.Ok(new CircuitStatusResponse(status.IsOpen, status.AffectedServices)),
             error => error.AsHttpResult());
     }
 
@@ -229,6 +247,12 @@ public partial class SystemController : ControllerBase
 
     [LoggerMessage(LogLevel.Trace, "Health request handled. Success: {Success}")]
     private partial void LogHealthHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling circuit status request.")]
+    private partial void LogHandlingCircuit();
+
+    [LoggerMessage(LogLevel.Trace, "Circuit status request handled. Success: {Success}")]
+    private partial void LogCircuitHandled(bool success);
 
     [LoggerMessage(LogLevel.Trace, "Handling connectivity request.")]
     private partial void LogHandlingConnectivity();

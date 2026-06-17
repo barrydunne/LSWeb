@@ -5,27 +5,6 @@ namespace Foundation.UnitTests.Models;
 public class SnapshotResponseTests
 {
     [Fact]
-    public void SnapshotExportResponse_SupportsValueEquality()
-    {
-        var services = new List<string> { "lambda", "sqs" };
-        var response = new SnapshotExportResponse("snap-1", DateTime.UnixEpoch, services, 3);
-
-        response.SnapshotId.Should().Be("snap-1");
-        response.ExportedAt.Should().Be(DateTime.UnixEpoch);
-        response.Services.Should().BeSameAs(services);
-        response.TotalResources.Should().Be(3);
-
-        var same = response with { };
-        response.Should().Be(same);
-        response.GetHashCode().Should().Be(same.GetHashCode());
-        response.ToString().Should().Contain("snap-1");
-        (response with { SnapshotId = "other" }).Should().NotBe(response);
-        (response with { ExportedAt = DateTime.UnixEpoch.AddDays(1) }).Should().NotBe(response);
-        (response with { Services = new List<string>() }).Should().NotBe(response);
-        (response with { TotalResources = 9 }).Should().NotBe(response);
-    }
-
-    [Fact]
     public void SnapshotImportResponse_SupportsValueEquality()
     {
         var failures = new List<SnapshotFailureResponse>

@@ -128,6 +128,17 @@ describe('IamRoleDetailView', () => {
     await waitFor(() => expect(screen.getByTestId('iam-role-detail-error')).toBeInTheDocument());
   });
 
+  it('shows a graceful not-found state when the role does not exist', async () => {
+    getIamRoleMock.mockResolvedValue(null);
+
+    renderView();
+
+    await waitFor(() =>
+      expect(screen.getByTestId('iam-role-detail-not-found')).toBeInTheDocument(),
+    );
+    expect(screen.queryByTestId('iam-role-detail-error')).not.toBeInTheDocument();
+  });
+
   it('renders the identity fields', async () => {
     renderView();
 

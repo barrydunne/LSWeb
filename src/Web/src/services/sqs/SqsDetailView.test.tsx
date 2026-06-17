@@ -210,6 +210,92 @@ describe('SqsDetailView', () => {
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
   });
 
+  it('shows a plain-text message body verbatim without adding quotes', async () => {
+    pollSqsMessagesMock.mockResolvedValue({
+      messages: [
+        {
+          messageId: 'id-plain',
+          receiptHandle: 'receipt-plain',
+          body: 'test order 1',
+          attributes: {},
+          messageAttributes: {},
+        },
+      ],
+    });
+    renderView();
+    goToPollTab();
+    fireEvent.click(screen.getByTestId('sqs-poll-button'));
+
+    await waitFor(() => expect(screen.getByTestId('sqs-message-list')).toBeInTheDocument());
+    fireEvent.click(screen.getAllByTestId('sqs-message-toggle')[0]);
+
+    const detail = screen.getByTestId('sqs-message-detail');
+    // The Body viewer is the first RawJsonViewer in the detail panel; expand it.
+    fireEvent.click(within(detail).getAllByTestId('raw-json-toggle')[0]);
+    const body = within(detail).getAllByTestId('raw-json-content')[0];
+    expect(body.textContent).toBe('test order 1');
+  });
+
+  it('shows a JSON scalar body (number or null) verbatim rather than as JSON', async () => {
+    pollSqsMessagesMock.mockResolvedValue({
+      messages: [
+        {
+          messageId: 'id-num',
+          receiptHandle: 'receipt-num',
+          body: '42',
+          attributes: {},
+          messageAttributes: {},
+        },
+        {
+          messageId: 'id-null',
+          receiptHandle: 'receipt-null',
+          body: 'null',
+          attributes: {},
+          messageAttributes: {},
+        },
+      ],
+    });
+    renderView();
+    goToPollTab();
+    fireEvent.click(screen.getByTestId('sqs-poll-button'));
+
+    await waitFor(() => expect(screen.getByTestId('sqs-message-list')).toBeInTheDocument());
+    const toggles = screen.getAllByTestId('sqs-message-toggle');
+    fireEvent.click(toggles[0]);
+    fireEvent.click(toggles[1]);
+
+    const details = screen.getAllByTestId('sqs-message-detail');
+    fireEvent.click(within(details[0]).getAllByTestId('raw-json-toggle')[0]);
+    fireEvent.click(within(details[1]).getAllByTestId('raw-json-toggle')[0]);
+    expect(within(details[0]).getAllByTestId('raw-json-content')[0].textContent).toBe('42');
+    expect(within(details[1]).getAllByTestId('raw-json-content')[0].textContent).toBe('null');
+  });
+
+  it('pretty-prints a JSON object message body', async () => {
+    pollSqsMessagesMock.mockResolvedValue({
+      messages: [
+        {
+          messageId: 'id-json',
+          receiptHandle: 'receipt-json',
+          body: '{"orderId":42}',
+          attributes: {},
+          messageAttributes: {},
+        },
+      ],
+    });
+    renderView();
+    goToPollTab();
+    fireEvent.click(screen.getByTestId('sqs-poll-button'));
+
+    await waitFor(() => expect(screen.getByTestId('sqs-message-list')).toBeInTheDocument());
+    fireEvent.click(screen.getAllByTestId('sqs-message-toggle')[0]);
+
+    const detail = screen.getByTestId('sqs-message-detail');
+    fireEvent.click(within(detail).getAllByTestId('raw-json-toggle')[0]);
+    const body = within(detail).getAllByTestId('raw-json-content')[0];
+    expect(body).toHaveTextContent('"orderId": 42');
+  });
+
   it('collapses all rows again after a new poll', async () => {
     renderView();
     goToPollTab();

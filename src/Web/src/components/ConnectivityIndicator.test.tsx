@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { ThemeProvider } from '@primer/react';
 import { ConnectivityIndicator } from './ConnectivityIndicator';
-import { getConnectivity } from '../api/client';
+import { getConnectivity, type ConnectivityResult } from '../api/client';
 
 vi.mock('../api/client');
 
@@ -72,5 +72,71 @@ describe('ConnectivityIndicator', () => {
       expect(screen.getByTestId('connectivity-status')).toHaveTextContent('Unavailable');
     });
     expect(screen.getByTestId('connectivity-error')).toHaveTextContent('Unable to reach the backend.');
+  });
+
+  it('polls and refreshes the status without a page reload', async () => {
+    vi.useFakeTimers();
+    try {
+      getConnectivityMock.mockResolvedValue({
+        status: 'Disconnected',
+        endpoint: 'http://localhost:4566',
+        region: 'eu-west-1',
+        error: 'connection refused',
+      });
+
+      renderIndicator();
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+      expect(screen.getByTestId('connectivity-status')).toHaveTextContent('Disconnected');
+
+      getConnectivityMock.mockResolvedValue({
+        status: 'Connected',
+        endpoint: 'http://localhost:4566',
+        region: 'eu-west-1',
+        error: null,
+      });
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(10_000);
+      });
+
+      expect(screen.getByTestId('connectivity-status')).toHaveTextContent('Connected');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('ignores a resolved result after unmount', async () => {
+    let resolve: ((result: ConnectivityResult) => void) | undefined;
+    getConnectivityMock.mockReturnValue(
+      new Promise<ConnectivityResult>((res) => {
+        resolve = res;
+      }),
+    );
+
+    const { unmount } = renderIndicator();
+    unmount();
+    resolve?.({ status: 'Connected', endpoint: 'http://localhost:4566', region: 'eu-west-1', error: null });
+
+    await Promise.resolve();
+    expect(screen.queryByTestId('connectivity-status')).not.toBeInTheDocument();
+  });
+
+  it('ignores a rejected result after unmount', async () => {
+    let reject: ((reason: unknown) => void) | undefined;
+    getConnectivityMock.mockReturnValue(
+      new Promise<ConnectivityResult>((_, rej) => {
+        reject = rej;
+      }),
+    );
+
+    const { unmount } = renderIndicator();
+    unmount();
+    reject?.(new Error('late failure'));
+
+    await Promise.resolve();
+    expect(screen.queryByTestId('connectivity-status')).not.toBeInTheDocument();
   });
 });

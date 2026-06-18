@@ -17,8 +17,12 @@ internal sealed class PresignedUrlRewriter : IPresignedUrlRewriter
 
     public string Rewrite(string url)
     {
-        if (_publicBase is null || !Uri.TryCreate(url, UriKind.Absolute, out var original))
+        if (_publicBase is null
+            || !Uri.TryCreate(url, UriKind.Absolute, out var original)
+            || (original.Scheme != Uri.UriSchemeHttp && original.Scheme != Uri.UriSchemeHttps))
+        {
             return url;
+        }
 
         var originAuthority = original.GetLeftPart(UriPartial.Authority);
         var publicAuthority = _publicBase.GetLeftPart(UriPartial.Authority);

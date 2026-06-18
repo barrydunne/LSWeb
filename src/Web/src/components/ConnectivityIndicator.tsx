@@ -7,15 +7,36 @@ type IndicatorState =
   | { kind: 'ready'; result: ConnectivityResult }
   | { kind: 'error' };
 
+const pollIntervalMs = 10_000;
+
 export function ConnectivityIndicator() {
   const [state, setState] = useState<IndicatorState>({ kind: 'checking' });
 
   useEffect(() => {
     const controller = new AbortController();
-    getConnectivity(controller.signal)
-      .then((result) => setState({ kind: 'ready', result }))
-      .catch(() => setState({ kind: 'error' }));
-    return () => controller.abort();
+    let cancelled = false;
+
+    const check = () => {
+      getConnectivity(controller.signal)
+        .then((result) => {
+          if (!cancelled) {
+            setState({ kind: 'ready', result });
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            setState({ kind: 'error' });
+          }
+        });
+    };
+
+    check();
+    const timer = setInterval(check, pollIntervalMs);
+    return () => {
+      cancelled = true;
+      controller.abort();
+      clearInterval(timer);
+    };
   }, []);
 
   if (state.kind === 'checking') {

@@ -59,7 +59,7 @@
 param(
     [string]$ContainerName = 'LocalStackWeb',
     [string]$NetworkName = 'localstack-net',
-    [string]$Tag = 'localstackweb:latest',
+    [string]$Tag = 'lsweb:latest',
     [int]$HostPort = 5080,
     [string]$AwsEndpointUrl,
     [string]$UserDataPath,

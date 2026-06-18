@@ -5,13 +5,13 @@
 #>
 [CmdletBinding()]
 param(
-    [string]$Tag = 'localstackweb:latest'
+    [string]$Tag = 'lsweb:latest'
 )
 
 $ErrorActionPreference = 'Stop'
 
-$repoRoot = Resolve-Path (Join-Path $PSScriptRoot '..')
-$dockerfile = Join-Path $PSScriptRoot 'Dockerfile'
+$repoRoot = Resolve-Path (Join-Path -Path $PSScriptRoot -ChildPath '..')
+$dockerfile = Resolve-Path (Join-Path -Path $repoRoot -ChildPath 'docker' -AdditionalChildPath 'Dockerfile')
 
 Write-Host "Building image '$Tag' from context '$repoRoot'..." -ForegroundColor Cyan
 docker build --file $dockerfile --tag $Tag $repoRoot

@@ -84,6 +84,19 @@ public class PresignedUrlRewriterTests
     }
 
     [Fact]
+    public void Rewrite_WhenUrlSchemeIsNotHttp_ReturnsItUnchanged()
+    {
+        // Arrange
+        var sut = new PresignedUrlRewriter("http://localstack:4566", "http://localhost:4566");
+
+        // Act
+        var result = sut.Rewrite("ftp://localstack:4566/bucket/key");
+
+        // Assert
+        result.Should().Be("ftp://localstack:4566/bucket/key");
+    }
+
+    [Fact]
     public void Rewrite_WhenConfiguredPublicEndpointIsNotAbsolute_DerivesFromInternalPort()
     {
         // Arrange

@@ -179,8 +179,6 @@ export function HomePage() {
         Jump straight to a service or pick up where you left off.
       </Text>
 
-      <SnapshotPanel />
-
       <input
         data-testid="home-search-input"
         type="search"
@@ -268,6 +266,8 @@ export function HomePage() {
       )}
 
       <SeedTemplatesPanel />
+
+      <SnapshotPanel />
     </section>
   );
 }

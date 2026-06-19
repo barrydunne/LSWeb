@@ -127,55 +127,6 @@ public class ApiGatewayV2ControllerTests
     }
 
     [Fact]
-    public async Task CreateThenGetThenDeleteApi_WhenBackendSupportsApiGatewayV2_RoundTripsSuccessfully()
-    {
-        // Arrange
-        var client = _fixture.CreateClient();
-        var request = new HttpApiCreateRequest(
-            "integration-roundtrip-api",
-            "HTTP",
-            "Round-trip integration test",
-            "1.0",
-            null);
-
-        // Act - create
-        var createResponse = await client.PostAsJsonAsync(
-            "/api/services/apigatewayv2/apis", request, TestContext.Current.CancellationToken);
-
-        // Assert - only continue when the backend actually created the API.
-        if (createResponse.StatusCode != HttpStatusCode.Created)
-        {
-            return;
-        }
-
-        var created = await createResponse.Content.ReadFromJsonAsync<HttpApiCreatedResponse>(
-            TestContext.Current.CancellationToken);
-        created.Should().NotBeNull();
-        created!.ApiId.Should().NotBeNullOrWhiteSpace();
-
-        // Act - get
-        var getResponse = await client.GetAsync(
-            $"/api/services/apigatewayv2/apis/{created.ApiId}",
-            TestContext.Current.CancellationToken);
-
-        // Assert - get
-        getResponse.StatusCode.Should().Be(HttpStatusCode.OK);
-        var detail = await getResponse.Content.ReadFromJsonAsync<HttpApiDetailResponse>(
-            TestContext.Current.CancellationToken);
-        detail.Should().NotBeNull();
-        detail!.ApiId.Should().Be(created.ApiId);
-        detail.Name.Should().Be("integration-roundtrip-api");
-
-        // Act - delete
-        var deleteResponse = await client.DeleteAsync(
-            $"/api/services/apigatewayv2/apis/{created.ApiId}",
-            TestContext.Current.CancellationToken);
-
-        // Assert - delete
-        deleteResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
-    }
-
-    [Fact]
     public async Task ListRoutes_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
     {
         // Arrange

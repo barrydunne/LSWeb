@@ -2,6 +2,7 @@ using AspNet.KickStarter.FunctionalResult;
 using Foundation.Api.Controllers;
 using Foundation.Api.Models;
 using Foundation.Application.Commands.RefreshCatalogue;
+using Foundation.Application.Commands.ResetCircuitBreaker;
 using Foundation.Application.Queries.GenerateCliSnippet;
 using Foundation.Application.Queries.GetActivity;
 using Foundation.Application.Queries.GetCatalogue;
@@ -451,6 +452,40 @@ public class SystemControllerTests
 
         // Act
         var result = await sut.RefreshCatalogue(TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().BeGreaterThanOrEqualTo(400);
+    }
+
+    [Fact]
+    public async Task ResetCircuit_WhenCommandSucceeds_ReturnsOk()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<ResetCircuitBreakerCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(Result.Success()));
+        var sut = new SystemController(_sender, _logger);
+
+        // Act
+        var result = await sut.ResetCircuit(TestContext.Current.CancellationToken);
+
+        // Assert
+        var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
+        statusResult.StatusCode.Should().Be(StatusCodes.Status200OK);
+    }
+
+    [Fact]
+    public async Task ResetCircuit_WhenCommandFails_ReturnsErrorResult()
+    {
+        // Arrange
+        _sender
+            .Send(Arg.Any<ResetCircuitBreakerCommand>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult<Result>(new InvalidOperationException("boom")));
+        var sut = new SystemController(_sender, _logger);
+
+        // Act
+        var result = await sut.ResetCircuit(TestContext.Current.CancellationToken);
 
         // Assert
         var statusResult = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;

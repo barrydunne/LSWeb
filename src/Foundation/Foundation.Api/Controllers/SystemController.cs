@@ -1,6 +1,7 @@
 using AspNet.KickStarter.FunctionalResult.Extensions;
 using Foundation.Api.Models;
 using Foundation.Application.Commands.RefreshCatalogue;
+using Foundation.Application.Commands.ResetCircuitBreaker;
 using Foundation.Application.Queries.GenerateCliSnippet;
 using Foundation.Application.Queries.GetActivity;
 using Foundation.Application.Queries.GetCatalogue;
@@ -93,8 +94,23 @@ public partial class SystemController : ControllerBase
     }
 
     /// <summary>
-    /// Reports whether the configured AWS backend is reachable, along with the resolved endpoint and region.
+    /// Resets the AWS gateway circuit breaker, closing it so calls flow again without waiting for the
+    /// break duration to elapse. Intended for operational recovery once a downstream dependency has
+    /// been restored.
     /// </summary>
+    /// <param name="cancellationToken">A token to cancel the operation.</param>
+    /// <returns>An HTTP 200 result once the circuit breaker has been closed.</returns>
+    [HttpPost("circuit/reset")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IResult> ResetCircuit(CancellationToken cancellationToken)
+    {
+        LogHandlingCircuitReset();
+        var result = await _sender.Send(new ResetCircuitBreakerCommand(), cancellationToken);
+        LogCircuitResetHandled(result.IsSuccess);
+        return result.Match(
+            () => Results.Ok(),
+            error => error.AsHttpResult());
+    }
     /// <param name="cancellationToken">A token to cancel the operation.</param>
     /// <returns>An HTTP 200 result carrying the connectivity status with credentials masked.</returns>
     [HttpGet("connectivity")]
@@ -253,6 +269,12 @@ public partial class SystemController : ControllerBase
 
     [LoggerMessage(LogLevel.Trace, "Circuit status request handled. Success: {Success}")]
     private partial void LogCircuitHandled(bool success);
+
+    [LoggerMessage(LogLevel.Trace, "Handling circuit breaker reset request.")]
+    private partial void LogHandlingCircuitReset();
+
+    [LoggerMessage(LogLevel.Trace, "Circuit breaker reset request handled. Success: {Success}")]
+    private partial void LogCircuitResetHandled(bool success);
 
     [LoggerMessage(LogLevel.Trace, "Handling connectivity request.")]
     private partial void LogHandlingConnectivity();

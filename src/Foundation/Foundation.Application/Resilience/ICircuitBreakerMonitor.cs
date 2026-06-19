@@ -17,4 +17,9 @@ public interface ICircuitBreakerMonitor
     /// </summary>
     /// <param name="serviceKey">The catalogue service key whose call succeeded.</param>
     void RecordRecovered(string serviceKey);
+
+    /// <summary>
+    /// Clear all recorded suspended-service state, as when the circuit breaker is manually reset.
+    /// </summary>
+    void Reset();
 }

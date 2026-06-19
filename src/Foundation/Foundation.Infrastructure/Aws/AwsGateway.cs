@@ -17,7 +17,7 @@ namespace Foundation.Infrastructure.Aws;
 /// outcome is fed to the capability detector and failures are translated into a friendly
 /// <see cref="Result{T}"/> error.
 /// </summary>
-internal sealed partial class AwsGateway : IAwsGateway
+internal sealed partial class AwsGateway : IAwsGateway, ICircuitBreakerReset
 {
     private const int MaxAttempts = 3;
 
@@ -25,6 +25,7 @@ internal sealed partial class AwsGateway : IAwsGateway
     private readonly IErrorTranslator _errorTranslator;
     private readonly ICapabilityDetector _capabilityDetector;
     private readonly ICircuitBreakerMonitor _circuitBreakerMonitor;
+    private readonly CircuitBreakerManualControl _manualControl = new();
     private readonly ILogger _logger;
     private readonly ResiliencePipeline _pipeline;
 
@@ -40,7 +41,7 @@ internal sealed partial class AwsGateway : IAwsGateway
         _capabilityDetector = capabilityDetector;
         _circuitBreakerMonitor = circuitBreakerMonitor;
         _logger = logger;
-        _pipeline = BuildPipeline();
+        _pipeline = BuildPipeline(_manualControl);
     }
 
     public async Task<Result<TResult>> ExecuteAsync<TClient, TResult>(
@@ -71,7 +72,15 @@ internal sealed partial class AwsGateway : IAwsGateway
         }
     }
 
-    private static ResiliencePipeline BuildPipeline()
+    /// <inheritdoc />
+    public async Task ResetAsync(CancellationToken cancellationToken)
+    {
+        await _manualControl.CloseAsync(cancellationToken);
+        _circuitBreakerMonitor.Reset();
+        LogCircuitReset();
+    }
+
+    private static ResiliencePipeline BuildPipeline(CircuitBreakerManualControl manualControl)
         => new ResiliencePipelineBuilder()
             .AddCircuitBreaker(new CircuitBreakerStrategyOptions
             {
@@ -79,6 +88,7 @@ internal sealed partial class AwsGateway : IAwsGateway
                 MinimumThroughput = 10,
                 SamplingDuration = TimeSpan.FromSeconds(30),
                 BreakDuration = TimeSpan.FromSeconds(15),
+                ManualControl = manualControl,
             })
             .AddRetry(new RetryStrategyOptions
             {
@@ -91,4 +101,7 @@ internal sealed partial class AwsGateway : IAwsGateway
 
     [LoggerMessage(LogLevel.Warning, "AWS gateway operation failed for {ServiceKey}: {ErrorCode} {ErrorMessage}")]
     private partial void LogOperationFailed(string serviceKey, string errorCode, string errorMessage);
+
+    [LoggerMessage(LogLevel.Information, "AWS gateway circuit breaker reset.")]
+    private partial void LogCircuitReset();
 }

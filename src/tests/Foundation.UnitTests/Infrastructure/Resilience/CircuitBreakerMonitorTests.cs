@@ -65,6 +65,23 @@ public class CircuitBreakerMonitorTests
         sut.GetStatus().IsOpen.Should().BeFalse();
     }
 
+    [Fact]
+    public void Reset_WhenServicesSuspended_ClearsAllSuspendedState()
+    {
+        // Arrange
+        var sut = new CircuitBreakerMonitor();
+        sut.RecordSuspended("s3");
+        sut.RecordSuspended("sqs");
+
+        // Act
+        sut.Reset();
+
+        // Assert
+        var status = sut.GetStatus();
+        status.IsOpen.Should().BeFalse();
+        status.AffectedServices.Should().BeEmpty();
+    }
+
     [Theory]
     [InlineData("")]
     [InlineData("   ")]

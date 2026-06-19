@@ -16,6 +16,7 @@ public class CognitoControllerTests
     public async Task ListUserPools_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
     {
         // Arrange
+        _fixture.SkipIfLocalStackNotPro();
         var client = _fixture.CreateClient();
 
         // Act
@@ -39,6 +40,7 @@ public class CognitoControllerTests
     public async Task GetUserPool_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
     {
         // Arrange
+        _fixture.SkipIfLocalStackNotPro();
         var client = _fixture.CreateClient();
 
         // Act
@@ -62,6 +64,7 @@ public class CognitoControllerTests
     public async Task CreateUserPool_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
     {
         // Arrange
+        _fixture.SkipIfLocalStackNotPro();
         var client = _fixture.CreateClient();
         var request = new UserPoolCreateRequest(
             "integration-create-pool",
@@ -83,6 +86,7 @@ public class CognitoControllerTests
     public async Task DeleteUserPool_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
     {
         // Arrange
+        _fixture.SkipIfLocalStackNotPro();
         var client = _fixture.CreateClient();
 
         // Act
@@ -99,6 +103,7 @@ public class CognitoControllerTests
     public async Task ListUserPoolClients_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
     {
         // Arrange
+        _fixture.SkipIfLocalStackNotPro();
         var client = _fixture.CreateClient();
 
         // Act
@@ -123,6 +128,7 @@ public class CognitoControllerTests
     public async Task GetUserPoolClient_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
     {
         // Arrange
+        _fixture.SkipIfLocalStackNotPro();
         var client = _fixture.CreateClient();
 
         // Act
@@ -146,6 +152,7 @@ public class CognitoControllerTests
     public async Task CreateUserPoolClient_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
     {
         // Arrange
+        _fixture.SkipIfLocalStackNotPro();
         var client = _fixture.CreateClient();
         var request = new UserPoolClientCreateRequest(
             "integration-create-client",
@@ -171,6 +178,7 @@ public class CognitoControllerTests
     public async Task UpdateUserPoolClient_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
     {
         // Arrange
+        _fixture.SkipIfLocalStackNotPro();
         var client = _fixture.CreateClient();
         var request = new UserPoolClientUpdateRequest(
             "integration-update-client",
@@ -195,6 +203,7 @@ public class CognitoControllerTests
     public async Task DeleteUserPoolClient_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
     {
         // Arrange
+        _fixture.SkipIfLocalStackNotPro();
         var client = _fixture.CreateClient();
 
         // Act
@@ -211,6 +220,7 @@ public class CognitoControllerTests
     public async Task RegenerateUserPoolClientSecret_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
     {
         // Arrange
+        _fixture.SkipIfLocalStackNotPro();
         var client = _fixture.CreateClient();
 
         // Act
@@ -228,6 +238,7 @@ public class CognitoControllerTests
     public async Task ListUsers_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
     {
         // Arrange
+        _fixture.SkipIfLocalStackNotPro();
         var client = _fixture.CreateClient();
 
         // Act
@@ -252,6 +263,7 @@ public class CognitoControllerTests
     public async Task GetUser_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
     {
         // Arrange
+        _fixture.SkipIfLocalStackNotPro();
         var client = _fixture.CreateClient();
 
         // Act
@@ -268,6 +280,7 @@ public class CognitoControllerTests
     public async Task CreateUser_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
     {
         // Arrange
+        _fixture.SkipIfLocalStackNotPro();
         var client = _fixture.CreateClient();
         var request = new CognitoUserCreateRequest(
             "integration-user",
@@ -289,6 +302,7 @@ public class CognitoControllerTests
     public async Task DeleteUser_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
     {
         // Arrange
+        _fixture.SkipIfLocalStackNotPro();
         var client = _fixture.CreateClient();
 
         // Act
@@ -305,6 +319,7 @@ public class CognitoControllerTests
     public async Task SetUserPassword_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
     {
         // Arrange
+        _fixture.SkipIfLocalStackNotPro();
         var client = _fixture.CreateClient();
         var request = new CognitoUserPasswordRequest("NewPass1!", true);
 
@@ -323,6 +338,7 @@ public class CognitoControllerTests
     public async Task SetUserEnabled_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
     {
         // Arrange
+        _fixture.SkipIfLocalStackNotPro();
         var client = _fixture.CreateClient();
         var request = new CognitoUserEnabledRequest(false);
 
@@ -341,6 +357,7 @@ public class CognitoControllerTests
     public async Task RequestToken_WhenRequested_ReachesEndpointAndReturnsDefinedStatus()
     {
         // Arrange
+        _fixture.SkipIfLocalStackNotPro();
         var client = _fixture.CreateClient();
         var request = new CognitoTokenRequest("missing-user", "Passw0rd!");
 

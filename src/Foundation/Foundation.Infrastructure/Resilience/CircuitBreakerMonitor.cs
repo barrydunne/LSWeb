@@ -29,6 +29,9 @@ internal sealed class CircuitBreakerMonitor : ICircuitBreakerMonitor, ICircuitBr
     }
 
     /// <inheritdoc />
+    public void Reset() => _suspended.Clear();
+
+    /// <inheritdoc />
     public CircuitStatus GetStatus()
     {
         var affected = _suspended.Keys

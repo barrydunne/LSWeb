@@ -156,6 +156,24 @@ public class AwsGatewayTests
     }
 
     [Fact]
+    public async Task ResetAsync_WhenAServiceIsSuspended_ClearsTheSuspendedState()
+    {
+        // Arrange
+        var (sut, _, monitor) = CreateSut();
+        await sut.ExecuteAsync<AmazonSecurityTokenServiceClient, int>(
+            ServiceKey,
+            (_, _) => throw new BrokenCircuitException("The circuit is now open and is not allowing calls."),
+            TestContext.Current.CancellationToken);
+        monitor.GetStatus().IsOpen.Should().BeTrue();
+
+        // Act
+        await sut.ResetAsync(TestContext.Current.CancellationToken);
+
+        // Assert
+        monitor.GetStatus().IsOpen.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task ExecuteAsync_WhenAServiceRecoversAfterBeingSuspended_ClearsTheSuspendedState()
     {
         // Arrange

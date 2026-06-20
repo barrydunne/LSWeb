@@ -202,20 +202,6 @@ describe('HomePage', () => {
     expect(recentHeading.compareDocumentPosition(templatesHeading)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
-  it('renders the Workspace Snapshot section below the quick start templates', async () => {
-    renderHome();
-
-    await waitFor(() =>
-      expect(screen.getByRole('heading', { name: 'Quick start templates' })).toBeInTheDocument(),
-    );
-    const templatesHeading = screen.getByRole('heading', { name: 'Quick start templates' });
-    const snapshotHeading = screen.getByRole('heading', { name: 'Workspace Snapshot' });
-
-    expect(templatesHeading.compareDocumentPosition(snapshotHeading)).toBe(
-      Node.DOCUMENT_POSITION_FOLLOWING,
-    );
-  });
-
   it('shows the recent placeholder when there are no recently-viewed resources', async () => {
     getRecentlyViewedMock.mockResolvedValue({ references: [] });
 

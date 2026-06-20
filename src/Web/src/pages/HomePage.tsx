@@ -11,7 +11,6 @@ import {
 } from '../api/client';
 import { ResourceLink } from '../components/ResourceLink';
 import { SeedTemplatesPanel } from '../components/SeedTemplatesPanel';
-import { SnapshotPanel } from '../components/SnapshotPanel';
 
 type HomeState =
   | { kind: 'loading' }
@@ -266,8 +265,6 @@ export function HomePage() {
       )}
 
       <SeedTemplatesPanel />
-
-      <SnapshotPanel />
     </section>
   );
 }

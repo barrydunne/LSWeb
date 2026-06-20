@@ -15,6 +15,28 @@ works against real AWS** when you point it there.
 > sponsored by LocalStack or Amazon Web Services. "LocalStack" and "AWS" and related marks belong to
 > their respective owners.
 
+## Quick Start Guide
+
+Simple command to run LocalStack Web.
+```pwsh
+    docker run -d --name LocalStackWeb -p:5080:8080 ghcr.io/barrydunne/lsweb:latest
+```
+
+Advanced command to connect to LocalStack container in custom network, with personal data persistence.
+```pwsh
+    docker run -d --name LocalStackWeb `
+        --restart unless-stopped `
+        -p:5080:8080 `
+        --network localstack-net `
+        --env AWS_ENDPOINT_URL=http://localstack:4566 `
+        --env PORT=8080 `
+        --volume ${dataDir}:/data `
+        --env LSW_USER_DATA_DIR=/data `
+        --pull always `
+        ghcr.io/barrydunne/lsweb:latest
+```
+
+## Home Page
 ![The LocalStack Web home page: service catalogue, recent destinations, quick-start templates and a live activity log](images/home.png)
 
 ## Why you'll like it

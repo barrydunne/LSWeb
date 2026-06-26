@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { ApiGatewayV2ListView } from './ApiGatewayV2ListView';
 import { createHttpApi, deleteHttpApi, getHttpApis } from '../../api/client';
@@ -44,6 +44,8 @@ describe('ApiGatewayV2ListView', () => {
   });
 
   afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
     vi.resetAllMocks();
   });
 
@@ -107,8 +109,8 @@ describe('ApiGatewayV2ListView', () => {
       expect(getHttpApisMock).toHaveBeenCalledTimes(1);
 
       fireEvent.click(screen.getByTestId('auto-refresh-switch'));
-      act(() => {
-        vi.advanceTimersByTime(5000);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
       });
 
       await vi.waitFor(() => expect(getHttpApisMock).toHaveBeenCalledTimes(2));
@@ -153,7 +155,7 @@ describe('ApiGatewayV2ListView', () => {
       version: '1.0',
       routeSelectionExpression: '$request.method',
     });
-    expect(getHttpApisMock).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(getHttpApisMock).toHaveBeenCalledTimes(2));
     expect(screen.queryByTestId('apigatewayv2-create-form')).not.toBeInTheDocument();
   });
 

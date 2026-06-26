@@ -156,7 +156,7 @@ describe('CognitoListView', () => {
         requireSymbols: true,
       },
     });
-    expect(getUserPoolsMock).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(getUserPoolsMock).toHaveBeenCalledTimes(2));
     expect(screen.queryByTestId('cognito-create-form')).not.toBeInTheDocument();
   });
 

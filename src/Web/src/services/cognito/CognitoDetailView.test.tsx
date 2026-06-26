@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { CognitoDetailView } from './CognitoDetailView';
@@ -272,22 +272,27 @@ describe('CognitoDetailView app clients', () => {
   });
 
   it('creates an app client and refreshes the list', async () => {
-    const user = userEvent.setup();
     renderView();
 
     await waitFor(() => expect(screen.getByTestId('cognito-clients-list')).toBeInTheDocument());
 
-    await user.click(screen.getByTestId('cognito-client-create-toggle'));
-    await user.type(screen.getByTestId('cognito-client-create-name'), 'mobile');
-    await user.click(screen.getByTestId('cognito-client-create-generate-secret'));
-    await user.click(
-      screen.getByTestId('cognito-client-create-auth-flow-ALLOW_USER_SRP_AUTH'),
-    );
-    await user.type(screen.getByTestId('cognito-client-create-oauth-flows'), 'code');
-    await user.type(screen.getByTestId('cognito-client-create-oauth-scopes'), 'openid, email');
-    await user.type(screen.getByTestId('cognito-client-create-callbacks'), 'https://app/callback');
-    await user.click(screen.getByTestId('cognito-client-create-oauth-user-pool-client'));
-    await user.click(screen.getByTestId('cognito-client-create-submit'));
+    fireEvent.click(screen.getByTestId('cognito-client-create-toggle'));
+    fireEvent.change(screen.getByTestId('cognito-client-create-name'), {
+      target: { value: 'mobile' },
+    });
+    fireEvent.click(screen.getByTestId('cognito-client-create-generate-secret'));
+    fireEvent.click(screen.getByTestId('cognito-client-create-auth-flow-ALLOW_USER_SRP_AUTH'));
+    fireEvent.change(screen.getByTestId('cognito-client-create-oauth-flows'), {
+      target: { value: 'code' },
+    });
+    fireEvent.change(screen.getByTestId('cognito-client-create-oauth-scopes'), {
+      target: { value: 'openid, email' },
+    });
+    fireEvent.change(screen.getByTestId('cognito-client-create-callbacks'), {
+      target: { value: 'https://app/callback' },
+    });
+    fireEvent.click(screen.getByTestId('cognito-client-create-oauth-user-pool-client'));
+    fireEvent.click(screen.getByTestId('cognito-client-create-submit'));
 
     await waitFor(() =>
       expect(createUserPoolClientMock).toHaveBeenCalledWith('eu-west-1_abc123', {
@@ -431,9 +436,7 @@ describe('CognitoDetailView app clients', () => {
     await user.click(screen.getByTestId('cognito-client-edit-toggle'));
     const nameInput = screen.getByTestId('cognito-client-edit-name');
     expect(nameInput).toHaveValue('web');
-
-    await user.clear(nameInput);
-    await user.type(nameInput, 'web-renamed');
+    fireEvent.change(nameInput, { target: { value: 'web-renamed' } });
 
     await user.click(
       screen.getByTestId('cognito-client-edit-auth-flow-ALLOW_USER_SRP_AUTH'),
@@ -443,16 +446,13 @@ describe('CognitoDetailView app clients', () => {
     );
 
     const oauthFlows = screen.getByTestId('cognito-client-edit-oauth-flows');
-    await user.clear(oauthFlows);
-    await user.type(oauthFlows, 'implicit');
+    fireEvent.change(oauthFlows, { target: { value: 'implicit' } });
 
     const oauthScopes = screen.getByTestId('cognito-client-edit-oauth-scopes');
-    await user.clear(oauthScopes);
-    await user.type(oauthScopes, 'openid, profile');
+    fireEvent.change(oauthScopes, { target: { value: 'openid, profile' } });
 
     const callbacks = screen.getByTestId('cognito-client-edit-callbacks');
-    await user.clear(callbacks);
-    await user.type(callbacks, 'https://app/new');
+    fireEvent.change(callbacks, { target: { value: 'https://app/new' } });
 
     await user.click(screen.getByTestId('cognito-client-edit-oauth-user-pool-client'));
     await user.click(screen.getByTestId('cognito-client-edit-submit'));

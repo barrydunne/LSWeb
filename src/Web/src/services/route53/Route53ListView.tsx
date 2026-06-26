@@ -83,7 +83,6 @@ export function Route53ListView({ serviceKey }: ServiceListViewProps) {
   }, [reloadToken]);
 
   const refresh = () => {
-    setState({ kind: 'loading' });
     setReloadToken((token) => token + 1);
   };
 

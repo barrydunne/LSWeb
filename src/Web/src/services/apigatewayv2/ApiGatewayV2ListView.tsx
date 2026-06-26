@@ -93,7 +93,6 @@ export function ApiGatewayV2ListView({ serviceKey }: ServiceListViewProps) {
   }, [reloadToken]);
 
   const refresh = useCallback(() => {
-    setState({ kind: 'loading' });
     setReloadToken((token) => token + 1);
   }, []);
 

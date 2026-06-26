@@ -125,7 +125,7 @@ describe('CloudWatchLogsListView', () => {
     await waitFor(() => expect(screen.getByTestId('logs-create-status')).toBeInTheDocument());
 
     expect(createLogGroupMock).toHaveBeenCalledWith('/aws/lambda/new');
-    expect(getLogGroupsMock).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(getLogGroupsMock).toHaveBeenCalledTimes(2));
     expect(screen.queryByTestId('logs-create-form')).not.toBeInTheDocument();
   });
 

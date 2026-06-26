@@ -169,7 +169,7 @@ describe('AcmListView import', () => {
       privateKey: 'KEY-PEM',
       certificateChain: null,
     });
-    expect(getAcmCertificatesMock).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(getAcmCertificatesMock).toHaveBeenCalledTimes(2));
     expect(screen.queryByTestId('acm-import-form')).not.toBeInTheDocument();
   });
 
@@ -273,7 +273,7 @@ describe('AcmListView request', () => {
       validationMethod: 'EMAIL',
       subjectAlternativeNames: ['www.example.test', 'api.example.test'],
     });
-    expect(getAcmCertificatesMock).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(getAcmCertificatesMock).toHaveBeenCalledTimes(2));
     expect(screen.queryByTestId('acm-request-form')).not.toBeInTheDocument();
   });
 

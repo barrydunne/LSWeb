@@ -105,7 +105,6 @@ export function IamRolesPanel({ serviceKey }: IamRolesPanelProps) {
   }, [reloadToken]);
 
   const refresh = useCallback(() => {
-    setState({ kind: 'loading' });
     setReloadToken((token) => token + 1);
   }, []);
 

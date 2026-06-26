@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { EventBridgeListView } from './EventBridgeListView';
 import {
@@ -147,6 +147,8 @@ describe('EventBridgeListView', () => {
   });
 
   afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
     vi.clearAllMocks();
   });
 
@@ -593,14 +595,14 @@ describe('EventBridgeListView', () => {
 
       const section = screen.getByTestId('eventbridge-scheduled-section');
       fireEvent.click(within(section).getByTestId('auto-refresh-switch'));
-      act(() => {
-        vi.advanceTimersByTime(5000);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
       });
 
       await vi.waitFor(() =>
         expect(screen.queryByTestId('eventbridge-scheduled-detail')).not.toBeInTheDocument(),
       );
-      expect(getScheduledRulesMock).toHaveBeenCalledTimes(2);
+      await vi.waitFor(() => expect(getScheduledRulesMock).toHaveBeenCalledTimes(2));
     } finally {
       vi.useRealTimers();
     }

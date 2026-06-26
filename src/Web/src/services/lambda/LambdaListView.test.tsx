@@ -46,6 +46,7 @@ describe('LambdaListView', () => {
 
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
     vi.clearAllMocks();
   });
 
@@ -90,10 +91,10 @@ describe('LambdaListView', () => {
 
       fireEvent.click(screen.getByTestId('auto-refresh-switch'));
       await act(async () => {
-        vi.advanceTimersByTime(5_000);
+        await vi.advanceTimersByTimeAsync(5_000);
       });
 
-      expect(getLambdaFunctionsMock).toHaveBeenCalledTimes(2);
+      await vi.waitFor(() => expect(getLambdaFunctionsMock).toHaveBeenCalledTimes(2));
     } finally {
       vi.useRealTimers();
     }
@@ -147,7 +148,7 @@ describe('LambdaListView', () => {
       timeout: 15,
       zipFileBase64: 'QkFTRTY0',
     });
-    expect(getLambdaFunctionsMock).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(getLambdaFunctionsMock).toHaveBeenCalledTimes(2));
     expect(screen.queryByTestId('lambda-create-form')).not.toBeInTheDocument();
   });
 

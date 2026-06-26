@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { SnsListView } from './SnsListView';
 import { createSnsTopic, deleteSnsTopic, getSnsTopics } from '../../api/client';
@@ -38,6 +38,8 @@ describe('SnsListView', () => {
   });
 
   afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
     vi.resetAllMocks();
   });
 
@@ -102,8 +104,8 @@ describe('SnsListView', () => {
       expect(getSnsTopicsMock).toHaveBeenCalledTimes(1);
 
       fireEvent.click(screen.getByTestId('auto-refresh-switch'));
-      act(() => {
-        vi.advanceTimersByTime(5000);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
       });
 
       await vi.waitFor(() => expect(getSnsTopicsMock).toHaveBeenCalledTimes(2));
@@ -130,7 +132,7 @@ describe('SnsListView', () => {
     await waitFor(() => expect(screen.getByTestId('sns-create-status')).toBeInTheDocument());
 
     expect(createSnsTopicMock).toHaveBeenCalledWith({ name: 'new-topic' });
-    expect(getSnsTopicsMock).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(getSnsTopicsMock).toHaveBeenCalledTimes(2));
     expect(screen.queryByTestId('sns-create-form')).not.toBeInTheDocument();
   });
 

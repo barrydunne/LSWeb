@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Link } from 'react-router-dom';
 import { DataListShell } from '../../components/DataListShell';
@@ -106,6 +106,7 @@ export function IamPoliciesPanel({ serviceKey }: IamPoliciesPanelProps) {
   const [scope, setScope] = useState<IamPolicyScope>('local');
   const [state, setState] = useState<ListState>({ kind: 'loading' });
   const [reloadToken, setReloadToken] = useState(0);
+  const previousScopeRef = useRef(scope);
   const [showCreate, setShowCreate] = useState(false);
   const [policyName, setPolicyName] = useState('');
   const [path, setPath] = useState('');
@@ -114,7 +115,11 @@ export function IamPoliciesPanel({ serviceKey }: IamPoliciesPanelProps) {
 
   useEffect(() => {
     const controller = new AbortController();
-    setState({ kind: 'loading' });
+    const scopeChanged = previousScopeRef.current !== scope;
+    previousScopeRef.current = scope;
+    if (scopeChanged) {
+      setState({ kind: 'loading' });
+    }
     getIamPolicies(scope, controller.signal)
       .then((result) => setState({ kind: 'ready', policies: result.policies }))
       .catch(() => setState({ kind: 'error' }));
@@ -122,7 +127,6 @@ export function IamPoliciesPanel({ serviceKey }: IamPoliciesPanelProps) {
   }, [scope, reloadToken]);
 
   const refresh = useCallback(() => {
-    setState({ kind: 'loading' });
     setReloadToken((token) => token + 1);
   }, []);
 

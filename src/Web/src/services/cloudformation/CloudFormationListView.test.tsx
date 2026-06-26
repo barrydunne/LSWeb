@@ -188,7 +188,7 @@ describe('CloudFormationListView', () => {
     await waitFor(() =>
       expect(screen.getByTestId('cloudformation-create-status')).toBeInTheDocument(),
     );
-    expect(getStacksMock).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(getStacksMock).toHaveBeenCalledTimes(2));
   });
 
   it('drops blank parameter rows before submitting', async () => {

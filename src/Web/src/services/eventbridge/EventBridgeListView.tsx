@@ -679,7 +679,6 @@ function ScheduledRulesSection({ serviceKey }: { serviceKey: string }) {
   }, [reloadToken]);
 
   const refresh = () => {
-    setState({ kind: 'loading' });
     setDetailState({ kind: 'idle' });
     setReloadToken((token) => token + 1);
   };
@@ -821,7 +820,6 @@ export function EventBridgeListView({ serviceKey }: ServiceListViewProps) {
   }, [reloadToken]);
 
   const refresh = () => {
-    setState({ kind: 'loading' });
     setReloadToken((token) => token + 1);
   };
 

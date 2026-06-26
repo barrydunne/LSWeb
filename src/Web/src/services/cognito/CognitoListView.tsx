@@ -104,7 +104,6 @@ export function CognitoListView({ serviceKey }: ServiceListViewProps) {
   }, [reloadToken]);
 
   const refresh = useCallback(() => {
-    setState({ kind: 'loading' });
     setReloadToken((token) => token + 1);
   }, []);
 

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { S3ListView } from './S3ListView';
 import { createS3Bucket, deleteS3Bucket, getS3Buckets } from '../../api/client';
@@ -32,6 +32,8 @@ describe('S3ListView', () => {
   });
 
   afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
     vi.resetAllMocks();
   });
 
@@ -98,7 +100,7 @@ describe('S3ListView', () => {
     await waitFor(() => expect(screen.getByTestId('s3-create-status')).toBeInTheDocument());
 
     expect(createS3BucketMock).toHaveBeenCalledWith('new-bucket');
-    expect(getS3BucketsMock).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(getS3BucketsMock).toHaveBeenCalledTimes(2));
     expect(screen.queryByTestId('s3-create-form')).not.toBeInTheDocument();
   });
 
@@ -167,10 +169,10 @@ describe('S3ListView', () => {
 
       fireEvent.click(screen.getByTestId('auto-refresh-switch'));
       await act(async () => {
-        vi.advanceTimersByTime(5_000);
+        await vi.advanceTimersByTimeAsync(5_000);
       });
 
-      expect(getS3BucketsMock).toHaveBeenCalledTimes(2);
+      await vi.waitFor(() => expect(getS3BucketsMock).toHaveBeenCalledTimes(2));
     } finally {
       vi.useRealTimers();
     }

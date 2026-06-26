@@ -119,7 +119,6 @@ export function LambdaInsightsTab({ functionName }: { functionName: string }) {
 
   const load = useCallback(
     (signal?: AbortSignal) => {
-      setLoadState('loading');
       return getLambdaInvocationInsights(functionName, undefined, signal)
         .then((data) => {
           setLogGroupName(data.logGroupName);

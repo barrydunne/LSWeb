@@ -64,7 +64,6 @@ export function LambdaLogsTab({ functionName }: { functionName: string }) {
 
   const load = useCallback(
     (signal?: AbortSignal) => {
-      setLoadState('loading');
       return getLambdaLogEvents(functionName, undefined, signal)
         .then((data) => {
           setLogGroupName(data.logGroupName);

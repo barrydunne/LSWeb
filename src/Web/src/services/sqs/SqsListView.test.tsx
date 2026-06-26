@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { SqsListView } from './SqsListView';
 import { createSqsQueue, deleteSqsQueue, getSqsQueues } from '../../api/client';
@@ -44,6 +44,8 @@ describe('SqsListView', () => {
   });
 
   afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
     vi.resetAllMocks();
   });
 
@@ -103,8 +105,8 @@ describe('SqsListView', () => {
       expect(getSqsQueuesMock).toHaveBeenCalledTimes(1);
 
       fireEvent.click(screen.getByTestId('auto-refresh-switch'));
-      act(() => {
-        vi.advanceTimersByTime(5000);
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5000);
       });
 
       await vi.waitFor(() => expect(getSqsQueuesMock).toHaveBeenCalledTimes(2));
@@ -131,7 +133,7 @@ describe('SqsListView', () => {
     await waitFor(() => expect(screen.getByTestId('sqs-create-status')).toBeInTheDocument());
 
     expect(createSqsQueueMock).toHaveBeenCalledWith('new-queue', false);
-    expect(getSqsQueuesMock).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(getSqsQueuesMock).toHaveBeenCalledTimes(2));
     expect(screen.queryByTestId('sqs-create-form')).not.toBeInTheDocument();
   });
 
